@@ -39,8 +39,9 @@ describe('Hologramas content schema', () => {
   })
 
   it('exposes typed content for the pages', () => {
-    expectTypeOf<ContentOf<'home.hero'>['primaryCta']['variant']>().toEqualTypeOf<'primary' | 'secondary'>()
-    expectTypeOf<ContentOf<'posts'>['areas']>().toEqualTypeOf<('psiquiatria' | 'psicologia' | 'psicopedagogia' | 'fonoaudiologia' | 'nutricion')[]>()
+    expectTypeOf<ContentOf<'home.hero'>['secondaryCta']['variant']>().toEqualTypeOf<'primary' | 'secondary'>()
+    expectTypeOf<ContentOf<'services'>['icon']>().toEqualTypeOf<'microphone' | 'lightbulb' | 'book' | 'headphones' | 'nutrition' | null>()
+    expectTypeOf<ContentOf<'home.porque'>['items'][number]['color']>().toEqualTypeOf<'blue' | 'cyan' | null>()
   })
 
   it('returns null for unknown entries', () => {
