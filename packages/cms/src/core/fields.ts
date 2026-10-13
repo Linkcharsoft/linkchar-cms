@@ -1,3 +1,4 @@
+import type { ValuesOf } from './infer'
 import type { RichTextDocType } from './richText/nodes'
 
 export interface BaseOptions<V> {
@@ -114,6 +115,8 @@ export interface ListField<F extends FieldsRecord = FieldsRecord> extends Omit<B
   max?: number
   // Data key whose value summarizes a collapsed item.
   itemLabel?: string
+  // Missing keys are filled from the item fields' own defaults; list() types each item.
+  default?: Record<string, unknown>[]
 }
 export interface BlockDef<F extends FieldsRecord = FieldsRecord> {
   label: string
@@ -190,7 +193,10 @@ export const relations = (options: RelationOptions): RelationField<true> =>
 export const group = <const F extends FieldsRecord>(options: Omit<Options<GroupField<F>>, 'fields'>, fields: F): GroupField<F> =>
   ({ kind: 'group', ...options, fields })
 
-export const list = <const F extends FieldsRecord>(options: Omit<Options<ListField<F>>, 'fields'>, fields: F): ListField<F> =>
+export const list = <const F extends FieldsRecord>(
+  options: Omit<Options<ListField<F>>, 'fields' | 'default'> & { default?: Partial<ValuesOf<F>>[] },
+  fields: F
+): ListField<F> =>
   ({ kind: 'list', ...options, fields })
 
 export const block = <const F extends FieldsRecord>(label: string, fields: F, options: Omit<BlockDef<F>, 'label' | 'fields'> = {}): BlockDef<F> =>

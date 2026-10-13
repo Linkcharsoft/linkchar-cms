@@ -69,3 +69,23 @@ describe('newBlock', () => {
     expect(created._key).toMatch(/^[0-9a-f-]{36}$/)
   })
 })
+
+describe('list defaults', () => {
+  const menu = {
+    links: list({ label: 'Links', default: [{ label: 'Inicio' }, { label: 'Blog', visible: false }] }, {
+      label: text({ label: 'Texto' }),
+      visible: boolean({ label: 'Visible', default: true })
+    })
+  }
+
+  it('fills each default item and gives it a key', () => {
+    const { links } = buildDefaults(menu)
+    expect(links).toMatchObject([{ label: 'Inicio', visible: true }, { label: 'Blog', visible: false }])
+    expect(links.every(item => /^[0-9a-f-]{36}$/.test(item._key))).toBe(true)
+  })
+
+  it('uses them only when the document has no value yet', () => {
+    expect(withDefaults(menu, {}).links).toHaveLength(2)
+    expect(withDefaults(menu, { links: [] }).links).toEqual([])
+  })
+})

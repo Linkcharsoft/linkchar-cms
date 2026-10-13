@@ -13,6 +13,9 @@ export const newKey = (): string => crypto.randomUUID()
 const emptyLink = (type: LinkValueType['type'] = 'internal'): LinkValueType => ({ type, href: '', newTab: false })
 
 export const fieldDefault = (field: DataField): unknown => {
+  if (field.kind === 'list' && field.default) {
+    return field.default.map(item => ({ _key: newKey(), ...withDefaults(field.fields, item) }))
+  }
   if ('default' in field && field.default !== undefined) return structuredClone(field.default)
 
   switch (field.kind) {
