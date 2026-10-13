@@ -96,6 +96,19 @@ describe('validateContent', () => {
     })
   })
 
+  it('keeps rich text documents intact (attrs and marks are not unknown keys)', async () => {
+    const body = {
+      type: 'doc',
+      content: [
+        { type: 'heading', attrs: { level: 2 }, content: [{ type: 'text', text: 'Título' }] },
+        { type: 'paragraph', content: [{ type: 'text', text: 'negrita', marks: [{ type: 'bold' }, { type: 'link', attrs: { href: 'https://a.com', target: '_blank' } }] }] },
+        { type: 'video', attrs: { src: 'https://vimeo.com/1' } }
+      ]
+    }
+    const { value } = await validateContent(fields, { ...valid(), body })
+    expect(value?.body).toEqual(body)
+  })
+
   it('strips keys that are not in the schema', async () => {
     const { value } = await validateContent(fields, { ...valid(), hacked: true, items: [{ _key: 'k', name: 'x', extra: 1 }] })
 
