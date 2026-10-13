@@ -79,6 +79,14 @@ export interface ButtonField<V extends string = string> extends BaseOptions<Butt
   variants: readonly OptionType<V>[]
 }
 export interface OpeningHoursField extends BaseOptions<OpeningHoursValueType> { kind: 'openingHours' }
+// Media fields store `media.id`; alt, caption and focal point live on the media row and are shared by every use.
+interface MediaOptions<V> extends BaseOptions<V> {
+  // Folder preselected when uploading from this field.
+  folder?: string
+}
+export interface ImageField extends MediaOptions<string | null> { kind: 'image', focalPoint?: boolean }
+export interface GalleryField extends MediaOptions<string[]> { kind: 'gallery', min?: number, max?: number }
+export interface FileField extends MediaOptions<string | null> { kind: 'file' }
 export interface RelationField<M extends boolean = boolean> extends BaseOptions<M extends true ? string[] : string | null> {
   kind: 'relation'
   to: string
@@ -121,6 +129,7 @@ export type DataField =
   | TextField | TextareaField | EmailField | PhoneField | UrlField | VideoField | SlugField
   | RichTextField | NumberField | BooleanField | DateField | DatetimeField
   | SelectField | MultiSelectField | LinkField | ButtonField | OpeningHoursField | RelationField
+  | ImageField | GalleryField | FileField
   | GroupField | ListField | BlocksField
 
 export type LayoutNode = TabLayout | RowLayout | NoteLayout
@@ -147,6 +156,9 @@ export const date = (options: Options<DateField>): DateField => ({ kind: 'date',
 export const datetime = (options: Options<DatetimeField>): DatetimeField => ({ kind: 'datetime', ...options })
 export const link = (options: Options<LinkField>): LinkField => ({ kind: 'link', ...options })
 export const openingHours = (options: Options<OpeningHoursField>): OpeningHoursField => ({ kind: 'openingHours', ...options })
+export const image = (options: Options<ImageField>): ImageField => ({ kind: 'image', ...options })
+export const gallery = (options: Options<GalleryField>): GalleryField => ({ kind: 'gallery', ...options })
+export const file = (options: Options<FileField>): FileField => ({ kind: 'file', ...options })
 
 export const select = <const V extends string>(options: Options<SelectField<V>>): SelectField<V> =>
   ({ kind: 'select', ...options })

@@ -126,6 +126,19 @@ const fieldSchema = (field: DataField, mode: ValidationModeType): Yup.AnySchema 
         note: Yup.string().defined().max(200, 'Usá hasta 200 caracteres')
       })
 
+    case 'image':
+    case 'file': {
+      const schema = Yup.string().matches(UUID, 'Archivo inválido').nullable()
+      return required ? schema.required(REQUIRED) : schema
+    }
+
+    case 'gallery': {
+      let schema = Yup.array(Yup.string().matches(UUID, 'Archivo inválido').defined()).defined()
+      if (field.max !== undefined) schema = schema.max(field.max, `Podés elegir hasta ${field.max} imágenes`)
+      const min = field.min ?? (required ? 1 : 0)
+      return mode === 'publish' && min > 0 ? schema.min(min, min === 1 ? REQUIRED : `Elegí al menos ${min} imágenes`) : schema
+    }
+
     case 'relation': {
       const id = Yup.string().matches(UUID, 'Referencia inválida')
       if (field.multiple) {

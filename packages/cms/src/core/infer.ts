@@ -17,6 +17,9 @@ import type {
   NoteLayout,
   NumberField,
   OpeningHoursField,
+  FileField,
+  GalleryField,
+  ImageField,
   OpeningHoursValueType,
   PhoneField,
   RelationField,
@@ -55,11 +58,13 @@ export type FieldValue<F extends DataField> =
                 : F extends LinkField ? LinkValueType
                   : F extends ButtonField<infer V> ? ButtonValueType<V>
                     : F extends OpeningHoursField ? OpeningHoursValueType
-                      : F extends RelationField<infer M> ? (M extends true ? string[] : string | null)
-                        : F extends GroupField<infer G> ? ValuesOf<G>
-                          : F extends ListField<infer L> ? ListItemType<L>[]
-                            : F extends BlocksField<infer B> ? BlockItemType<B>[]
-                              : never
+                      : F extends ImageField | FileField ? string | null
+                        : F extends GalleryField ? string[]
+                          : F extends RelationField<infer M> ? (M extends true ? string[] : string | null)
+                            : F extends GroupField<infer G> ? ValuesOf<G>
+                              : F extends ListField<infer L> ? ListItemType<L>[]
+                                : F extends BlocksField<infer B> ? BlockItemType<B>[]
+                                  : never
 
 type DataKeys<F extends FieldsRecord> = {
   [K in keyof F]: F[K] extends TabLayout | RowLayout | NoteLayout ? never : K

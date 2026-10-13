@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { buildDefaults } from '../defaults'
-import { block, blocks, button, email, link, list, multiSelect, openingHours, relation, richText, slug, tab, text, url, video } from '../fields'
+import { block, blocks, button, email, file, gallery, image, link, list, multiSelect, openingHours, relation, richText, slug, tab, text, url, video } from '../fields'
 import { validateContent } from '../validation'
 
 const fields = {
@@ -107,6 +107,26 @@ describe('validateContent', () => {
     }
     const { value } = await validateContent(fields, { ...valid(), body })
     expect(value?.body).toEqual(body)
+  })
+
+  it('validates media references by id', async () => {
+    const media = {
+      cover: image({ label: 'Portada', required: true }),
+      photos: gallery({ label: 'Fotos', min: 2, max: 3 }),
+      pdf: file({ label: 'PDF' })
+    }
+    const id = () => crypto.randomUUID()
+
+    expect((await validateContent(media, { cover: null, photos: [], pdf: null }, 'draft')).errors).toBeNull()
+    expect((await validateContent(media, { cover: null, photos: [id()], pdf: null }, 'publish')).errors).toMatchObject({
+      cover: 'Este campo es obligatorio',
+      photos: 'Elegí al menos 2 imágenes'
+    })
+    expect((await validateContent(media, { cover: 'x', photos: [id(), id(), id(), id()], pdf: 'y' }, 'draft')).errors).toMatchObject({
+      cover: 'Archivo inválido',
+      photos: 'Podés elegir hasta 3 imágenes',
+      pdf: 'Archivo inválido'
+    })
   })
 
   it('strips keys that are not in the schema', async () => {

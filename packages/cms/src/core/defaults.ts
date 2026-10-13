@@ -25,6 +25,8 @@ export const fieldDefault = (field: DataField): unknown => {
     case 'slug':
       return ''
     case 'richText':
+    case 'image':
+    case 'file':
     case 'number':
     case 'date':
     case 'datetime':
@@ -33,6 +35,7 @@ export const fieldDefault = (field: DataField): unknown => {
     case 'boolean':
       return false
     case 'multiSelect':
+    case 'gallery':
       return []
     case 'link':
       return emptyLink(field.allow?.[0])

@@ -1,6 +1,7 @@
 import { describe, expect, expectTypeOf, it } from 'vitest'
 import { buildDefaults } from '../defaults'
 import { ENTRY_IDS, getCollection, getEntry } from '../entries'
+import { mediaFolders } from '../schema'
 import { validateContent } from '../validation'
 import { dataFields } from '../walk'
 import type { ContentOf } from '../entries'
@@ -31,6 +32,9 @@ describe('Hologramas content schema', () => {
     for (const field of allFields(entry.fields)) {
       if (field.kind === 'relation') expect(getCollection(field.to), `relation to ${field.to}`).not.toBeNull()
       if (field.kind === 'slug') expect(keys, `slug source ${field.from}`).toContain(field.from)
+      if ((field.kind === 'image' || field.kind === 'gallery' || field.kind === 'file') && field.folder) {
+        expect(mediaFolders.map(folder => folder.value as string), `media folder ${field.folder}`).toContain(field.folder)
+      }
     }
   })
 
