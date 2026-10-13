@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import slugify from '../slugify'
+import slugify, { typingSlug } from '../slugify'
+
+describe('typingSlug', () => {
+  it('keeps a trailing dash while the user types', () => {
+    expect(typingSlug('Hola ')).toBe('hola-')
+    expect(typingSlug('Año  nuevo')).toBe('ano-nuevo')
+  })
+})
 
 describe('slugify', () => {
   it('removes accents, ñ and symbols', () => {
