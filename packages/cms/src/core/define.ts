@@ -3,8 +3,8 @@ import type { ValuesOf } from './infer'
 
 interface EntryOptions {
   icon?: string
-  // Site page shown in the live preview; collections can use ":slug".
-  preview?: string
+  // Public URL of the entry (preview, canonical, sitemap, redirects); collections use ":slug".
+  path?: string
 }
 
 interface EntryBase<F extends FieldsRecord> extends EntryOptions {
