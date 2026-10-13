@@ -92,10 +92,20 @@ export interface RelationField<M extends boolean = boolean> extends BaseOptions<
   to: string
   multiple: M
 }
+export interface SeoMarkType {
+  // Data keys used when the SEO title or description is left empty.
+  titleFrom?: string
+  descriptionFrom?: string
+  // Fixed page URL; otherwise the entry path with the document slug.
+  path?: string
+}
+
 export interface GroupField<F extends FieldsRecord = FieldsRecord> extends Omit<BaseOptions<never>, 'default'> {
   kind: 'group'
   fields: F
   collapsed?: boolean
+  // Shows the Google preview under the fields.
+  seo?: SeoMarkType
 }
 export interface ListField<F extends FieldsRecord = FieldsRecord> extends Omit<BaseOptions<never>, 'default'> {
   kind: 'list'
@@ -188,6 +198,29 @@ export const block = <const F extends FieldsRecord>(label: string, fields: F, op
 
 export const blocks = <const B extends Record<string, BlockDef>>(options: Omit<Options<BlocksField<B>>, 'blocks'>, allowed: B): BlocksField<B> =>
   ({ kind: 'blocks', ...options, blocks: allowed })
+
+// A group, so defaults, validation and media references need nothing special.
+export const seo = ({ title, description, ...mark }: SeoMarkType & { title?: string, description?: string } = {}) => group({
+  label: 'SEO',
+  collapsed: true,
+  help: 'Cómo se ve esta página en Google y al compartir el link.',
+  seo: mark
+}, {
+  title: text({
+    label: 'Título para Google',
+    maxLength: 70,
+    help: mark.titleFrom ? 'Ideal hasta 60 caracteres. Si lo dejás vacío, se usa el título.' : 'Ideal hasta 60 caracteres.',
+    default: title ?? ''
+  }),
+  description: textarea({
+    label: 'Descripción para Google',
+    maxLength: 160,
+    rows: 3,
+    help: mark.descriptionFrom ? 'Si la dejás vacía, se usa el resumen.' : undefined,
+    default: description ?? ''
+  }),
+  image: image({ label: 'Imagen al compartir', folder: 'sitio', help: 'Se ve al compartir el link en WhatsApp o redes. Ideal 1200 × 630 px.' })
+})
 
 export const tab = <const F extends FieldsRecord>(label: string, fields: F): TabLayout<F> => ({ kind: 'tab', label, fields })
 export const row = <const F extends FieldsRecord>(fields: F): RowLayout<F> => ({ kind: 'row', fields })
