@@ -3,7 +3,7 @@ export interface ParsedVideoType {
   id: string
 }
 
-// Extracts provider + video id from the URL an editor pastes in Storyblok.
+// Extracts provider + video id from the URL an editor pastes in the CMS.
 // Supports youtube.com/watch?v=, youtu.be/, /shorts/, /embed/, /live/ and vimeo.com/{id}.
 // Returns null for anything else so the blog never renders an arbitrary iframe.
 const parseVideoUrl = (raw: string): ParsedVideoType | null => {
