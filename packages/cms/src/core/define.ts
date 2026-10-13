@@ -1,10 +1,15 @@
 import type { FieldsRecord } from './fields'
 import type { ValuesOf } from './infer'
 
-interface EntryBase<F extends FieldsRecord> {
+interface EntryOptions {
+  icon?: string
+  // Site page shown in the live preview; collections can use ":slug".
+  preview?: string
+}
+
+interface EntryBase<F extends FieldsRecord> extends EntryOptions {
   label: string
   fields: F
-  icon?: string
 }
 
 // Unique content, like site settings, navigation or footer.
@@ -17,13 +22,12 @@ export interface SectionEntry<F extends FieldsRecord = FieldsRecord> extends Ent
   kind: 'section'
 }
 
-export interface CollectionOptions<F extends FieldsRecord> {
+export interface CollectionOptions<F extends FieldsRecord> extends EntryOptions {
   singularLabel: string
   titleField: keyof ValuesOf<F> & string
   slugField?: keyof ValuesOf<F> & string
   // Manual order (team, testimonials…) instead of most recent first.
   orderable?: boolean
-  icon?: string
 }
 
 // Repeatable content with its own listing, like blog posts.
@@ -39,10 +43,10 @@ export type SchemaEntry = SingletonEntry | SectionEntry | CollectionEntry
 
 export type ContentSchema = Record<string, SchemaEntry>
 
-export const singleton = <const F extends FieldsRecord>(label: string, fields: F, options: { icon?: string } = {}): SingletonEntry<F> =>
+export const singleton = <const F extends FieldsRecord>(label: string, fields: F, options: EntryOptions = {}): SingletonEntry<F> =>
   ({ kind: 'singleton', label, fields, ...options })
 
-export const section = <const F extends FieldsRecord>(label: string, fields: F, options: { icon?: string } = {}): SectionEntry<F> =>
+export const section = <const F extends FieldsRecord>(label: string, fields: F, options: EntryOptions = {}): SectionEntry<F> =>
   ({ kind: 'section', label, fields, ...options })
 
 export const collection = <const F extends FieldsRecord>(label: string, fields: F, options: CollectionOptions<F>): CollectionEntry<F> =>
