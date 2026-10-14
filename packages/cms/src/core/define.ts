@@ -21,11 +21,6 @@ export interface SingletonEntry<F extends FieldsRecord = FieldsRecord> extends E
   kind: 'singleton'
 }
 
-// A fixed section of one page, like the home hero.
-export interface SectionEntry<F extends FieldsRecord = FieldsRecord> extends EntryBase<F> {
-  kind: 'section'
-}
-
 export interface PageSitemapType {
   priority: number
   changeFrequency: NonNullable<MetadataRoute.Sitemap[number]['changeFrequency']>
@@ -67,15 +62,12 @@ export interface CollectionEntry<F extends FieldsRecord = FieldsRecord> extends 
   tabLabel?: string
 }
 
-export type SchemaEntry = SingletonEntry | SectionEntry | PageEntry | CollectionEntry
+export type SchemaEntry = SingletonEntry | PageEntry | CollectionEntry
 
 export type ContentSchema = Record<string, SchemaEntry>
 
 export const singleton = <const F extends FieldsRecord>(label: string, fields: F, options: EntryOptions = {}): SingletonEntry<F> =>
   ({ kind: 'singleton', label, fields, ...options })
-
-export const section = <const F extends FieldsRecord>(label: string, fields: F, options: EntryOptions = {}): SectionEntry<F> =>
-  ({ kind: 'section', label, fields, ...options })
 
 type SeoGroup = ReturnType<typeof seo>
 

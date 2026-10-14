@@ -5,7 +5,7 @@ export type EntryIdType = keyof typeof contentSchema & string
 
 export type PageIdType = { [K in EntryIdType]: typeof contentSchema[K] extends { kind: 'page' } ? K : never }[EntryIdType]
 
-// Exact data type of an entry, e.g. ContentOf<'home.hero'>['title'] is string.
+// Exact data type of an entry, e.g. ContentOf<'home'>['hero']['title'] is string.
 export type ContentOf<K extends EntryIdType> = EntryValues<typeof contentSchema[K]>
 
 const entries: Record<string, SchemaEntry> = contentSchema

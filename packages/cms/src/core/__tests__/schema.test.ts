@@ -1,11 +1,15 @@
 import { describe, expect, expectTypeOf, it } from 'vitest'
+import { SECTION_IDS } from '@/constants/landing'
 import { buildDefaults } from '../defaults'
-import { ENTRY_IDS, getCollection, getEntry } from '../entries'
+import { ENTRY_IDS, getCollection, getEntry, getPage } from '../entries'
+import { pageSections } from '../pages'
 import { mediaFolders } from '../schema'
 import { validateContent } from '../validation'
 import { dataFields } from '../walk'
 import type { ContentOf } from '../entries'
 import type { DataField, FieldsRecord } from '../fields'
+
+const PAGE_IDS = ENTRY_IDS.filter(id => getPage(id))
 
 const allFields = (fields: FieldsRecord): DataField[] =>
   dataFields(fields).flatMap(([, field]) => {
@@ -39,9 +43,39 @@ describe('Hologramas content schema', () => {
   })
 
   it('exposes typed content for the pages', () => {
-    expectTypeOf<ContentOf<'home.hero'>['secondaryCta']['variant']>().toEqualTypeOf<'primary' | 'secondary'>()
+    expectTypeOf<ContentOf<'home'>['hero']['secondaryCta']['variant']>().toEqualTypeOf<'primary' | 'secondary'>()
+    expectTypeOf<ContentOf<'home'>['hero']['booking']['extraInsurers'][number]>().toEqualTypeOf<{ _key: string, text: string }>()
+    expectTypeOf<ContentOf<'home'>['porque']['_hidden']>().toEqualTypeOf<boolean>()
+    expectTypeOf<ContentOf<'trabaja'>['success']>().toEqualTypeOf<{ title: string, text: string }>()
     expectTypeOf<ContentOf<'services'>['icon']>().toEqualTypeOf<'microphone' | 'lightbulb' | 'book' | 'headphones' | 'nutrition' | null>()
-    expectTypeOf<ContentOf<'home.porque'>['items'][number]['color']>().toEqualTypeOf<'blue' | 'cyan' | null>()
+    expectTypeOf<ContentOf<'home'>['porque']['items'][number]['color']>().toEqualTypeOf<'blue' | 'cyan' | null>()
+  })
+
+  it.each(PAGE_IDS)('%s is made of sections with unique anchors that exist on the site', id => {
+    const page = getPage(id)!
+    expect(Object.values(page.fields).some(node => node.kind === 'tab'), 'pages use sections, not tabs').toBe(false)
+
+    const sections = pageSections(page.fields)
+    expect(sections.every(({ mark }) => mark), 'every part of the page is a section').toBe(true)
+    const anchors = sections.flatMap(({ mark }) => (mark?.anchor ? [mark.anchor] : []))
+    expect(new Set(anchors).size).toBe(anchors.length)
+    for (const anchor of anchors) expect(Object.values(SECTION_IDS) as string[]).toContain(anchor)
+    for (const { mark } of sections) for (const used of mark?.uses ?? []) expect(getEntry(used), `uses ${used}`).not.toBeNull()
+
+    if (page.path) expect(sections.at(-1)?.key).toBe('seo')
+  })
+
+  it('hides only the agreed sections', () => {
+    const hideable = PAGE_IDS.flatMap(id => pageSections(getPage(id)!.fields).filter(({ mark }) => mark?.hideable).map(({ key }) => `${id}.${key}`))
+    expect(hideable).toEqual(['home.porque', 'home.obras', 'servicios.highlight'])
+  })
+
+  it('nests collections only under existing collections', () => {
+    for (const id of ENTRY_IDS) {
+      const under = getCollection(id)?.under
+      if (under) expect(getCollection(under)?.under, `${id} under ${under}`).toBeUndefined()
+    }
+    expect(ENTRY_IDS.filter(id => getCollection(id)?.under === 'posts')).toEqual(['categories', 'authors'])
   })
 
   it('returns null for unknown entries', () => {
