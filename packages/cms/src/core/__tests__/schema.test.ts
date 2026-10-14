@@ -78,6 +78,11 @@ describe('Hologramas content schema', () => {
     expect(ENTRY_IDS.filter(id => getCollection(id)?.under === 'posts')).toEqual(['categories', 'authors'])
   })
 
+  it('never writes menu paths in help texts (sections link what they use through `uses`)', () => {
+    const helps = ENTRY_IDS.flatMap(id => allFields(getEntry(id)!.fields).flatMap(field => (field.help ? [field.help] : [])))
+    for (const help of helps) expect(help).not.toContain('›')
+  })
+
   it('keeps tabs for long collection documents only: other forms stack their panels', () => {
     const withTabs = ENTRY_IDS.filter(id => Object.values(getEntry(id)!.fields).some(node => node.kind === 'tab'))
     for (const id of withTabs) expect(getEntry(id)?.kind, `${id} uses tabs`).toBe('collection')
