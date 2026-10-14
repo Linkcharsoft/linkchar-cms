@@ -23,3 +23,8 @@ export const getCollection = (id: string): CollectionEntry | null => {
   const entry = getEntry(id)
   return entry?.kind === 'collection' ? entry : null
 }
+
+export const documentTitle = (entry: CollectionEntry, data: unknown): string => {
+  const title = typeof data === 'object' && data !== null ? (data as Record<string, unknown>)[entry.titleField] : null
+  return typeof title === 'string' && title.trim() ? title : `${entry.singularLabel} sin título`
+}
