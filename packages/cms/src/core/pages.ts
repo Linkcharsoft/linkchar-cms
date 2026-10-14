@@ -21,3 +21,19 @@ export const pageSections = (fields: FieldsRecord): PageSectionType[] =>
 
 export const isSectionHidden = (value: unknown): boolean =>
   typeof value === 'object' && value !== null && (value as Record<string, unknown>)[HIDDEN_KEY] === true
+
+// One line that identifies a closed section: its title, or else its first filled-in text.
+export const sectionSummary = (value: unknown): string => {
+  if (typeof value !== 'object' || value === null) return ''
+  const record = value as Record<string, unknown>
+  const texts = [record.title, ...Object.values(record)].filter((item): item is string => typeof item === 'string' && !!item.trim())
+  return texts[0]?.replace(/\s+/g, ' ').trim() ?? ''
+}
+
+// Error paths ("hero.title", "seo.description") counted by the section they belong to.
+export const countBySection = (paths: string[]): Record<string, number> =>
+  paths.reduce<Record<string, number>>((counts, path) => {
+    const key = path.split('.')[0]
+    counts[key] = (counts[key] ?? 0) + 1
+    return counts
+  }, {})
