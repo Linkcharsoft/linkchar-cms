@@ -1,5 +1,7 @@
+import { getEntry } from './entries'
 import { HIDDEN_KEY } from './fields'
 import { dataFields } from './walk'
+import type { SchemaEntry } from './define'
 import type { DataField, FieldsRecord, SectionMarkType } from './fields'
 
 export interface PageSectionType {
@@ -37,3 +39,18 @@ export const countBySection = (paths: string[]): Record<string, number> =>
     counts[key] = (counts[key] ?? 0) + 1
     return counts
   }, {})
+
+export interface UsedEntryType {
+  id: string
+  kind: SchemaEntry['kind']
+  // A collection shown as a tab ("Artículos") reads better than its menu name ("Blog").
+  label: string
+}
+
+// Entries a page shows content from (its sections' `uses`), without repeats.
+export const usedEntries = (sections: PageSectionType[]): UsedEntryType[] =>
+  [...new Set(sections.flatMap(({ mark }) => mark?.uses ?? []))].flatMap(id => {
+    const entry = getEntry(id)
+    if (!entry) return []
+    return [{ id, kind: entry.kind, label: entry.kind === 'collection' ? entry.tabLabel ?? entry.label : entry.label }]
+  })
