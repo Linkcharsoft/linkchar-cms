@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { countBySection, sectionSummary } from '../pages'
+import { changedSections, countBySection, sectionSummary } from '../pages'
+import { contentSchema } from '../schema'
 
 describe('sectionSummary', () => {
   it('prefers the title and falls back to the first filled-in text', () => {
@@ -14,5 +15,15 @@ describe('sectionSummary', () => {
 describe('countBySection', () => {
   it('groups error paths by their section', () => {
     expect(countBySection(['hero.title', 'hero.image', 'seo.title', 'quienes.paragraphs.0.text'])).toEqual({ hero: 2, seo: 1, quienes: 1 })
+  })
+})
+
+describe('changedSections', () => {
+  it('lists the sections whose draft differs from the published page', () => {
+    const fields = contentSchema.home.fields
+    const published = { hero: { title: 'Hola' }, contacto: { title: 'Contacto' } }
+    const draft = { ...published, hero: { title: 'Chau' }, porque: { _hidden: true } }
+    expect(changedSections(fields, draft, published).map(({ key }) => key)).toEqual(['hero', 'porque'])
+    expect(changedSections(fields, published, published)).toEqual([])
   })
 })

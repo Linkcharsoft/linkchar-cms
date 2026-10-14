@@ -1,5 +1,7 @@
+import { withDefaults } from './defaults'
 import { getEntry } from './entries'
 import { HIDDEN_KEY } from './fields'
+import { sameContent } from './merge'
 import { dataFields } from './walk'
 import type { SchemaEntry } from './define'
 import type { DataField, FieldsRecord, SectionMarkType } from './fields'
@@ -54,3 +56,10 @@ export const usedEntries = (sections: PageSectionType[]): UsedEntryType[] =>
     if (!entry) return []
     return [{ id, kind: entry.kind, label: entry.kind === 'collection' ? entry.tabLabel ?? entry.label : entry.label }]
   })
+
+// Sections whose draft differs from what's published (missing values count as their defaults).
+export const changedSections = (fields: FieldsRecord, draft: unknown, published: unknown): PageSectionType[] => {
+  const current = withDefaults(fields, draft) as Record<string, unknown>
+  const live = withDefaults(fields, published) as Record<string, unknown>
+  return pageSections(fields).filter(({ key }) => !sameContent(current[key], live[key]))
+}
