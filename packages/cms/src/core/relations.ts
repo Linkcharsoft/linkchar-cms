@@ -2,6 +2,8 @@ import type { DocumentStatusType } from './publish'
 
 export interface RelationRefType {
   label: string
+  // Singular name of its collection ("Autor").
+  kind: string
   status: DocumentStatusType
   trashed: boolean
 }
@@ -23,5 +25,21 @@ export const relationIssue = (ref: RelationRefType): RelationIssueType | null =>
   return null
 }
 
-export const relationNotice = (ref: RelationRefType, issue: RelationIssueType) =>
-  `"${ref.label}" ${issue.text}${issue.missing ? ': no va a aparecer en el sitio.' : '.'}`
+// Away from its field (the publish list) the notice also says what the item is: "Ana" (autor).
+export const relationName = (ref: RelationRefType, withKind = false) =>
+  `"${ref.label}"${withKind ? ` (${ref.kind.toLowerCase()})` : ''}`
+
+export const relationNotice = (ref: RelationRefType, issue: RelationIssueType, withKind = false) =>
+  `${relationName(ref, withKind)} ${issue.text}${issue.missing ? ': no va a aparecer en el sitio.' : '.'}`
+
+// What the publish list says about the items a document points to. A new item comes out in the same publish
+// unless it has missing fields (comesOut answers that).
+export const referenceWarnings = (ids: string[], refs: Record<string, RelationRefType>, comesOut: (id: string) => boolean) =>
+  ids.flatMap(id => {
+    const ref = refs[id]
+    if (!ref) return ['Un contenido elegido ya no existe: no va a aparecer en el sitio.']
+    const issue = relationIssue(ref)
+    if (!issue) return []
+    if (issue.missing) return [relationNotice(ref, issue, true)]
+    return comesOut(id) ? [] : [`${relationName(ref, true)} no se publica hasta completar sus campos: no va a aparecer en el sitio.`]
+  })
