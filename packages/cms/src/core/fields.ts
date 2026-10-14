@@ -146,6 +146,8 @@ export interface BlocksField<B extends Record<string, BlockDef> = Record<string,
 
 // Presentational: they order the form but never store data of their own.
 export interface TabLayout<F extends FieldsRecord = FieldsRecord> { kind: 'tab', label: string, fields: F }
+// Stacked, collapsible card: for forms whose parts all matter (site data), where tabs would hide fields.
+export interface PanelLayout<F extends FieldsRecord = FieldsRecord> { kind: 'panel', label: string, fields: F, collapsed?: boolean }
 export interface RowLayout<F extends FieldsRecord = FieldsRecord> { kind: 'row', fields: F }
 export interface NoteLayout { kind: 'note', text: string }
 
@@ -156,7 +158,7 @@ export type DataField =
   | ImageField | GalleryField | FileField
   | GroupField | ListField | BlocksField
 
-export type LayoutNode = TabLayout | RowLayout | NoteLayout
+export type LayoutNode = TabLayout | PanelLayout | RowLayout | NoteLayout
 
 export type FieldNode = DataField | LayoutNode
 
@@ -263,8 +265,10 @@ export const section = <const F extends FieldsRecord, const H extends boolean = 
 })
 
 export const tab = <const F extends FieldsRecord>(label: string, fields: F): TabLayout<F> => ({ kind: 'tab', label, fields })
+export const panel = <const F extends FieldsRecord>(label: string, fields: F, options: { collapsed?: boolean } = {}): PanelLayout<F> =>
+  ({ kind: 'panel', label, fields, ...options })
 export const row = <const F extends FieldsRecord>(fields: F): RowLayout<F> => ({ kind: 'row', fields })
 export const note = (text: string): NoteLayout => ({ kind: 'note', text })
 
 export const isLayout = (node: FieldNode): node is LayoutNode =>
-  node.kind === 'tab' || node.kind === 'row' || node.kind === 'note'
+  node.kind === 'tab' || node.kind === 'panel' || node.kind === 'row' || node.kind === 'note'

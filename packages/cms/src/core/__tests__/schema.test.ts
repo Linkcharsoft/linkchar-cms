@@ -78,6 +78,11 @@ describe('Hologramas content schema', () => {
     expect(ENTRY_IDS.filter(id => getCollection(id)?.under === 'posts')).toEqual(['categories', 'authors'])
   })
 
+  it('keeps tabs for long collection documents only: other forms stack their panels', () => {
+    const withTabs = ENTRY_IDS.filter(id => Object.values(getEntry(id)!.fields).some(node => node.kind === 'tab'))
+    for (const id of withTabs) expect(getEntry(id)?.kind, `${id} uses tabs`).toBe('collection')
+  })
+
   it('keeps reference-only collections without a URL and picked from a relation', () => {
     const referenceOnly = ENTRY_IDS.filter(id => getCollection(id)?.referenceOnly)
     expect(referenceOnly).toEqual(['categories', 'authors'])

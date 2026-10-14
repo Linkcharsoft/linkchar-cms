@@ -30,7 +30,7 @@ export const visibleFields = (fields: FieldsRecord, isSuperadmin: boolean): Fiel
     Object.entries(fields)
       .filter(([, node]) => !('superadminOnly' in node && node.superadminOnly))
       .map(([key, node]) => {
-        if (node.kind === 'tab' || node.kind === 'row' || node.kind === 'group') {
+        if (node.kind === 'tab' || node.kind === 'panel' || node.kind === 'row' || node.kind === 'group') {
           return [key, { ...node, fields: visibleFields(node.fields, false) }]
         }
         return [key, node]

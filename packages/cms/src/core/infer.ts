@@ -16,6 +16,7 @@ import type {
   MultiSelectField,
   NoteLayout,
   NumberField,
+  PanelLayout,
   OpeningHoursField,
   FileField,
   GalleryField,
@@ -67,18 +68,18 @@ export type FieldValue<F extends DataField> =
                                   : never
 
 type DataKeys<F extends FieldsRecord> = {
-  [K in keyof F]: F[K] extends TabLayout | RowLayout | NoteLayout ? never : K
+  [K in keyof F]: F[K] extends TabLayout | PanelLayout | RowLayout | NoteLayout ? never : K
 }[keyof F]
 
 type NestedKeys<F extends FieldsRecord> = {
-  [K in keyof F]: F[K] extends TabLayout | RowLayout ? K : never
+  [K in keyof F]: F[K] extends TabLayout | PanelLayout | RowLayout ? K : never
 }[keyof F]
 
 type NestedValues<F extends FieldsRecord> = UnionToIntersection<{
-  [K in NestedKeys<F>]: F[K] extends TabLayout<infer Inner> | RowLayout<infer Inner> ? ValuesOf<Inner> : never
+  [K in NestedKeys<F>]: F[K] extends TabLayout<infer Inner> | PanelLayout<infer Inner> | RowLayout<infer Inner> ? ValuesOf<Inner> : never
 }[NestedKeys<F>]>
 
-// Tabs and rows are flattened: their fields live at the same level as their siblings.
+// Tabs, panels and rows are flattened: their fields live at the same level as their siblings.
 export type ValuesOf<F extends FieldsRecord> = Simplify<
   { [K in DataKeys<F>]: F[K] extends DataField ? FieldValue<F[K]> : never }
   & ([NestedKeys<F>] extends [never] ? unknown : NestedValues<F>)

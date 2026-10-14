@@ -1,7 +1,7 @@
 import { describe, expect, expectTypeOf, it } from 'vitest'
 import { buildDefaults } from '../defaults'
 import { collection, defineSchema, page, singleton } from '../define'
-import { block, blocks, button, group, list, note, relation, relations, richText, row, section, select, slug, tab, text } from '../fields'
+import { block, blocks, button, group, list, note, panel, relation, relations, richText, row, section, select, slug, tab, text } from '../fields'
 import { isSectionHidden, pageSections } from '../pages'
 import { buildYupSchema } from '../validation'
 import { dataFields, fieldLabel } from '../walk'
@@ -15,7 +15,7 @@ const schema = defineSchema({
       siteName: text({ label: 'Nombre del sitio', required: true }),
       info: note('Se muestra en la pestaña del navegador.')
     }),
-    contacto: tab('Contacto', {
+    contacto: panel('Contacto', {
       phones: row({ phone: text({ label: 'Teléfono' }), whatsapp: text({ label: 'WhatsApp' }) })
     })
   }, { anchor: 'pie' }),
@@ -53,11 +53,12 @@ describe('defineSchema', () => {
   it('keeps entry kinds and collection options', () => {
     expect(schema.settings).toMatchObject({ kind: 'singleton', anchor: 'pie' })
     expect(schema.home).toMatchObject({ kind: 'page', path: '/', sitemap: { priority: 1, changeFrequency: 'weekly' } })
-    expect(schema.posts).toMatchObject({ kind: 'collection', titleField: 'title', slugField: 'slug', orderable: false, tabLabel: 'Artículos' })
+    expect(schema.posts).toMatchObject({ kind: 'collection', titleField: 'title', slugField: 'slug', orderable: false, tabLabel: 'Artículos', referenceOnly: false })
+    expect(schema.posts.newLabel).toBe(`Nuevo ${schema.posts.singularLabel.toLowerCase()}`)
     expect(schema.categories.under).toBe('posts')
   })
 
-  it('infers the data shape, flattening tabs and rows', () => {
+  it('infers the data shape, flattening tabs, panels and rows', () => {
     type Settings = EntryValues<typeof schema.settings>
     expectTypeOf<Settings>().toEqualTypeOf<{ siteName: string, phone: string, whatsapp: string }>()
 
@@ -115,7 +116,7 @@ describe('page', () => {
 })
 
 describe('dataFields', () => {
-  it('flattens tabs and rows and skips notes', () => {
+  it('flattens tabs, panels and rows and skips notes', () => {
     expect(dataFields(schema.settings.fields).map(([key]) => key)).toEqual(['siteName', 'phone', 'whatsapp'])
   })
 })
