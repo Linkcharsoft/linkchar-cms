@@ -49,6 +49,8 @@ export interface CollectionOptions<F extends FieldsRecord> extends EntryOptions 
   under?: string
   // Label of this collection's own tab when others live under it.
   tabLabel?: string
+  // Only exists to be referenced (authors, categories): always visible, so a picked item never vanishes from the site.
+  referenceOnly?: boolean
 }
 
 // Repeatable content with its own listing, like blog posts.
@@ -60,6 +62,7 @@ export interface CollectionEntry<F extends FieldsRecord = FieldsRecord> extends 
   orderable: boolean
   under?: string
   tabLabel?: string
+  referenceOnly: boolean
 }
 
 export type SchemaEntry = SingletonEntry | PageEntry | CollectionEntry
@@ -94,7 +97,7 @@ export const page = <const F extends FieldsRecord, const P extends string | unde
 })
 
 export const collection = <const F extends FieldsRecord>(label: string, fields: F, options: CollectionOptions<F>): CollectionEntry<F> =>
-  ({ kind: 'collection', label, fields, ...options, orderable: options.orderable ?? false })
+  ({ kind: 'collection', label, fields, ...options, orderable: options.orderable ?? false, referenceOnly: options.referenceOnly ?? false })
 
 export const defineSchema = <const S extends ContentSchema>(schema: S): S => schema
 

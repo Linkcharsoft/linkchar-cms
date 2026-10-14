@@ -78,6 +78,16 @@ describe('Hologramas content schema', () => {
     expect(ENTRY_IDS.filter(id => getCollection(id)?.under === 'posts')).toEqual(['categories', 'authors'])
   })
 
+  it('keeps reference-only collections without a URL and picked from a relation', () => {
+    const referenceOnly = ENTRY_IDS.filter(id => getCollection(id)?.referenceOnly)
+    expect(referenceOnly).toEqual(['categories', 'authors'])
+    const targets = ENTRY_IDS.flatMap(id => allFields(getEntry(id)!.fields).flatMap(field => (field.kind === 'relation' ? [field.to] : [])))
+    for (const id of referenceOnly) {
+      expect(getCollection(id)?.path, `${id} has no page of its own`).toBeUndefined()
+      expect(targets, `${id} is the target of a relation`).toContain(id)
+    }
+  })
+
   it('returns null for unknown entries', () => {
     expect(getEntry('nope')).toBeNull()
     expect(getEntry('toString')).toBeNull()
