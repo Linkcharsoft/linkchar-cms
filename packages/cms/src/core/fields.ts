@@ -101,12 +101,23 @@ export interface SeoMarkType {
   path?: string
 }
 
+export interface SectionMarkType {
+  // id of the matching element on the site: the preview scrolls to it and menu anchors point to it.
+  anchor?: string
+  icon?: string
+  // Entries edited elsewhere whose content this section shows.
+  uses?: readonly string[]
+  hideable: boolean
+}
+
 export interface GroupField<F extends FieldsRecord = FieldsRecord> extends Omit<BaseOptions<never>, 'default'> {
   kind: 'group'
   fields: F
   collapsed?: boolean
   // Shows the Google preview under the fields.
   seo?: SeoMarkType
+  // A page section: a top-level group of a page() with its own place on the site.
+  section?: SectionMarkType
 }
 export interface ListField<F extends FieldsRecord = FieldsRecord> extends Omit<BaseOptions<never>, 'default'> {
   kind: 'list'
@@ -206,8 +217,8 @@ export const blocks = <const B extends Record<string, BlockDef>>(options: Omit<O
   ({ kind: 'blocks', ...options, blocks: allowed })
 
 // A group, so defaults, validation and media references need nothing special.
-export const seo = ({ title, description, ...mark }: SeoMarkType & { title?: string, description?: string } = {}) => group({
-  label: 'SEO',
+export const seo = ({ title, description, label = 'SEO', ...mark }: SeoMarkType & { title?: string, description?: string, label?: string } = {}) => group({
+  label,
   collapsed: true,
   help: 'Cómo se ve esta página en Google y al compartir el link.',
   seo: mark
@@ -226,6 +237,29 @@ export const seo = ({ title, description, ...mark }: SeoMarkType & { title?: str
     default: description ?? ''
   }),
   image: image({ label: 'Imagen al compartir', folder: 'sitio', help: 'Se ve al compartir el link en WhatsApp o redes. Ideal 1200 × 630 px.' })
+})
+
+export const HIDDEN_KEY = '_hidden'
+
+type HiddenFields<H extends boolean> = H extends true ? { _hidden: BooleanField } : unknown
+
+interface SectionOptions<H extends boolean> extends Omit<SectionMarkType, 'hideable'> {
+  help?: string
+  // Adds a "Mostrar esta sección" switch, stored as `_hidden`; the site skips hidden sections.
+  hideable?: H
+}
+
+// A group too, so the engine treats a page section like any other nested data.
+export const section = <const F extends FieldsRecord, const H extends boolean = false>(
+  label: string,
+  fields: F,
+  { help, hideable, ...mark }: SectionOptions<H> = {}
+): GroupField<F & HiddenFields<H>> => ({
+  kind: 'group',
+  label,
+  help,
+  section: { ...mark, hideable: !!hideable },
+  fields: (hideable ? { ...fields, [HIDDEN_KEY]: boolean({ label: 'Ocultar esta sección', default: false }) } : fields) as F & HiddenFields<H>
 })
 
 export const tab = <const F extends FieldsRecord>(label: string, fields: F): TabLayout<F> => ({ kind: 'tab', label, fields })
