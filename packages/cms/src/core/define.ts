@@ -92,7 +92,7 @@ export const page = <const F extends FieldsRecord, const P extends string | unde
     ? {
       ...sections,
       seo: {
-        ...seo({ path: options.path, label: 'Cómo aparece en Google y al compartir', ...seoDefaults }),
+        ...seo({ path: options.path, ...seoDefaults }),
         section: { icon: 'pi-google', hideable: false }
       }
     }

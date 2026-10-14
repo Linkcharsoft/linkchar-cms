@@ -219,7 +219,7 @@ export const blocks = <const B extends Record<string, BlockDef>>(options: Omit<O
   ({ kind: 'blocks', ...options, blocks: allowed })
 
 // A group, so defaults, validation and media references need nothing special.
-export const seo = ({ title, description, label = 'SEO', ...mark }: SeoMarkType & { title?: string, description?: string, label?: string } = {}) => group({
+export const seo = ({ title, description, label = 'Cómo aparece en Google y al compartir', ...mark }: SeoMarkType & { title?: string, description?: string, label?: string } = {}) => group({
   label,
   collapsed: true,
   help: 'Cómo se ve esta página en Google y al compartir el link.',
