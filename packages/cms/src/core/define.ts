@@ -41,6 +41,8 @@ export interface PageEntry<F extends FieldsRecord = FieldsRecord> extends EntryB
 
 export interface CollectionOptions<F extends FieldsRecord> extends EntryOptions {
   singularLabel: string
+  // Create button ("Nueva categoría"); defaults to "Nuevo" + singularLabel.
+  newLabel?: string
   titleField: keyof ValuesOf<F> & string
   slugField?: keyof ValuesOf<F> & string
   // Manual order (team, testimonials…) instead of most recent first.
@@ -57,6 +59,7 @@ export interface CollectionOptions<F extends FieldsRecord> extends EntryOptions 
 export interface CollectionEntry<F extends FieldsRecord = FieldsRecord> extends EntryBase<F> {
   kind: 'collection'
   singularLabel: string
+  newLabel: string
   titleField: string
   slugField?: string
   orderable: boolean
@@ -97,7 +100,15 @@ export const page = <const F extends FieldsRecord, const P extends string | unde
 })
 
 export const collection = <const F extends FieldsRecord>(label: string, fields: F, options: CollectionOptions<F>): CollectionEntry<F> =>
-  ({ kind: 'collection', label, fields, ...options, orderable: options.orderable ?? false, referenceOnly: options.referenceOnly ?? false })
+  ({
+    kind: 'collection',
+    label,
+    fields,
+    ...options,
+    newLabel: options.newLabel ?? `Nuevo ${options.singularLabel.toLowerCase()}`,
+    orderable: options.orderable ?? false,
+    referenceOnly: options.referenceOnly ?? false
+  })
 
 export const defineSchema = <const S extends ContentSchema>(schema: S): S => schema
 
