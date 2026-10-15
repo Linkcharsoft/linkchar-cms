@@ -1,3 +1,4 @@
+export * from './i18n'
 export * from './defaults'
 export * from './define'
 export * from './diff'
