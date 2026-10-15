@@ -3,7 +3,7 @@ import { getEntry } from './entries'
 import { HIDDEN_KEY } from './fields'
 import { sameContent } from './merge'
 import { dataFields } from './walk'
-import type { SchemaEntry } from './define'
+import type { ContentSchema, SchemaEntry } from './define'
 import type { DataField, FieldsRecord, SectionMarkType } from './fields'
 
 export interface PageSectionType {
@@ -50,9 +50,9 @@ export interface UsedEntryType {
 }
 
 // Entries a page shows content from (its sections' `uses`), without repeats.
-export const usedEntries = (sections: PageSectionType[]): UsedEntryType[] =>
+export const usedEntries = (schema: ContentSchema, sections: PageSectionType[]): UsedEntryType[] =>
   [...new Set(sections.flatMap(({ mark }) => mark?.uses ?? []))].flatMap(id => {
-    const entry = getEntry(id)
+    const entry = getEntry(schema, id)
     if (!entry) return []
     return [{ id, kind: entry.kind, label: entry.kind === 'collection' ? entry.tabLabel ?? entry.label : entry.label }]
   })

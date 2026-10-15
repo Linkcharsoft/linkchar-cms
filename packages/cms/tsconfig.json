@@ -1,0 +1,12 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "types": ["node"],
+    "paths": {
+      "@linkcharsoft/cms/core": ["./src/core/index.ts"],
+      "@linkcharsoft/cms/core/*": ["./src/core/*"],
+      "@playground/*": ["../../apps/playground/src/*"]
+    }
+  },
+  "include": ["src", "vitest.config.ts"]
+}

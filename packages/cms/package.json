@@ -1,0 +1,37 @@
+{
+  "name": "@linkcharsoft/cms",
+  "version": "0.0.0",
+  "description": "Linkchar CMS: content schema, Supabase storage, editor panel and site readers for Next.js projects",
+  "license": "UNLICENSED",
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Linkcharsoft/linkchar-cms.git",
+    "directory": "packages/cms"
+  },
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com"
+  },
+  "sideEffects": false,
+  "exports": {
+    "./core": "./src/core/index.ts",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "src",
+    "!src/**/__tests__"
+  ],
+  "scripts": {
+    "type-check": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "yup": "1.7.1"
+  },
+  "devDependencies": {
+    "@types/node": "24.13.3",
+    "typescript": "6.0.3",
+    "vitest": "5.0.4"
+  }
+}

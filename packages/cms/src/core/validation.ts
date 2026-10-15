@@ -1,7 +1,7 @@
 import * as Yup from 'yup'
-import parseVideoUrl from '@/utils/parseVideoUrl'
 import { WEEK_DAYS } from './fields'
 import { isEmptyRichText } from './richText/nodes'
+import parseVideoUrl from './video'
 import { dataFields } from './walk'
 import type { DataField, FieldsRecord, LinkField, LinkKindType } from './fields'
 import type { RichTextDocType } from './richText/nodes'

@@ -1,4 +1,4 @@
-import type { DocumentStatusType } from './publish'
+import type { DocumentStatusType } from './status'
 
 export interface RelationRefType {
   label: string

@@ -1,0 +1,39 @@
+{
+  "name": "linkchar-cms-workspace",
+  "private": true,
+  "packageManager": "pnpm@11.28.2",
+  "engines": {
+    "node": "^24.0.0",
+    "pnpm": ">=11.0.0"
+  },
+  "scripts": {
+    "prepare": "husky",
+    "lint-check": "eslint .",
+    "type-check": "pnpm -r --parallel type-check",
+    "test": "pnpm -r test",
+    "verify": "pnpm run lint-check && pnpm run type-check && pnpm run test",
+    "changeset": "changeset",
+    "release": "changeset publish"
+  },
+  "devDependencies": {
+    "@changesets/cli": "3.0.3",
+    "@eslint/js": "9.39.5",
+    "@next/eslint-plugin-next": "16.2.12",
+    "@stylistic/eslint-plugin": "5.10.0",
+    "@types/node": "24.13.3",
+    "@typescript-eslint/eslint-plugin": "8.64.0",
+    "@typescript-eslint/parser": "8.64.0",
+    "eslint": "9.39.5",
+    "eslint-import-resolver-typescript": "4.4.5",
+    "eslint-plugin-import": "2.32.0",
+    "eslint-plugin-jsx-a11y": "6.10.2",
+    "eslint-plugin-node-dependencies": "2.2.0",
+    "eslint-plugin-react": "7.37.5",
+    "eslint-plugin-react-hooks": "7.1.1",
+    "globals": "17.7.0",
+    "husky": "9.1.7",
+    "jsonc-eslint-parser": "2.4.2",
+    "typescript": "6.0.3",
+    "vitest": "5.0.4"
+  }
+}

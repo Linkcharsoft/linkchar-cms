@@ -1,7 +1,6 @@
 import { seo } from './fields'
 import type { FieldsRecord } from './fields'
 import type { ValuesOf } from './infer'
-import type { MetadataRoute } from 'next'
 
 interface EntryOptions {
   icon?: string
@@ -21,9 +20,11 @@ export interface SingletonEntry<F extends FieldsRecord = FieldsRecord> extends E
   kind: 'singleton'
 }
 
+export type ChangeFrequencyType = 'always' | 'hourly' | 'daily' | 'weekly' | 'monthly' | 'yearly' | 'never'
+
 export interface PageSitemapType {
   priority: number
-  changeFrequency: NonNullable<MetadataRoute.Sitemap[number]['changeFrequency']>
+  changeFrequency: ChangeFrequencyType
 }
 
 interface PageOptions<P extends string | undefined> extends Omit<EntryOptions, 'path' | 'anchor'> {
