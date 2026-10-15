@@ -59,8 +59,8 @@ export const usedEntries = (config: CmsConfigType, sections: PageSectionType[]):
   })
 
 // Sections whose draft differs from what's published (missing values count as their defaults).
-export const changedSections = (fields: FieldsRecord, draft: unknown, published: unknown): PageSectionType[] => {
-  const current = withDefaults(fields, draft) as Record<string, unknown>
-  const live = withDefaults(fields, published) as Record<string, unknown>
+export const changedSections = (config: CmsConfigType, fields: FieldsRecord, draft: unknown, published: unknown): PageSectionType[] => {
+  const current = withDefaults(config, fields, draft) as Record<string, unknown>
+  const live = withDefaults(config, fields, published) as Record<string, unknown>
   return pageSections(fields).filter(({ key }) => !sameContent(current[key], live[key]))
 }

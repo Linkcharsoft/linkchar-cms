@@ -76,7 +76,10 @@ const ESLintConfig = [
       '@typescript-eslint/consistent-type-imports': ['error', { prefer: 'type-imports' }],
       '@typescript-eslint/explicit-module-boundary-types': 'off',
       '@typescript-eslint/no-explicit-any': 'warn',
-      '@typescript-eslint/no-unused-vars': 'warn'
+      // `F` is the field type parameter that every FieldTypes augmentation must repeat.
+      '@typescript-eslint/no-unused-vars': ['warn', { varsIgnorePattern: '^F$' }],
+      // Empty interfaces are the extension points projects augment (Register, FieldTypes).
+      '@typescript-eslint/no-empty-object-type': ['error', { allowInterfaces: 'always' }]
     }
   },
   {

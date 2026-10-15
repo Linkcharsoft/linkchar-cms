@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { buildDefaults, newBlock, withDefaults } from '../defaults'
-import { block, blocks, boolean, button, group, list, openingHours, relation, relations, row, text } from '../fields'
+import { block, blocks, boolean, button, group, list, relation, relations, row, text } from '../fields'
+import { openingHours } from '../kinds/openingHours'
+import { config } from './helpers'
 
 const fields = {
   title: text({ label: 'Título', default: 'Hola' }),
@@ -16,7 +18,7 @@ const fields = {
 
 describe('buildDefaults', () => {
   it('builds empty values for every data field, honoring explicit defaults', () => {
-    const defaults = buildDefaults(fields)
+    const defaults = buildDefaults(config, fields)
 
     expect(defaults).toMatchObject({
       title: 'Hola',
@@ -30,13 +32,13 @@ describe('buildDefaults', () => {
       content: []
     })
     expect(defaults.hours.days).toHaveLength(7)
-    expect(defaults.hours.days[0]).toEqual({ day: 'lunes', closed: true, from: '', to: '' })
+    expect(defaults.hours.days[0]).toEqual({ day: 'mon', closed: true, from: '', to: '' })
   })
 })
 
 describe('withDefaults', () => {
   it('fills missing fields and drops unknown keys', () => {
-    const value = withDefaults(fields, { subtitle: 'Guardado', legacy: 'x' })
+    const value = withDefaults(config, fields, { subtitle: 'Guardado', legacy: 'x' })
 
     expect(value.subtitle).toBe('Guardado')
     expect(value.title).toBe('Hola')
@@ -44,7 +46,7 @@ describe('withDefaults', () => {
   })
 
   it('repairs nested content: list keys, unknown blocks and partial buttons', () => {
-    const value = withDefaults(fields, {
+    const value = withDefaults(config, fields, {
       items: [{ name: 'Sin key' }, 'basura'],
       content: [{ _key: 'b1', _type: 'cita', quote: 'Hola' }, { _key: 'b2', _type: 'borrado' }],
       cta: { label: 'Turnos' }
@@ -58,13 +60,13 @@ describe('withDefaults', () => {
   })
 
   it('returns full defaults for non-object input', () => {
-    expect(withDefaults(fields, null)).toEqual({ ...buildDefaults(fields), items: [], content: [] })
+    expect(withDefaults(config, fields, null)).toEqual({ ...buildDefaults(config, fields), items: [], content: [] })
   })
 })
 
 describe('newBlock', () => {
   it('creates a typed block with a fresh key', () => {
-    const created = newBlock('cita', fields.content.blocks.cita)
+    const created = newBlock(config, 'cita', fields.content.blocks.cita)
     expect(created).toMatchObject({ _type: 'cita', quote: '' })
     expect(created._key).toMatch(/^[0-9a-f-]{36}$/)
   })
@@ -79,13 +81,13 @@ describe('list defaults', () => {
   }
 
   it('fills each default item and gives it a key', () => {
-    const { links } = buildDefaults(menu)
+    const { links } = buildDefaults(config, menu)
     expect(links).toMatchObject([{ label: 'Inicio', visible: true }, { label: 'Blog', visible: false }])
     expect(links.every(item => /^[0-9a-f-]{36}$/.test(item._key))).toBe(true)
   })
 
   it('uses them only when the document has no value yet', () => {
-    expect(withDefaults(menu, {}).links).toHaveLength(2)
-    expect(withDefaults(menu, { links: [] }).links).toEqual([])
+    expect(withDefaults(config, menu, {}).links).toHaveLength(2)
+    expect(withDefaults(config, menu, { links: [] }).links).toEqual([])
   })
 })

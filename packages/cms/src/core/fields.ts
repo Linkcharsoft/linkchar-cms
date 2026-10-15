@@ -1,5 +1,8 @@
+import { boolean } from './kinds/boolean'
+import { image } from './kinds/media'
+import { textarea, text } from './kinds/strings'
 import type { ValuesOf } from './infer'
-import type { RichTextDocType } from './richText/nodes'
+import type { FieldInputLoaderType, LeafField } from './kinds/registry'
 
 export interface BaseOptions<V> {
   label: string
@@ -8,13 +11,8 @@ export interface BaseOptions<V> {
   default?: V
   // Technical fields hidden from clients (only superadmin sees and edits them).
   superadminOnly?: boolean
-}
-
-interface StringOptions extends BaseOptions<string> {
-  maxLength?: number
-  pattern?: RegExp
-  patternMessage?: string
-  placeholder?: string
+  // Replaces the kind's input in the panel for this field only.
+  component?: FieldInputLoaderType
 }
 
 export interface OptionType<V extends string = string> {
@@ -22,77 +20,6 @@ export interface OptionType<V extends string = string> {
   value: V
 }
 
-export type LinkKindType = 'internal' | 'external' | 'email' | 'tel' | 'anchor'
-
-export interface LinkValueType {
-  type: LinkKindType
-  href: string
-  newTab: boolean
-}
-
-export interface ButtonValueType<V extends string = string> {
-  label: string
-  link: LinkValueType
-  variant: V
-}
-
-export const WEEK_DAYS = ['lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado', 'domingo'] as const
-
-export type WeekDayType = typeof WEEK_DAYS[number]
-
-export interface DayHoursType {
-  day: WeekDayType
-  closed: boolean
-  from: string
-  to: string
-}
-
-export interface OpeningHoursValueType {
-  days: DayHoursType[]
-  note: string
-}
-
-export interface TextField extends StringOptions { kind: 'text' }
-export interface TextareaField extends StringOptions { kind: 'textarea', rows?: number }
-export interface EmailField extends StringOptions { kind: 'email' }
-export interface PhoneField extends StringOptions { kind: 'phone' }
-export interface UrlField extends StringOptions { kind: 'url' }
-export interface VideoField extends StringOptions { kind: 'video' }
-export interface SlugField extends StringOptions { kind: 'slug', from: string }
-export interface RichTextField extends BaseOptions<RichTextDocType | null> { kind: 'richText', headings?: (2 | 3 | 4)[] }
-export interface NumberField extends BaseOptions<number | null> { kind: 'number', min?: number, max?: number, step?: number }
-export interface BooleanField extends BaseOptions<boolean> { kind: 'boolean' }
-export interface DateField extends BaseOptions<string | null> { kind: 'date' }
-export interface DatetimeField extends BaseOptions<string | null> { kind: 'datetime' }
-export interface SelectField<V extends string = string> extends BaseOptions<V | null> {
-  kind: 'select'
-  options: readonly OptionType<V>[]
-}
-export interface MultiSelectField<V extends string = string> extends BaseOptions<V[]> {
-  kind: 'multiSelect'
-  options: readonly OptionType<V>[]
-  min?: number
-  max?: number
-}
-export interface LinkField extends BaseOptions<LinkValueType> { kind: 'link', allow?: LinkKindType[] }
-export interface ButtonField<V extends string = string> extends BaseOptions<ButtonValueType<V>> {
-  kind: 'button'
-  variants: readonly OptionType<V>[]
-}
-export interface OpeningHoursField extends BaseOptions<OpeningHoursValueType> { kind: 'openingHours' }
-// Media fields store `media.id`; alt, caption and focal point live on the media row and are shared by every use.
-interface MediaOptions<V> extends BaseOptions<V> {
-  // Folder preselected when uploading from this field.
-  folder?: string
-}
-export interface ImageField extends MediaOptions<string | null> { kind: 'image', focalPoint?: boolean }
-export interface GalleryField extends MediaOptions<string[]> { kind: 'gallery', min?: number, max?: number }
-export interface FileField extends MediaOptions<string | null> { kind: 'file' }
-export interface RelationField<M extends boolean = boolean> extends BaseOptions<M extends true ? string[] : string | null> {
-  kind: 'relation'
-  to: string
-  multiple: M
-}
 export interface SeoMarkType {
   // Data keys used when the SEO title or description is left empty.
   titleFrom?: string
@@ -110,7 +37,9 @@ export interface SectionMarkType {
   hideable: boolean
 }
 
-export interface GroupField<F extends FieldsRecord = FieldsRecord> extends Omit<BaseOptions<never>, 'default'> {
+type StructuralOptions = Omit<BaseOptions<never>, 'default' | 'component'>
+
+export interface GroupField<F extends FieldsRecord = FieldsRecord> extends StructuralOptions {
   kind: 'group'
   fields: F
   collapsed?: boolean
@@ -119,7 +48,7 @@ export interface GroupField<F extends FieldsRecord = FieldsRecord> extends Omit<
   // A page section: a top-level group of a page() with its own place on the site.
   section?: SectionMarkType
 }
-export interface ListField<F extends FieldsRecord = FieldsRecord> extends Omit<BaseOptions<never>, 'default'> {
+export interface ListField<F extends FieldsRecord = FieldsRecord> extends StructuralOptions {
   kind: 'list'
   fields: F
   min?: number
@@ -136,8 +65,7 @@ export interface BlockDef<F extends FieldsRecord = FieldsRecord> {
   description?: string
   thumbnail?: string
 }
-export interface BlocksField<B extends Record<string, BlockDef> = Record<string, BlockDef>>
-  extends Omit<BaseOptions<never>, 'default'> {
+export interface BlocksField<B extends Record<string, BlockDef> = Record<string, BlockDef>> extends StructuralOptions {
   kind: 'blocks'
   blocks: B
   min?: number
@@ -151,12 +79,9 @@ export interface PanelLayout<F extends FieldsRecord = FieldsRecord> { kind: 'pan
 export interface RowLayout<F extends FieldsRecord = FieldsRecord> { kind: 'row', fields: F }
 export interface NoteLayout { kind: 'note', text: string }
 
-export type DataField =
-  | TextField | TextareaField | EmailField | PhoneField | UrlField | VideoField | SlugField
-  | RichTextField | NumberField | BooleanField | DateField | DatetimeField
-  | SelectField | MultiSelectField | LinkField | ButtonField | OpeningHoursField | RelationField
-  | ImageField | GalleryField | FileField
-  | GroupField | ListField | BlocksField
+export type StructuralField = GroupField | ListField | BlocksField
+
+export type DataField = LeafField | StructuralField
 
 export type LayoutNode = TabLayout | PanelLayout | RowLayout | NoteLayout
 
@@ -167,41 +92,6 @@ export interface FieldsRecord {
 }
 
 type Options<F extends { kind: string }> = Omit<F, 'kind'>
-
-export const text = (options: Options<TextField>): TextField => ({ kind: 'text', ...options })
-export const textarea = (options: Options<TextareaField>): TextareaField => ({ kind: 'textarea', ...options })
-export const email = (options: Options<EmailField>): EmailField => ({ kind: 'email', ...options })
-export const phone = (options: Options<PhoneField>): PhoneField => ({ kind: 'phone', ...options })
-export const url = (options: Options<UrlField>): UrlField => ({ kind: 'url', ...options })
-export const video = (options: Options<VideoField>): VideoField => ({ kind: 'video', ...options })
-export const slug = (options: Options<SlugField>): SlugField => ({ kind: 'slug', ...options })
-export const richText = (options: Options<RichTextField>): RichTextField => ({ kind: 'richText', ...options })
-export const number = (options: Options<NumberField>): NumberField => ({ kind: 'number', ...options })
-export const boolean = (options: Options<BooleanField>): BooleanField => ({ kind: 'boolean', ...options })
-export const date = (options: Options<DateField>): DateField => ({ kind: 'date', ...options })
-export const datetime = (options: Options<DatetimeField>): DatetimeField => ({ kind: 'datetime', ...options })
-export const link = (options: Options<LinkField>): LinkField => ({ kind: 'link', ...options })
-export const openingHours = (options: Options<OpeningHoursField>): OpeningHoursField => ({ kind: 'openingHours', ...options })
-export const image = (options: Options<ImageField>): ImageField => ({ kind: 'image', ...options })
-export const gallery = (options: Options<GalleryField>): GalleryField => ({ kind: 'gallery', ...options })
-export const file = (options: Options<FileField>): FileField => ({ kind: 'file', ...options })
-
-export const select = <const V extends string>(options: Options<SelectField<V>>): SelectField<V> =>
-  ({ kind: 'select', ...options })
-
-export const multiSelect = <const V extends string>(options: Options<MultiSelectField<V>>): MultiSelectField<V> =>
-  ({ kind: 'multiSelect', ...options })
-
-export const button = <const V extends string>(options: Options<ButtonField<V>>): ButtonField<V> =>
-  ({ kind: 'button', ...options })
-
-type RelationOptions = Omit<Options<RelationField>, 'multiple' | 'default'>
-
-export const relation = (options: RelationOptions): RelationField<false> =>
-  ({ kind: 'relation', ...options, multiple: false })
-
-export const relations = (options: RelationOptions): RelationField<true> =>
-  ({ kind: 'relation', ...options, multiple: true })
 
 export const group = <const F extends FieldsRecord>(options: Omit<Options<GroupField<F>>, 'fields'>, fields: F): GroupField<F> =>
   ({ kind: 'group', ...options, fields })
@@ -238,18 +128,20 @@ export const seo = ({ title, description, label = 'Cómo aparece en Google y al 
     help: mark.descriptionFrom ? 'Si la dejás vacía, se usa el resumen.' : undefined,
     default: description ?? ''
   }),
-  image: image({ label: 'Imagen al compartir', folder: 'sitio', help: 'Se ve al compartir el link en WhatsApp o redes. Ideal 1200 × 630 px.' })
+  image: image({ label: 'Imagen al compartir', help: 'Se ve al compartir el link en WhatsApp o redes. Ideal 1200 × 630 px.' })
 })
 
 export const HIDDEN_KEY = '_hidden'
 
-type HiddenFields<H extends boolean> = H extends true ? { _hidden: BooleanField } : unknown
+type HiddenFields<H extends boolean> = H extends true ? { _hidden: ReturnType<typeof hiddenSwitch> } : unknown
 
 interface SectionOptions<H extends boolean> extends Omit<SectionMarkType, 'hideable'> {
   help?: string
   // Adds a "Mostrar esta sección" switch, stored as `_hidden`; the site skips hidden sections.
   hideable?: H
 }
+
+const hiddenSwitch = () => boolean({ label: 'Ocultar esta sección', default: false })
 
 // A group too, so the engine treats a page section like any other nested data.
 export const section = <const F extends FieldsRecord, const H extends boolean = false>(
@@ -261,7 +153,7 @@ export const section = <const F extends FieldsRecord, const H extends boolean = 
   label,
   help,
   section: { ...mark, hideable: !!hideable },
-  fields: (hideable ? { ...fields, [HIDDEN_KEY]: boolean({ label: 'Ocultar esta sección', default: false }) } : fields) as F & HiddenFields<H>
+  fields: (hideable ? { ...fields, [HIDDEN_KEY]: hiddenSwitch() } : fields) as F & HiddenFields<H>
 })
 
 export const tab = <const F extends FieldsRecord>(label: string, fields: F): TabLayout<F> => ({ kind: 'tab', label, fields })
@@ -272,3 +164,17 @@ export const note = (text: string): NoteLayout => ({ kind: 'note', text })
 
 export const isLayout = (node: FieldNode): node is LayoutNode =>
   node.kind === 'tab' || node.kind === 'panel' || node.kind === 'row' || node.kind === 'note'
+
+export const isStructural = (field: DataField): field is StructuralField =>
+  field.kind === 'group' || field.kind === 'list' || field.kind === 'blocks'
+
+export * from './kinds/boolean'
+export * from './kinds/button'
+export * from './kinds/dates'
+export * from './kinds/link'
+export * from './kinds/media'
+export * from './kinds/number'
+export * from './kinds/relation'
+export * from './kinds/richText'
+export * from './kinds/select'
+export * from './kinds/strings'

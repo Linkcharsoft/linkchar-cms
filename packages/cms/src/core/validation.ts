@@ -1,199 +1,101 @@
-import * as Yup from 'yup'
-import { WEEK_DAYS } from './fields'
-import { isEmptyRichText } from './richText/nodes'
-import parseVideoUrl from './video'
+import { fieldDefinition, translatorFor } from './config'
+import { withDefaults } from './defaults'
+import { issue } from './kinds/registry'
+import { isRecord } from './kinds/shared'
 import { dataFields } from './walk'
-import type { DataField, FieldsRecord, LinkField, LinkKindType } from './fields'
-import type { RichTextDocType } from './richText/nodes'
+import type { CmsConfigType } from './config'
+import type { DataField, FieldsRecord } from './fields'
+import type { TranslatorType } from './i18n/types'
+import type { FieldContextType, IssueType, ValidationModeType } from './kinds/registry'
 
-// Drafts are saved as they are (only formats are checked); required fields block publishing instead.
-export type ValidationModeType = 'draft' | 'publish'
+export type { IssueType, ValidationModeType }
 
-const REQUIRED = 'Este campo es obligatorio'
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-const PHONE = /^\+?[\d\s()-]{6,20}$/
-const SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
-const TIME = /^([01]\d|2[0-3]):[0-5]\d$/
-const HTTP_URL = /^https?:\/\/[^\s/]+\.[^\s]+$/i
-const LINK_KINDS: LinkKindType[] = ['internal', 'external', 'email', 'tel', 'anchor']
-
-const isValidDate = (value: string | null | undefined) => !value || !Number.isNaN(Date.parse(value))
-
-const LINK_RULES: Record<LinkKindType, [RegExp, string]> = {
-  internal: [/^\/(?!\/)\S*$/, 'Los links internos empiezan con /'],
-  external: [HTTP_URL, 'Ingresá una URL que empiece con https://'],
-  email: [/^[^\s@]+@[^\s@]+\.[^\s@]+$/, 'Ingresá un email válido'],
-  tel: [PHONE, 'Ingresá un teléfono válido'],
-  anchor: [/^#[\w-]+$/, 'Las anclas empiezan con #']
+interface WalkContextType extends FieldContextType {
+  mode: ValidationModeType
 }
 
-const linkSchema = (field: Pick<LinkField, 'allow'>, required: boolean) => Yup.object({
-  type: Yup.mixed<LinkKindType>().oneOf(field.allow ?? LINK_KINDS, 'Tipo de link inválido').defined(),
-  href: Yup.string().defined().test('href', function (href) {
-    if (!href) return required ? this.createError({ message: REQUIRED }) : true
-    const [pattern, message] = LINK_RULES[this.parent.type as LinkKindType] ?? LINK_RULES.external
-    return pattern.test(href) || this.createError({ message })
-  }),
-  newTab: Yup.boolean().defined()
-})
+const join = (path: string, inner: string) => (inner ? `${path}.${inner}` : path)
 
-const stringSchema = (field: Extract<DataField, { maxLength?: number }>, required: boolean) => {
-  let schema = Yup.string().defined()
+const at = (path: string, issues: IssueType[]) => issues.map(found => ({ ...found, path: join(path, found.path) }))
 
-  if (field.maxLength) schema = schema.max(field.maxLength, `Usá hasta ${field.maxLength} caracteres`)
-  if (field.pattern) {
-    schema = schema.matches(field.pattern, { message: field.patternMessage ?? 'Formato inválido', excludeEmptyString: true })
-  }
-
-  if (field.kind === 'email') schema = schema.email('Ingresá un email válido')
-  if (field.kind === 'url') schema = schema.matches(HTTP_URL, { message: 'Ingresá una URL que empiece con https://', excludeEmptyString: true })
-  if (field.kind === 'phone') schema = schema.matches(PHONE, { message: 'Ingresá un teléfono válido', excludeEmptyString: true })
-  if (field.kind === 'slug') schema = schema.matches(SLUG, { message: 'Usá minúsculas, números y guiones', excludeEmptyString: true })
-  if (field.kind === 'video') schema = schema.test('video', 'Pegá un link de YouTube o Vimeo', v => !v || !!parseVideoUrl(v))
-
-  return required ? schema.required(REQUIRED) : schema
+const countIssues = (count: number, min: number | undefined, max: number | undefined, ctx: WalkContextType, codes: [string, string], required: boolean) => {
+  if (max !== undefined && count > max) return [issue(codes[0], { max })]
+  const atLeast = min ?? (required ? 1 : 0)
+  return ctx.mode === 'publish' && count < atLeast ? [issue(codes[1], { min: atLeast, count: atLeast })] : []
 }
 
-const fieldSchema = (field: DataField, mode: ValidationModeType): Yup.AnySchema => {
-  const required = mode === 'publish' && !!field.required
+const itemsIssues = (value: unknown, path: string, ctx: WalkContextType, check: (item: Record<string, unknown>, index: number) => IssueType[]) => {
+  if (value === undefined || value === null) return { items: [] as unknown[], issues: [] as IssueType[] }
+  if (!Array.isArray(value)) return { items: [] as unknown[], issues: [{ ...issue('invalid'), path }] }
+  const issues = value.flatMap((item, index) => {
+    const itemPath = `${path}.${index}`
+    if (!isRecord(item) || typeof item._key !== 'string' || !item._key) return [{ ...issue('invalid'), path: itemPath }]
+    return check(item, index)
+  })
+  return { items: value, issues }
+}
+
+const fieldIssues = (field: DataField, value: unknown, path: string, ctx: WalkContextType): IssueType[] => {
+  const required = !!field.required
 
   switch (field.kind) {
-    case 'text':
-    case 'textarea':
-    case 'email':
-    case 'phone':
-    case 'url':
-    case 'video':
-    case 'slug':
-      return stringSchema(field, required)
-
-    case 'richText': {
-      const schema = Yup.mixed<RichTextDocType>().nullable()
-        .test('doc', 'Contenido inválido', v => v == null || (typeof v === 'object' && v.type === 'doc'))
-      return required ? schema.test('required', REQUIRED, v => !isEmptyRichText(v)) : schema
-    }
-
-    case 'number': {
-      let schema = Yup.number().nullable().typeError('Ingresá un número')
-      if (field.min !== undefined) schema = schema.min(field.min, `El mínimo es ${field.min}`)
-      if (field.max !== undefined) schema = schema.max(field.max, `El máximo es ${field.max}`)
-      return required ? schema.required(REQUIRED) : schema
-    }
-
-    case 'boolean':
-      return Yup.boolean().defined()
-
-    case 'date':
-    case 'datetime': {
-      const schema = Yup.string().nullable().test('date', 'Fecha inválida', isValidDate)
-      return required ? schema.required(REQUIRED) : schema
-    }
-
-    case 'select': {
-      const schema = Yup.string().nullable().oneOf([...field.options.map(o => o.value), null], 'Elegí una opción válida')
-      return required ? schema.required(REQUIRED) : schema
-    }
-
-    case 'multiSelect': {
-      let schema = Yup.array(Yup.string().oneOf(field.options.map(o => o.value), 'Elegí una opción válida').defined()).defined()
-      if (field.max !== undefined) schema = schema.max(field.max, `Elegí hasta ${field.max}`)
-      const min = field.min ?? (required ? 1 : 0)
-      return mode === 'publish' && min > 0 ? schema.min(min, min === 1 ? REQUIRED : `Elegí al menos ${min}`) : schema
-    }
-
-    case 'link':
-      return linkSchema(field, required)
-
-    case 'button':
-      return Yup.object({
-        label: Yup.string().defined().max(40, 'Usá hasta 40 caracteres').test('label', REQUIRED, v => !required || !!v?.trim()),
-        link: linkSchema({}, required),
-        variant: Yup.string().oneOf(field.variants.map(v => v.value), 'Variante inválida').defined()
-      })
-
-    case 'openingHours':
-      return Yup.object({
-        days: Yup.array(Yup.object({
-          day: Yup.mixed().oneOf([...WEEK_DAYS]).defined(),
-          closed: Yup.boolean().defined(),
-          from: Yup.string().defined().matches(TIME, { message: 'Usá el formato HH:MM', excludeEmptyString: true }),
-          to: Yup.string().defined().matches(TIME, { message: 'Usá el formato HH:MM', excludeEmptyString: true })
-            .test('order', 'El cierre tiene que ser posterior a la apertura', function (to) {
-              const { from } = this.parent
-              return !from || !to || from < to
-            })
-        })).defined(),
-        note: Yup.string().defined().max(200, 'Usá hasta 200 caracteres')
-      })
-
-    case 'image':
-    case 'file': {
-      const schema = Yup.string().matches(UUID, 'Archivo inválido').nullable()
-      return required ? schema.required(REQUIRED) : schema
-    }
-
-    case 'gallery': {
-      let schema = Yup.array(Yup.string().matches(UUID, 'Archivo inválido').defined()).defined()
-      if (field.max !== undefined) schema = schema.max(field.max, `Podés elegir hasta ${field.max} imágenes`)
-      const min = field.min ?? (required ? 1 : 0)
-      return mode === 'publish' && min > 0 ? schema.min(min, min === 1 ? REQUIRED : `Elegí al menos ${min} imágenes`) : schema
-    }
-
-    case 'relation': {
-      const id = Yup.string().matches(UUID, 'Referencia inválida')
-      if (field.multiple) {
-        const schema = Yup.array(id.defined()).defined()
-        return required ? schema.min(1, REQUIRED) : schema
-      }
-      const schema = id.nullable()
-      return required ? schema.required(REQUIRED) : schema
-    }
-
     case 'group':
-      return objectSchema(field.fields, mode)
+      if (value !== undefined && value !== null && !isRecord(value)) return [{ ...issue('invalid'), path }]
+      return walk(field.fields, value, path, ctx)
 
     case 'list': {
-      let schema = Yup.array(objectSchema(field.fields, mode).shape({ _key: Yup.string().required() })).defined()
-      if (field.max !== undefined) schema = schema.max(field.max, `Podés cargar hasta ${field.max}`)
-      const min = field.min ?? (required ? 1 : 0)
-      return mode === 'publish' && min > 0 ? schema.min(min, `Cargá al menos ${min}`) : schema
+      const { items, issues } = itemsIssues(value, path, ctx, (item, index) => walk(field.fields, item, `${path}.${index}`, ctx))
+      return [...at(path, countIssues(items.length, field.min, field.max, ctx, ['maxItems', 'minItems'], required)), ...issues]
     }
 
     case 'blocks': {
-      const item = Yup.lazy((value: { _type?: string } | undefined) => {
-        const block = value?._type ? field.blocks[value._type] : undefined
-        if (!block) return Yup.mixed().test('block', 'Tipo de bloque desconocido', () => false)
-        return objectSchema(block.fields, mode).shape({ _key: Yup.string().required(), _type: Yup.string().required() })
+      const { items, issues } = itemsIssues(value, path, ctx, (item, index) => {
+        const type = typeof item._type === 'string' ? item._type : ''
+        if (!Object.hasOwn(field.blocks, type)) return [{ ...issue('blockType'), path: `${path}.${index}` }]
+        return walk(field.blocks[type].fields, item, `${path}.${index}`, ctx)
       })
-      let schema = Yup.array(item).defined()
-      if (field.max !== undefined) schema = schema.max(field.max, `Podés cargar hasta ${field.max} bloques`)
-      const min = field.min ?? (required ? 1 : 0)
-      return mode === 'publish' && min > 0 ? schema.min(min, `Cargá al menos ${min} bloque${min > 1 ? 's' : ''}`) : schema
+      return [...at(path, countIssues(items.length, field.min, field.max, ctx, ['maxBlocks', 'minBlocks'], required)), ...issues]
+    }
+
+    default: {
+      const definition = fieldDefinition(ctx.config, field.kind)
+      const current = value === undefined ? definition.defaultValue(field) : value
+      return at(path, definition.validate(current, field, { ...ctx, required: ctx.mode === 'publish' && required }))
     }
   }
 }
 
-const objectSchema = (fields: FieldsRecord, mode: ValidationModeType) =>
-  Yup.object(Object.fromEntries(dataFields(fields).map(([key, field]) => [key, fieldSchema(field, mode)])))
+const walk = (fields: FieldsRecord, data: unknown, path: string, ctx: WalkContextType): IssueType[] => {
+  const source = isRecord(data) ? data : {}
+  return dataFields(fields).flatMap(([key, field]) => fieldIssues(field, source[key], path ? `${path}.${key}` : key, ctx))
+}
 
-export const buildYupSchema = (fields: FieldsRecord, mode: ValidationModeType = 'draft') => objectSchema(fields, mode)
+// Every problem in a document, with full data paths ("hero.items.2.title").
+export const validateFields = (config: CmsConfigType, fields: FieldsRecord, data: unknown, mode: ValidationModeType = 'draft'): IssueType[] =>
+  walk(fields, data, '', { config, t: translatorFor(config).t, mode })
 
-// Yup reports array paths as items[0].title; the form and the labels use items.0.title.
-export const normalizePath = (path: string) => path.replace(/\[(\d+)\]/g, '.$1')
+export const issueMessage = (found: IssueType, translator: TranslatorType): string =>
+  found.message ?? translator.translate(`validation.${found.code}`, found.params)
 
 export type ContentErrorsType = Record<string, string>
 
-export const validateContent = async (fields: FieldsRecord, data: unknown, mode: ValidationModeType = 'draft') => {
-  try {
-    const value = await buildYupSchema(fields, mode).validate(data, { abortEarly: false, stripUnknown: true })
-    return { value: value as Record<string, unknown>, errors: null }
-  } catch (error) {
-    if (!(error instanceof Yup.ValidationError)) throw error
-    const errors: ContentErrorsType = {}
-    for (const inner of error.inner.length ? error.inner : [error]) {
-      const path = normalizePath(inner.path ?? '')
-      errors[path] ??= inner.message
-    }
-    return { value: null, errors }
-  }
+// One message per path, the first one found, as the form shows them.
+export const issuesToErrors = (issues: IssueType[], translator: TranslatorType): ContentErrorsType => {
+  const errors: ContentErrorsType = {}
+  for (const found of issues) errors[found.path] ??= issueMessage(found, translator)
+  return errors
+}
+
+interface ValidateOptionsType {
+  mode?: ValidationModeType
+  // Language of the messages; the panel's by default.
+  locale?: string
+}
+
+// Drafts are saved as they are (only formats are checked); required fields block publishing instead.
+// On success `value` is the content repaired and without unknown keys, ready to store.
+export const validateContent = async (config: CmsConfigType, fields: FieldsRecord, data: unknown, { mode = 'draft', locale }: ValidateOptionsType = {}) => {
+  const issues = validateFields(config, fields, data, mode)
+  if (issues.length > 0) return { value: null, errors: issuesToErrors(issues, translatorFor(config, locale)) }
+  return { value: withDefaults(config, fields, data) as Record<string, unknown>, errors: null }
 }

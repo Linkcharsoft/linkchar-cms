@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { block, blocks, file, gallery, group, image, list, relation, relations, tab, text } from '../fields'
 import { documentReferences } from '../references'
+import { config } from './helpers'
 
 const fields = {
   main: tab('Main', { category: relation({ label: 'Categoría', to: 'categories' }), cover: image({ label: 'Portada' }) }),
@@ -16,7 +17,7 @@ const fields = {
 
 describe('documentReferences', () => {
   it('collects relations and media from every nesting level without duplicates', () => {
-    expect(documentReferences(fields, {
+    expect(documentReferences(config, fields, {
       category: 'c1',
       cover: 'm1',
       tags: ['t1', 't2', 'c1'],
@@ -32,7 +33,7 @@ describe('documentReferences', () => {
   })
 
   it('ignores empty or malformed data', () => {
-    expect(documentReferences(fields, null)).toEqual({ relations: [], media: [] })
-    expect(documentReferences(fields, { category: '', tags: 'nope', items: 'x', cover: 3 })).toEqual({ relations: [], media: [] })
+    expect(documentReferences(config, fields, null)).toEqual({ relations: [], media: [] })
+    expect(documentReferences(config, fields, { category: '', tags: 'nope', items: 'x', cover: 3 })).toEqual({ relations: [], media: [] })
   })
 })

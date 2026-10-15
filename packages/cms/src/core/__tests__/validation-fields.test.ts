@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { buildDefaults } from '../defaults'
 import { block, blocks, button, date, datetime, group, number, phone, select, text } from '../fields'
 import { validateContent } from '../validation'
+import { config } from './helpers'
 
 const fields = {
   minutes: number({ label: 'Minutos', min: 1, max: 60 }),
@@ -15,18 +16,18 @@ const fields = {
 }
 
 const base = () => ({
-  ...buildDefaults(fields),
+  ...buildDefaults(config, fields),
   cta: { label: 'Turnos', link: { type: 'internal', href: '/turnos', newTab: false }, variant: 'primary' },
   extra: { note: 'Hola' },
   sections: [{ _key: 'b1', _type: 'texto', body: 'Algo' }]
 })
 
 const errorsFor = async (patch: Record<string, unknown>, mode: 'draft' | 'publish' = 'publish') =>
-  (await validateContent(fields, { ...base(), ...patch }, mode)).errors ?? {}
+  (await validateContent(config, fields, { ...base(), ...patch }, { mode })).errors ?? {}
 
 describe('validateContent field kinds', () => {
   it('accepts a complete document', async () => {
-    expect((await validateContent(fields, base(), 'publish')).errors).toBeNull()
+    expect((await validateContent(config, fields, base(), { mode: 'publish' })).errors).toBeNull()
   })
 
   it('checks number ranges and types', async () => {

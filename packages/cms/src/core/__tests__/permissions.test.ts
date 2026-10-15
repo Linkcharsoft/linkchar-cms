@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { group, row, tab, text } from '../fields'
 import { keepSuperadminFields, visibleFields } from '../permissions'
 import { dataFields } from '../walk'
+import { config } from './helpers'
 
 const fields = {
   general: tab('General', {
@@ -17,7 +18,7 @@ const fields = {
 
 describe('keepSuperadminFields', () => {
   it('replaces superadminOnly values with the stored ones, also inside groups', () => {
-    const result = keepSuperadminFields(
+    const result = keepSuperadminFields(config,
       fields,
       { title: 'Nuevo', anchor: 'hackeado', meta: { badge: 'B', tracking: 'hackeado' }, secret: 'hackeado' },
       { title: 'Viejo', anchor: 'servicios', meta: { badge: 'A', tracking: 'UA-1' }, secret: 's3' }
@@ -27,7 +28,7 @@ describe('keepSuperadminFields', () => {
   })
 
   it('falls back to the field default when nothing was stored yet', () => {
-    const result = keepSuperadminFields(fields, { title: 'x', anchor: 'hackeado', meta: { badge: '' }, secret: 'y' }, null)
+    const result = keepSuperadminFields(config, fields, { title: 'x', anchor: 'hackeado', meta: { badge: '' }, secret: 'y' }, null)
     expect(result).toMatchObject({ anchor: 'inicio', secret: '' })
   })
 })

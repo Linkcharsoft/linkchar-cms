@@ -1,8 +1,10 @@
 import { createTranslator } from './i18n/translator'
+import { BUILTIN_FIELDS } from './kinds/builtins'
 import { dataFields } from './walk'
 import type { ContentSchema, EntryValues } from './define'
 import type { DataField, FieldsRecord } from './fields'
 import type { MessageOverridesType, TranslatorType } from './i18n/types'
+import type { FieldDefinitionType } from './kinds/registry'
 
 export interface MediaFolderType {
   value: string
@@ -38,6 +40,8 @@ export interface CmsConfigInputType<S extends ContentSchema, L extends string> {
   mediaFolders?: readonly MediaFolderType[]
   publishTarget?: PublishTargetType
   extensions?: readonly CmsExtensionType[]
+  // Opt-in kinds (openingHours) and the project's own, made with defineField.
+  fields?: readonly FieldDefinitionType[]
   messages?: MessageOverridesType
 }
 
@@ -52,6 +56,7 @@ export interface CmsConfigType<S extends ContentSchema = ContentSchema, L extend
   mediaFolders: readonly MediaFolderType[]
   publishTarget: PublishTargetType | null
   extensions: readonly CmsExtensionType[]
+  fieldTypes: ReadonlyMap<string, FieldDefinitionType>
   messages: MessageOverridesType
 }
 
@@ -70,23 +75,30 @@ const nestedFields = (field: DataField): FieldsRecord[] => {
   return []
 }
 
-const checkFields = (schema: ContentSchema, fields: FieldsRecord, where: string) => {
+type FieldTypesMap = ReadonlyMap<string, FieldDefinitionType>
+
+const isStructuralKind = (kind: string) => kind === 'group' || kind === 'list' || kind === 'blocks'
+
+const checkFields = (schema: ContentSchema, types: FieldTypesMap, fields: FieldsRecord, where: string) => {
   const keys = dataFields(fields).map(([key]) => key)
   for (const [key, field] of dataFields(fields)) {
     const path = `${where}.${key}`
+    if (!isStructuralKind(field.kind) && !types.has(field.kind)) {
+      throw new CmsConfigError(`${path} uses the field kind "${field.kind}", which is not registered: add it to \`fields\`.`)
+    }
     if (field.kind === 'relation' && schema[field.to]?.kind !== 'collection') {
       throw new CmsConfigError(`${path} points to "${field.to}", which is not a collection.`)
     }
     if (field.kind === 'slug' && !keys.includes(field.from)) {
       throw new CmsConfigError(`${path} is generated from "${field.from}", which is not a field next to it.`)
     }
-    nestedFields(field).forEach(inner => checkFields(schema, inner, path))
+    nestedFields(field).forEach(inner => checkFields(schema, types, inner, path))
   }
 }
 
-const checkSchema = (schema: ContentSchema) => {
+const checkSchema = (schema: ContentSchema, types: FieldTypesMap) => {
   for (const [id, entry] of Object.entries(schema)) {
-    checkFields(schema, entry.fields, id)
+    checkFields(schema, types, entry.fields, id)
     if (entry.kind !== 'collection') continue
     const keys = dataFields(entry.fields).map(([key]) => key)
     if (!keys.includes(entry.titleField)) throw new CmsConfigError(`${id}.titleField "${entry.titleField}" is not one of its fields.`)
@@ -108,7 +120,12 @@ export const defineCmsConfig = <const S extends ContentSchema, const L extends s
   if (invalid) throw new CmsConfigError(`"${invalid}" is not a locale code like "es" or "pt-BR".`)
   if (!locales.includes(defaultLocale)) throw new CmsConfigError(`defaultLocale "${defaultLocale}" is not in locales.`)
   if (!/^\/[\w-]+(\/[\w-]+)*$/.test(basePath)) throw new CmsConfigError(`basePath "${basePath}" must start with / and have no trailing slash.`)
-  checkSchema(input.schema)
+  const fieldTypes = new Map<string, FieldDefinitionType>()
+  for (const definition of [...BUILTIN_FIELDS, ...(input.fields ?? [])]) {
+    if (fieldTypes.has(definition.kind) || isStructuralKind(definition.kind)) throw new CmsConfigError(`The field kind "${definition.kind}" is defined twice.`)
+    fieldTypes.set(definition.kind, definition)
+  }
+  checkSchema(input.schema, fieldTypes)
 
   return Object.freeze({
     schema: input.schema,
@@ -121,8 +138,15 @@ export const defineCmsConfig = <const S extends ContentSchema, const L extends s
     mediaFolders: input.mediaFolders ?? [],
     publishTarget: input.publishTarget ?? null,
     extensions: input.extensions ?? [],
+    fieldTypes,
     messages: input.messages ?? {}
   })
+}
+
+export const fieldDefinition = (config: CmsConfigType, kind: string): FieldDefinitionType => {
+  const definition = config.fieldTypes.get(kind)
+  if (!definition) throw new CmsConfigError(`The field kind "${kind}" is not registered: add it to \`fields\`.`)
+  return definition
 }
 
 const translators = new WeakMap<CmsConfigType, Map<string, TranslatorType>>()
@@ -140,7 +164,6 @@ export const translatorFor = (config: CmsConfigType, locale = config.panelLocale
 
 // Projects register their config so the package types follow their schema:
 // declare module '@linkcharsoft/cms/core' { interface Register { config: typeof cmsConfig } }
-// eslint-disable-next-line @typescript-eslint/no-empty-object-type
 export interface Register {}
 
 export type RegisteredConfigType = Register extends { config: infer C extends CmsConfigType } ? C : CmsConfigType

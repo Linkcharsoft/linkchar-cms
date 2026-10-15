@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { section, text } from '../fields'
 import { changedSections, countBySection, sectionSummary } from '../pages'
+import { config } from './helpers'
 
 describe('sectionSummary', () => {
   it('prefers the title and falls back to the first filled-in text', () => {
@@ -27,7 +28,7 @@ describe('changedSections', () => {
     }
     const published = { hero: { title: 'Hola' }, contacto: { title: 'Contacto' } }
     const draft = { ...published, hero: { title: 'Chau' }, porque: { _hidden: true } }
-    expect(changedSections(fields, draft, published).map(({ key }) => key)).toEqual(['hero', 'porque'])
-    expect(changedSections(fields, published, published)).toEqual([])
+    expect(changedSections(config, fields, draft, published).map(({ key }) => key)).toEqual(['hero', 'porque'])
+    expect(changedSections(config, fields, published, published)).toEqual([])
   })
 })

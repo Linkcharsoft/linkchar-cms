@@ -3,8 +3,9 @@ import { buildDefaults } from '../defaults'
 import { collection, defineSchema, page, singleton } from '../define'
 import { block, blocks, button, group, list, note, panel, relation, relations, richText, row, section, select, slug, tab, text } from '../fields'
 import { isSectionHidden, pageSections } from '../pages'
-import { buildYupSchema } from '../validation'
+import { validateContent } from '../validation'
 import { dataFields, fieldLabel } from '../walk'
+import { config } from './helpers'
 import type { EntryValues } from '../define'
 import type { ButtonValueType } from '../fields'
 import type { RichTextDocType } from '../richText/nodes'
@@ -85,7 +86,7 @@ describe('page', () => {
   it('adds a trailing SEO section only to pages with a path', () => {
     expect(Object.keys(schema.home.fields)).toEqual(['hero', 'obras', 'extra', 'seo'])
     expect(schema.home.fields.seo).toMatchObject({ kind: 'group', seo: { path: '/' }, section: { hideable: false } })
-    expect(buildDefaults(schema.home.fields).seo.title).toBe('Inicio')
+    expect(buildDefaults(config, schema.home.fields).seo.title).toBe('Inicio')
     expect(Object.keys(schema.notFound.fields)).toEqual(['content'])
   })
 
@@ -100,7 +101,7 @@ describe('page', () => {
   })
 
   it('gives hideable sections a visible-by-default switch', () => {
-    const defaults = buildDefaults(schema.home.fields)
+    const defaults = buildDefaults(config, schema.home.fields)
     expect(defaults.obras._hidden).toBe(false)
     expect('_hidden' in defaults.hero).toBe(false)
     expect(isSectionHidden({ ...defaults.obras, _hidden: true })).toBe(true)
@@ -108,10 +109,10 @@ describe('page', () => {
   })
 
   it('validates nested section fields', async () => {
-    const data = buildDefaults(schema.home.fields)
-    await expect(buildYupSchema(schema.home.fields, 'publish').validate(data)).rejects.toThrow('obligatorio')
+    const data = buildDefaults(config, schema.home.fields)
+    expect((await validateContent(config, schema.home.fields, data, { mode: 'publish' })).errors).toEqual({ 'hero.title': 'Este campo es obligatorio' })
     data.hero.title = 'Hola'
-    await expect(buildYupSchema(schema.home.fields, 'publish').validate(data)).resolves.toBeTruthy()
+    expect((await validateContent(config, schema.home.fields, data, { mode: 'publish' })).errors).toBeNull()
   })
 })
 

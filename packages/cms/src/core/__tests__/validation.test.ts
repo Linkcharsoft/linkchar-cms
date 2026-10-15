@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import { buildDefaults } from '../defaults'
-import { block, blocks, button, email, file, gallery, image, link, list, multiSelect, openingHours, relation, richText, slug, tab, text, url, video } from '../fields'
+import { block, blocks, button, email, file, gallery, image, link, list, multiSelect, relation, richText, slug, tab, text, url, video } from '../fields'
+import { openingHours } from '../kinds/openingHours'
 import { validateContent } from '../validation'
+import { config } from './helpers'
 
 const fields = {
   general: tab('General', {
@@ -22,7 +24,7 @@ const fields = {
 }
 
 const valid = () => ({
-  ...buildDefaults(fields),
+  ...buildDefaults(config, fields),
   title: 'Hola',
   body: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Algo' }] }] },
   items: [{ _key: 'k1', name: 'Psicología' }]
@@ -30,11 +32,11 @@ const valid = () => ({
 
 describe('validateContent', () => {
   it('saves an empty draft but blocks publishing until required fields are filled', async () => {
-    const empty = buildDefaults(fields)
+    const empty = buildDefaults(config, fields)
 
-    expect((await validateContent(fields, empty, 'draft')).errors).toBeNull()
+    expect((await validateContent(config, fields, empty, { mode: 'draft' })).errors).toBeNull()
 
-    const { errors } = await validateContent(fields, empty, 'publish')
+    const { errors } = await validateContent(config, fields, empty, { mode: 'publish' })
     expect(errors).toMatchObject({
       title: 'Este campo es obligatorio',
       body: 'Este campo es obligatorio',
@@ -43,11 +45,11 @@ describe('validateContent', () => {
   })
 
   it('accepts complete content in publish mode', async () => {
-    expect((await validateContent(fields, valid(), 'publish')).errors).toBeNull()
+    expect((await validateContent(config, fields, valid(), { mode: 'publish' })).errors).toBeNull()
   })
 
   it('checks formats in draft mode too', async () => {
-    const { errors } = await validateContent(fields, {
+    const { errors } = await validateContent(config, fields, {
       ...valid(),
       title: 'Demasiado largo',
       slug: 'Con Espacios',
@@ -57,7 +59,7 @@ describe('validateContent', () => {
       areas: ['z'],
       category: 'no-uuid',
       more: { type: 'internal', href: 'https://externo.com', newTab: false }
-    }, 'draft')
+    }, { mode: 'draft' })
 
     expect(errors).toMatchObject({
       title: 'Usá hasta 10 caracteres',
@@ -72,23 +74,23 @@ describe('validateContent', () => {
   })
 
   it('enforces list max always and reports nested paths', async () => {
-    const { errors } = await validateContent(fields, {
+    const { errors } = await validateContent(config, fields, {
       ...valid(),
       items: [{ _key: 'a', name: 'x' }, { _key: 'b', name: '' }, { _key: 'c', name: 'z' }]
-    }, 'publish')
+    }, { mode: 'publish' })
 
     expect(errors).toMatchObject({ items: 'Podés cargar hasta 2', 'items.1.name': 'Este campo es obligatorio' })
   })
 
   it('rejects unknown block types and bad opening hours', async () => {
-    const hours = buildDefaults(fields).hours
-    hours.days[0] = { day: 'lunes', closed: false, from: '18:00', to: '09:00' }
+    const hours = buildDefaults(config, fields).hours
+    hours.days[0] = { day: 'mon', closed: false, from: '18:00', to: '09:00' }
 
-    const { errors } = await validateContent(fields, {
+    const { errors } = await validateContent(config, fields, {
       ...valid(),
       hours,
       content: [{ _key: 'b1', _type: 'video-raro' }]
-    }, 'draft')
+    }, { mode: 'draft' })
 
     expect(errors).toMatchObject({
       'hours.days.0.to': 'El cierre tiene que ser posterior a la apertura',
@@ -105,7 +107,7 @@ describe('validateContent', () => {
         { type: 'video', attrs: { src: 'https://vimeo.com/1' } }
       ]
     }
-    const { value } = await validateContent(fields, { ...valid(), body })
+    const { value } = await validateContent(config, fields, { ...valid(), body })
     expect(value?.body).toEqual(body)
   })
 
@@ -117,12 +119,12 @@ describe('validateContent', () => {
     }
     const id = () => crypto.randomUUID()
 
-    expect((await validateContent(media, { cover: null, photos: [], pdf: null }, 'draft')).errors).toBeNull()
-    expect((await validateContent(media, { cover: null, photos: [id()], pdf: null }, 'publish')).errors).toMatchObject({
+    expect((await validateContent(config, media, { cover: null, photos: [], pdf: null }, { mode: 'draft' })).errors).toBeNull()
+    expect((await validateContent(config, media, { cover: null, photos: [id()], pdf: null }, { mode: 'publish' })).errors).toMatchObject({
       cover: 'Este campo es obligatorio',
       photos: 'Elegí al menos 2 imágenes'
     })
-    expect((await validateContent(media, { cover: 'x', photos: [id(), id(), id(), id()], pdf: 'y' }, 'draft')).errors).toMatchObject({
+    expect((await validateContent(config, media, { cover: 'x', photos: [id(), id(), id(), id()], pdf: 'y' }, { mode: 'draft' })).errors).toMatchObject({
       cover: 'Archivo inválido',
       photos: 'Podés elegir hasta 3 imágenes',
       pdf: 'Archivo inválido'
@@ -130,7 +132,7 @@ describe('validateContent', () => {
   })
 
   it('strips keys that are not in the schema', async () => {
-    const { value } = await validateContent(fields, { ...valid(), hacked: true, items: [{ _key: 'k', name: 'x', extra: 1 }] })
+    const { value } = await validateContent(config, fields, { ...valid(), hacked: true, items: [{ _key: 'k', name: 'x', extra: 1 }] })
 
     expect(value).not.toHaveProperty('hacked')
     expect(value?.items).toEqual([{ _key: 'k', name: 'x' }])
