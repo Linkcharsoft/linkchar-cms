@@ -36,7 +36,7 @@ const ESLintConfig = [
     settings: {
       react: { version: '19' },
       'import/resolver': {
-        typescript: { project: ['packages/*/tsconfig.json', 'apps/*/tsconfig.json'] }
+        typescript: { project: ['packages/*/tsconfig.json', 'apps/*/tsconfig.json'], noWarnOnMultipleProjects: true }
       }
     },
     rules: {
@@ -85,6 +85,7 @@ const ESLintConfig = [
   {
     files: ['apps/**/*.{ts,tsx}'],
     plugins: { '@next/next': nextPlugin },
+    settings: { next: { rootDir: 'apps/*/' } },
     rules: {
       ...nextPlugin.configs.recommended.rules,
       ...nextPlugin.configs['core-web-vitals'].rules
