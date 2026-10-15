@@ -13,7 +13,7 @@
     "test": "pnpm -r test",
     "verify": "pnpm run lint-check && pnpm run type-check && pnpm run test",
     "changeset": "changeset",
-    "release": "changeset publish"
+    "release": "changeset publish && git push origin --tags"
   },
   "devDependencies": {
     "@changesets/cli": "3.0.3",

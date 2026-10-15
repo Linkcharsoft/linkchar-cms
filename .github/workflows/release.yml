@@ -26,6 +26,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm verify
       # With pending changesets it opens the version PR; once that is merged, it publishes the new version.
+      # `pnpm release` pushes the version tags itself: changesets/action@v1 misses the tags changesets 3 creates.
       - uses: changesets/action@v1
         with:
           version: pnpm changeset version
