@@ -3,8 +3,18 @@ import { image } from './kinds/media'
 import { textarea, text } from './kinds/strings'
 import { msg } from './text'
 import type { ValuesOf } from './infer'
-import type { FieldInputLoaderType, LeafField } from './kinds/registry'
+import type { FieldInputLoaderType, LeafField, ValidationModeType } from './kinds/registry'
 import type { TextType } from './text'
+
+export interface FieldCheckContextType {
+  mode: ValidationModeType
+  // The whole document and the record that holds this field (siblings), as sent.
+  document: Record<string, unknown>
+  parent: Record<string, unknown>
+}
+
+// A project rule on top of the kind's own: returns the problem, or nothing when the value is fine.
+export type FieldValidatorType<V> = (value: V, ctx: FieldCheckContextType) => TextType | null | undefined | Promise<TextType | null | undefined>
 
 export interface BaseOptions<V> {
   label: TextType
@@ -13,6 +23,8 @@ export interface BaseOptions<V> {
   default?: V
   // Technical fields hidden from clients (only superadmin sees and edits them).
   superadminOnly?: boolean
+  // Runs only when the value passes the kind's rules.
+  validate?: FieldValidatorType<V>
   // Replaces the kind's input in the panel for this field only.
   component?: FieldInputLoaderType
 }
@@ -39,7 +51,7 @@ export interface SectionMarkType {
   hideable: boolean
 }
 
-type StructuralOptions = Omit<BaseOptions<never>, 'default' | 'component'>
+type StructuralOptions = Omit<BaseOptions<never>, 'default' | 'component' | 'validate'> & { validate?: FieldValidatorType<unknown> }
 
 export interface GroupField<F extends FieldsRecord = FieldsRecord> extends StructuralOptions {
   kind: 'group'

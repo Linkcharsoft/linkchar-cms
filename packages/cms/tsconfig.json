@@ -4,7 +4,7 @@
     "types": ["node"],
     "paths": {
       "@linkcharsoft/cms/core": ["./src/core/index.ts"],
-      "@linkcharsoft/cms/core/*": ["./src/core/*"],
+      "@linkcharsoft/cms/core/opening-hours": ["./src/core/kinds/openingHours.ts"],
       "@playground/*": ["../../apps/playground/src/*"]
     }
   },

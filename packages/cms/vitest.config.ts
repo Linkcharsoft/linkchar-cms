@@ -5,7 +5,7 @@ export default defineConfig({
   resolve: {
     alias: [
       { find: /^@linkcharsoft\/cms\/core$/, replacement: fileURLToPath(new URL('./src/core/index.ts', import.meta.url)) },
-      { find: /^@linkcharsoft\/cms\/core\/(.*)$/, replacement: fileURLToPath(new URL('./src/core/$1', import.meta.url)) },
+      { find: /^@linkcharsoft\/cms\/core\/opening-hours$/, replacement: fileURLToPath(new URL('./src/core/kinds/openingHours.ts', import.meta.url)) },
       { find: /^@playground\/(.*)$/, replacement: fileURLToPath(new URL('../../apps/playground/src/$1', import.meta.url)) }
     ]
   },

@@ -83,3 +83,36 @@ describe('defineField', () => {
     rating({ label: 'Puntaje' })
   })
 })
+
+describe('field options', () => {
+  const schema = {
+    event: singleton('Evento', {
+      starts: text({ label: 'Empieza' }),
+      ends: text({
+        label: 'Termina',
+        validate: (value, { parent }) => (value && value < String(parent.starts) ? { es: 'Tiene que ser después del inicio', en: 'Must be after the start' } : null)
+      }),
+      code: text({ label: 'Código', maxLength: 4, validate: async value => (value === 'USED' ? 'Ya existe' : null) }),
+      notes: text({ label: 'Notas', component: () => import('./fixtures/NotesInput') })
+    })
+  }
+  const config = defineCmsConfig({ schema })
+
+  it('runs project validators after the kind rules, async ones too', async () => {
+    const fields = schema.event.fields
+    expect((await validateContent(config, fields, { starts: '2026-10', ends: '2026-01' })).errors).toEqual({ ends: 'Tiene que ser después del inicio' })
+    expect((await validateContent(config, fields, { code: 'USED' })).errors).toEqual({ code: 'Ya existe' })
+    expect((await validateContent(config, fields, { code: 'TAKE' })).errors).toBeNull()
+    expect((await validateContent(config, fields, { code: 'TOOLONG' })).errors).toEqual({ code: 'Usá hasta 4 caracteres' })
+  })
+
+  it('types the validator with the field value', () => {
+    // @ts-expect-error a text value is a string
+    text({ label: 'X', validate: (value: number) => (value > 1 ? 'no' : null) })
+  })
+
+  it('keeps a custom input loader per field', async () => {
+    const loaded = await schema.event.fields.notes.component()
+    expect(loaded.default).toBe('NotesInput')
+  })
+})

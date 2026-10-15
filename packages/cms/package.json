@@ -15,6 +15,7 @@
   "sideEffects": false,
   "exports": {
     "./core": "./src/core/index.ts",
+    "./core/opening-hours": "./src/core/kinds/openingHours.ts",
     "./package.json": "./package.json"
   },
   "files": [

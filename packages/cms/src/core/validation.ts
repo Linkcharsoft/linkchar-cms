@@ -1,18 +1,24 @@
 import { fieldDefinition, textContext } from './config'
 import { withDefaults } from './defaults'
+import { isStructural } from './fields'
 import { issue } from './kinds/registry'
 import { isRecord } from './kinds/shared'
 import { resolveText } from './text'
 import { dataFields } from './walk'
 import type { CmsConfigType } from './config'
-import type { DataField, FieldsRecord } from './fields'
+import type { DataField, FieldCheckContextType, FieldsRecord, FieldValidatorType } from './fields'
 import type { FieldContextType, IssueType, ValidationModeType } from './kinds/registry'
 import type { TextContextType } from './text'
 
 export type { IssueType, ValidationModeType }
 
+type CheckType = () => Promise<IssueType | null>
+
 interface WalkContextType extends FieldContextType {
   mode: ValidationModeType
+  document: Record<string, unknown>
+  // Project validators, run after the walk because they may be async.
+  checks: CheckType[]
 }
 
 const join = (path: string, inner: string) => (inner ? `${path}.${inner}` : path)
@@ -36,7 +42,23 @@ const itemsIssues = (value: unknown, path: string, ctx: WalkContextType, check: 
   return { items: value, issues }
 }
 
-const fieldIssues = (field: DataField, value: unknown, path: string, ctx: WalkContextType): IssueType[] => {
+const queueCheck = (field: DataField, value: unknown, path: string, parent: Record<string, unknown>, ctx: WalkContextType) => {
+  const { validate } = field
+  if (!validate) return
+  ctx.checks.push(async () => {
+    const message = await (validate as (value: unknown, check: FieldCheckContextType) => ReturnType<FieldValidatorType<unknown>>)(value, { mode: ctx.mode, document: ctx.document, parent })
+    return message ? { path, code: 'custom', message } : null
+  })
+}
+
+const fieldIssues = (field: DataField, value: unknown, path: string, parent: Record<string, unknown>, ctx: WalkContextType): IssueType[] => {
+  const current = value === undefined && !isStructural(field) ? fieldDefinition(ctx.config, field.kind).defaultValue(field) : value
+  const issues = kindIssues(field, current, path, ctx)
+  if (issues.length === 0) queueCheck(field, current, path, parent, ctx)
+  return issues
+}
+
+const kindIssues = (field: DataField, value: unknown, path: string, ctx: WalkContextType): IssueType[] => {
   const required = !!field.required
 
   switch (field.kind) {
@@ -60,21 +82,30 @@ const fieldIssues = (field: DataField, value: unknown, path: string, ctx: WalkCo
 
     default: {
       const definition = fieldDefinition(ctx.config, field.kind)
-      const current = value === undefined ? definition.defaultValue(field) : value
-      return at(path, definition.validate(current, field, { ...ctx, required: ctx.mode === 'publish' && required }))
+      return at(path, definition.validate(value, field, { ...ctx, required: ctx.mode === 'publish' && required }))
     }
   }
 }
 
 const walk = (fields: FieldsRecord, data: unknown, path: string, ctx: WalkContextType): IssueType[] => {
   const source = isRecord(data) ? data : {}
-  return dataFields(fields).flatMap(([key, field]) => fieldIssues(field, source[key], path ? `${path}.${key}` : key, ctx))
+  return dataFields(fields).flatMap(([key, field]) => fieldIssues(field, source[key], path ? `${path}.${key}` : key, source, ctx))
 }
 
 // Every problem in a document, with full data paths ("hero.items.2.title").
-export const validateFields = (config: CmsConfigType, fields: FieldsRecord, data: unknown, mode: ValidationModeType = 'draft'): IssueType[] => {
+export const validateFields = async (config: CmsConfigType, fields: FieldsRecord, data: unknown, mode: ValidationModeType = 'draft'): Promise<IssueType[]> => {
   const texts = textContext(config)
-  return walk(fields, data, '', { config, t: texts.translator.t, text: value => resolveText(value, texts), mode })
+  const ctx: WalkContextType = {
+    config,
+    t: texts.translator.t,
+    text: value => resolveText(value, texts),
+    mode,
+    document: isRecord(data) ? data : {},
+    checks: []
+  }
+  const issues = walk(fields, data, '', ctx)
+  const custom = await Promise.all(ctx.checks.map(check => check()))
+  return [...issues, ...custom.filter(found => found !== null)]
 }
 
 export const issueMessage = (found: IssueType, ctx: TextContextType): string =>
@@ -98,7 +129,7 @@ interface ValidateOptionsType {
 // Drafts are saved as they are (only formats are checked); required fields block publishing instead.
 // On success `value` is the content repaired and without unknown keys, ready to store.
 export const validateContent = async (config: CmsConfigType, fields: FieldsRecord, data: unknown, { mode = 'draft', locale }: ValidateOptionsType = {}) => {
-  const issues = validateFields(config, fields, data, mode)
+  const issues = await validateFields(config, fields, data, mode)
   if (issues.length > 0) return { value: null, errors: issuesToErrors(issues, textContext(config, locale)) }
   return { value: withDefaults(config, fields, data) as Record<string, unknown>, errors: null }
 }
