@@ -6,14 +6,23 @@ Linkchar's CMS for Next.js projects: a content schema in code, Supabase storage,
 
 ## Install
 
-The package lives in GitHub Packages. Add to the project's `.npmrc`:
+The package lives in GitHub Packages. The project's `.npmrc` only names the registry:
 
 ```ini
 @linkcharsoft:registry=https://npm.pkg.github.com
-//npm.pkg.github.com/:_authToken=${GITHUB_PACKAGES_TOKEN}
 ```
 
-`GITHUB_PACKAGES_TOKEN` is a token with `read:packages` on the Linkcharsoft organization. Then:
+The token goes in the user-level config, never in the project: pnpm 11 does not expand `${…}` in credentials from a project `.npmrc`. It needs `read:packages` on the Linkcharsoft organization.
+
+```bash
+# once per machine
+pnpm config set //npm.pkg.github.com/:_authToken <token> --location global
+
+# in CI or Amplify, before installing (GITHUB_PACKAGES_TOKEN as a secret)
+echo "//npm.pkg.github.com/:_authToken=${GITHUB_PACKAGES_TOKEN}" >> ~/.npmrc
+```
+
+Then:
 
 ```bash
 pnpm add @linkcharsoft/cms
