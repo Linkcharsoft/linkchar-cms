@@ -1,5 +1,7 @@
 import { isLayout } from './fields'
+import { resolveText } from './text'
 import type { DataField, FieldsRecord } from './fields'
+import type { TextContextType } from './text'
 
 // Data fields of a record with tabs and rows flattened, in declaration order.
 export const dataFields = (fields: FieldsRecord): [string, DataField][] =>
@@ -9,16 +11,17 @@ export const dataFields = (fields: FieldsRecord): [string, DataField][] =>
   })
 
 // Labels for every data path ("items.0.title" → "Servicios › Título"), used in validation summaries.
-export const fieldLabel = (fields: FieldsRecord, path: string): string => {
+export const fieldLabel = (fields: FieldsRecord, path: string, ctx: TextContextType): string => {
   const [head, ...rest] = path.split('.')
   const field = dataFields(fields).find(([key]) => key === head)?.[1]
   if (!field) return path
-  if (rest.length === 0) return field.label
+  const label = resolveText(field.label, ctx)
+  if (rest.length === 0) return label
 
-  if (field.kind === 'group') return `${field.label} › ${fieldLabel(field.fields, rest.join('.'))}`
+  if (field.kind === 'group') return `${label} › ${fieldLabel(field.fields, rest.join('.'), ctx)}`
   if (field.kind === 'list' && rest.length > 1) {
-    return `${field.label} ${Number(rest[0]) + 1} › ${fieldLabel(field.fields, rest.slice(1).join('.'))}`
+    return `${label} ${Number(rest[0]) + 1} › ${fieldLabel(field.fields, rest.slice(1).join('.'), ctx)}`
   }
 
-  return field.label
+  return label
 }

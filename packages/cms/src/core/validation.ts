@@ -1,12 +1,13 @@
-import { fieldDefinition, translatorFor } from './config'
+import { fieldDefinition, textContext } from './config'
 import { withDefaults } from './defaults'
 import { issue } from './kinds/registry'
 import { isRecord } from './kinds/shared'
+import { resolveText } from './text'
 import { dataFields } from './walk'
 import type { CmsConfigType } from './config'
 import type { DataField, FieldsRecord } from './fields'
-import type { TranslatorType } from './i18n/types'
 import type { FieldContextType, IssueType, ValidationModeType } from './kinds/registry'
+import type { TextContextType } from './text'
 
 export type { IssueType, ValidationModeType }
 
@@ -71,18 +72,20 @@ const walk = (fields: FieldsRecord, data: unknown, path: string, ctx: WalkContex
 }
 
 // Every problem in a document, with full data paths ("hero.items.2.title").
-export const validateFields = (config: CmsConfigType, fields: FieldsRecord, data: unknown, mode: ValidationModeType = 'draft'): IssueType[] =>
-  walk(fields, data, '', { config, t: translatorFor(config).t, mode })
+export const validateFields = (config: CmsConfigType, fields: FieldsRecord, data: unknown, mode: ValidationModeType = 'draft'): IssueType[] => {
+  const texts = textContext(config)
+  return walk(fields, data, '', { config, t: texts.translator.t, text: value => resolveText(value, texts), mode })
+}
 
-export const issueMessage = (found: IssueType, translator: TranslatorType): string =>
-  found.message ?? translator.translate(`validation.${found.code}`, found.params)
+export const issueMessage = (found: IssueType, ctx: TextContextType): string =>
+  (found.message ? resolveText(found.message, ctx) : ctx.translator.translate(`validation.${found.code}`, found.params))
 
 export type ContentErrorsType = Record<string, string>
 
 // One message per path, the first one found, as the form shows them.
-export const issuesToErrors = (issues: IssueType[], translator: TranslatorType): ContentErrorsType => {
+export const issuesToErrors = (issues: IssueType[], ctx: TextContextType): ContentErrorsType => {
   const errors: ContentErrorsType = {}
-  for (const found of issues) errors[found.path] ??= issueMessage(found, translator)
+  for (const found of issues) errors[found.path] ??= issueMessage(found, ctx)
   return errors
 }
 
@@ -96,6 +99,6 @@ interface ValidateOptionsType {
 // On success `value` is the content repaired and without unknown keys, ready to store.
 export const validateContent = async (config: CmsConfigType, fields: FieldsRecord, data: unknown, { mode = 'draft', locale }: ValidateOptionsType = {}) => {
   const issues = validateFields(config, fields, data, mode)
-  if (issues.length > 0) return { value: null, errors: issuesToErrors(issues, translatorFor(config, locale)) }
+  if (issues.length > 0) return { value: null, errors: issuesToErrors(issues, textContext(config, locale)) }
   return { value: withDefaults(config, fields, data) as Record<string, unknown>, errors: null }
 }

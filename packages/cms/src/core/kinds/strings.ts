@@ -3,11 +3,12 @@ import { defineField, issue, noReferences } from './registry'
 import { shorten } from './shared'
 import type { BaseOptions } from '../fields'
 import type { FieldDefinitionType, IssueType } from './registry'
+import type { TextType } from '../text'
 
 interface StringOptions extends BaseOptions<string> {
   maxLength?: number
   pattern?: RegExp
-  patternMessage?: string
+  patternMessage?: TextType
   placeholder?: string
 }
 

@@ -1,7 +1,7 @@
 import { defineField, issue, noReferences } from './registry'
 import { countIssues, nullableIssues } from './shared'
 import type { BaseOptions, OptionType } from '../fields'
-import type { IssueType } from './registry'
+import type { IssueType, SummaryContextType } from './registry'
 
 export interface SelectField<V extends string = string> extends BaseOptions<V | null> {
   kind: 'select'
@@ -24,8 +24,10 @@ declare module './registry' {
   }
 }
 
-const optionLabel = (options: readonly OptionType[], value: unknown) =>
-  options.find(option => option.value === value)?.label ?? String(value)
+const optionLabel = (options: readonly OptionType[], value: unknown, ctx: SummaryContextType) => {
+  const option = options.find(item => item.value === value)
+  return option ? ctx.text(option.label) : String(value)
+}
 
 const isOption = (options: readonly OptionType[], value: unknown) => options.some(option => option.value === value)
 
@@ -37,7 +39,7 @@ export const select = defineField({
   isEmpty: value => typeof value !== 'string' || !value,
   validate: (value, field, ctx) => nullableIssues(value, ctx, current => (isOption(field.options, current) ? null : issue('option'))),
   references: noReferences,
-  summarize: (value, field) => optionLabel(field.options, value)
+  summarize: (value, field, ctx) => optionLabel(field.options, value, ctx)
 })
 
 export const multiSelect = defineField({
@@ -53,5 +55,5 @@ export const multiSelect = defineField({
     return [...invalid, ...countIssues(value.length, field, ctx, { max: 'maxOptions', min: 'minOptions' })]
   },
   references: noReferences,
-  summarize: (value, field) => (Array.isArray(value) ? value.map(item => optionLabel(field.options, item)).join(', ') : '')
+  summarize: (value, field, ctx) => (Array.isArray(value) ? value.map(item => optionLabel(field.options, item, ctx)).join(', ') : '')
 })

@@ -1,6 +1,7 @@
 import { seo } from './fields'
 import type { FieldsRecord } from './fields'
 import type { ValuesOf } from './infer'
+import type { TextType } from './text'
 
 interface EntryOptions {
   icon?: string
@@ -11,7 +12,7 @@ interface EntryOptions {
 }
 
 interface EntryBase<F extends FieldsRecord> extends EntryOptions {
-  label: string
+  label: TextType
   fields: F
 }
 
@@ -41,9 +42,9 @@ export interface PageEntry<F extends FieldsRecord = FieldsRecord> extends EntryB
 }
 
 export interface CollectionOptions<F extends FieldsRecord> extends EntryOptions {
-  singularLabel: string
-  // Create button ("Nueva categoría"); defaults to "Nuevo" + singularLabel.
-  newLabel?: string
+  singularLabel: TextType
+  // Create button ("Nueva categoría"); defaults to the catalog's "Nuevo {name}".
+  newLabel?: TextType
   titleField: keyof ValuesOf<F> & string
   slugField?: keyof ValuesOf<F> & string
   // Manual order (team, testimonials…) instead of most recent first.
@@ -51,7 +52,7 @@ export interface CollectionOptions<F extends FieldsRecord> extends EntryOptions 
   // Parent collection: shown as one of its tabs instead of its own menu item.
   under?: string
   // Label of this collection's own tab when others live under it.
-  tabLabel?: string
+  tabLabel?: TextType
   // Only exists to be referenced (authors, categories): always visible, so a picked item never vanishes from the site.
   referenceOnly?: boolean
 }
@@ -59,13 +60,13 @@ export interface CollectionOptions<F extends FieldsRecord> extends EntryOptions 
 // Repeatable content with its own listing, like blog posts.
 export interface CollectionEntry<F extends FieldsRecord = FieldsRecord> extends EntryBase<F> {
   kind: 'collection'
-  singularLabel: string
-  newLabel: string
+  singularLabel: TextType
+  newLabel?: TextType
   titleField: string
   slugField?: string
   orderable: boolean
   under?: string
-  tabLabel?: string
+  tabLabel?: TextType
   referenceOnly: boolean
 }
 
@@ -73,7 +74,7 @@ export type SchemaEntry = SingletonEntry | PageEntry | CollectionEntry
 
 export type ContentSchema = Record<string, SchemaEntry>
 
-export const singleton = <const F extends FieldsRecord>(label: string, fields: F, options: EntryOptions = {}): SingletonEntry<F> =>
+export const singleton = <const F extends FieldsRecord>(label: TextType, fields: F, options: EntryOptions = {}): SingletonEntry<F> =>
   ({ kind: 'singleton', label, fields, ...options })
 
 type SeoGroup = ReturnType<typeof seo>
@@ -82,7 +83,7 @@ type PageFields<F extends FieldsRecord, P extends string | undefined> = P extend
 
 // Pages with a URL get a trailing SEO section; system pages (404) don't.
 export const page = <const F extends FieldsRecord, const P extends string | undefined = undefined>(
-  label: string,
+  label: TextType,
   sections: F,
   { seo: seoDefaults, ...options }: PageOptions<P> = {}
 ): PageEntry<PageFields<F, P>> => ({
@@ -100,13 +101,12 @@ export const page = <const F extends FieldsRecord, const P extends string | unde
     : sections) as PageFields<F, P>
 })
 
-export const collection = <const F extends FieldsRecord>(label: string, fields: F, options: CollectionOptions<F>): CollectionEntry<F> =>
+export const collection = <const F extends FieldsRecord>(label: TextType, fields: F, options: CollectionOptions<F>): CollectionEntry<F> =>
   ({
     kind: 'collection',
     label,
     fields,
     ...options,
-    newLabel: options.newLabel ?? `Nuevo ${options.singularLabel.toLowerCase()}`,
     orderable: options.orderable ?? false,
     referenceOnly: options.referenceOnly ?? false
   })

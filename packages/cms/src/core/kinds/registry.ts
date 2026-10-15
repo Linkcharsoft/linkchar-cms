@@ -1,5 +1,6 @@
 import type { CmsConfigType } from '../config'
 import type { ParamValueType, TranslatorType } from '../i18n/types'
+import type { TextType } from '../text'
 
 // Every leaf field kind declares itself here, from its own file or from a project:
 // declare module '@linkcharsoft/cms/core' { interface FieldTypes<F> { color: { field: ColorField, value: string, localize: false } } }
@@ -26,7 +27,7 @@ export interface IssueType {
   // Catalog key under `validation.`; ignored when `message` is set.
   code: string
   params?: Record<string, ParamValueType>
-  message?: string
+  message?: TextType
   locale?: string
 }
 
@@ -38,6 +39,8 @@ export interface ReferencesType {
 export interface FieldContextType {
   config: CmsConfigType
   t: TranslatorType['t']
+  // Resolves schema texts (labels, option names) in the panel language.
+  text: (value: TextType | undefined) => string
 }
 
 export interface ValidateContextType extends FieldContextType {

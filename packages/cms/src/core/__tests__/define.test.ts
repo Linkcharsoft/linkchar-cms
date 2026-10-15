@@ -1,6 +1,8 @@
 import { describe, expect, expectTypeOf, it } from 'vitest'
+import { textContext } from '../config'
 import { buildDefaults } from '../defaults'
 import { collection, defineSchema, page, singleton } from '../define'
+import { collectionNewLabel } from '../entries'
 import { block, blocks, button, group, list, note, panel, relation, relations, richText, row, section, select, slug, tab, text } from '../fields'
 import { isSectionHidden, pageSections } from '../pages'
 import { validateContent } from '../validation'
@@ -55,7 +57,7 @@ describe('defineSchema', () => {
     expect(schema.settings).toMatchObject({ kind: 'singleton', anchor: 'pie' })
     expect(schema.home).toMatchObject({ kind: 'page', path: '/', sitemap: { priority: 1, changeFrequency: 'weekly' } })
     expect(schema.posts).toMatchObject({ kind: 'collection', titleField: 'title', slugField: 'slug', orderable: false, tabLabel: 'Artículos', referenceOnly: false })
-    expect(schema.posts.newLabel).toBe(`Nuevo ${schema.posts.singularLabel.toLowerCase()}`)
+    expect(collectionNewLabel(schema.posts, textContext(config))).toBe('Nuevo artículo')
     expect(schema.categories.under).toBe('posts')
   })
 
@@ -125,9 +127,9 @@ describe('dataFields', () => {
 describe('fieldLabel', () => {
   it('builds readable labels for nested paths', () => {
     const fields = schema.home.fields
-    expect(fieldLabel(fields, 'hero.title')).toBe('Portada › Título')
-    expect(fieldLabel(fields, 'hero.meta.badge')).toBe('Portada › Meta › Badge')
-    expect(fieldLabel(fields, 'hero.items.2.title')).toBe('Portada › Servicios 3 › Título')
-    expect(fieldLabel(fields, 'seo.title')).toBe('Cómo aparece en Google y al compartir › Título para Google')
+    expect(fieldLabel(fields, 'hero.title', textContext(config))).toBe('Portada › Título')
+    expect(fieldLabel(fields, 'hero.meta.badge', textContext(config))).toBe('Portada › Meta › Badge')
+    expect(fieldLabel(fields, 'hero.items.2.title', textContext(config))).toBe('Portada › Servicios 3 › Título')
+    expect(fieldLabel(fields, 'seo.title', textContext(config))).toBe('Cómo aparece en Google y al compartir › Título para Google')
   })
 })

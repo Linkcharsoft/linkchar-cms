@@ -6,10 +6,11 @@ import { dataFields } from './walk'
 import type { CmsConfigType } from './config'
 import type { SchemaEntry } from './define'
 import type { DataField, FieldsRecord, SectionMarkType } from './fields'
+import type { TextType } from './text'
 
 export interface PageSectionType {
   key: string
-  label: string
+  label: TextType
   field: DataField
   // null for a top-level field that isn't a section() (e.g. a blocks zone).
   mark: SectionMarkType | null
@@ -47,7 +48,7 @@ export interface UsedEntryType {
   id: string
   kind: SchemaEntry['kind']
   // A collection shown as a tab ("Artículos") reads better than its menu name ("Blog").
-  label: string
+  label: TextType
 }
 
 // Entries a page shows content from (its sections' `uses`), without repeats.

@@ -5,17 +5,18 @@ import type { ContentSchema, EntryValues } from './define'
 import type { DataField, FieldsRecord } from './fields'
 import type { MessageOverridesType, TranslatorType } from './i18n/types'
 import type { FieldDefinitionType } from './kinds/registry'
+import type { TextContextType, TextType } from './text'
 
 export interface MediaFolderType {
   value: string
-  label: string
+  label: TextType
 }
 
 export interface BrandingType {
   name: string
   logo?: string
   // Line under the sidebar, e.g. who to contact for support.
-  footer?: string
+  footer?: TextType
 }
 
 // Filled in by the publish adapters (stage 2): Amplify build hook first.
@@ -161,6 +162,10 @@ export const translatorFor = (config: CmsConfigType, locale = config.panelLocale
   byLocale.set(locale, translator)
   return translator
 }
+
+// Texts read in the panel language unless another one is asked for.
+export const textContext = (config: CmsConfigType, locale = config.panelLocale): TextContextType =>
+  ({ locale, defaultLocale: config.defaultLocale, translator: translatorFor(config, locale) })
 
 // Projects register their config so the package types follow their schema:
 // declare module '@linkcharsoft/cms/core' { interface Register { config: typeof cmsConfig } }

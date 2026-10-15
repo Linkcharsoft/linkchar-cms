@@ -1,6 +1,7 @@
-import { fieldDefinition, translatorFor } from './config'
+import { fieldDefinition, textContext } from './config'
 import { isRecord } from './kinds/shared'
 import { sameContent } from './merge'
+import { resolveText } from './text'
 import { dataFields } from './walk'
 import type { CmsConfigType } from './config'
 import type { DataField, FieldsRecord } from './fields'
@@ -37,7 +38,7 @@ const walk = (fields: FieldsRecord, current: DataRecord, version: DataRecord, ct
     const b = version[key]
     if (sameContent(a, b)) return []
     const fieldPath = `${path}${key}`
-    const fieldLabel = `${label}${field.label}`
+    const fieldLabel = `${label}${ctx.text(field.label)}`
 
     if (field.kind === 'group') return walk(field.fields, asRecord(a), asRecord(b), ctx, `${fieldPath}.`, `${fieldLabel} › `)
 
@@ -52,7 +53,7 @@ const walk = (fields: FieldsRecord, current: DataRecord, version: DataRecord, ct
         const typeB = asRecord(itemB)._type
         const block = field.kind === 'blocks' ? field.blocks[(typeA ?? typeB) as string] : undefined
         const itemFields = field.kind === 'list' ? field.fields : block?.fields ?? {}
-        const itemLabel = `${fieldLabel} ${index + 1}${block ? ` (${block.label})` : ''}`
+        const itemLabel = `${fieldLabel} ${index + 1}${block ? ` (${ctx.text(block.label)})` : ''}`
 
         if (itemA === undefined || itemB === undefined || typeA !== typeB) {
           return [{
@@ -72,7 +73,10 @@ const walk = (fields: FieldsRecord, current: DataRecord, version: DataRecord, ct
   })
 
 // Fields that differ between the current draft and a saved version, labeled and summarized for people.
-export const diffContent = (config: CmsConfigType, fields: FieldsRecord, current: unknown, version: unknown, names: DiffNamesType = {}): FieldDiffType[] =>
-  walk(fields, asRecord(current), asRecord(version), { config, t: translatorFor(config).t, names }, '', '')
+export const diffContent = (config: CmsConfigType, fields: FieldsRecord, current: unknown, version: unknown, names: DiffNamesType = {}): FieldDiffType[] => {
+  const texts = textContext(config)
+  const ctx = { config, t: texts.translator.t, text: (value: Parameters<typeof resolveText>[0]) => resolveText(value, texts), names }
+  return walk(fields, asRecord(current), asRecord(version), ctx, '', '')
+}
 
 export type { DiffNamesType }
