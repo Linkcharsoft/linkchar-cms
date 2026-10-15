@@ -48,7 +48,7 @@ describe('defineField', () => {
     const config = defineCmsConfig({ schema, fields: [rating] })
     const fields = schema.review.fields
 
-    expect(buildDefaults(config, fields)).toEqual({ title: '', score: 0, tone: null })
+    expect(buildDefaults(config, fields)).toEqual({ title: { es: '' }, score: 0, tone: null })
     expect((await validateContent(config, fields, { score: 7 })).errors).toEqual({ score: 'El máximo es 5' })
     expect((await validateContent(config, fields, { score: 0 }, { mode: 'publish' })).errors).toEqual({ score: 'Este campo es obligatorio' })
     expect(diffContent(config, fields, { score: 2 }, { score: 4 })).toEqual([{ path: 'score', label: 'Puntaje', current: '★★', version: '★★★★' }])
@@ -100,10 +100,10 @@ describe('field options', () => {
 
   it('runs project validators after the kind rules, async ones too', async () => {
     const fields = schema.event.fields
-    expect((await validateContent(config, fields, { starts: '2026-10', ends: '2026-01' })).errors).toEqual({ ends: 'Tiene que ser después del inicio' })
-    expect((await validateContent(config, fields, { code: 'USED' })).errors).toEqual({ code: 'Ya existe' })
+    expect((await validateContent(config, fields, { starts: '2026-10', ends: '2026-01' })).errors).toEqual({ 'ends.es': 'Tiene que ser después del inicio' })
+    expect((await validateContent(config, fields, { code: 'USED' })).errors).toEqual({ 'code.es': 'Ya existe' })
     expect((await validateContent(config, fields, { code: 'TAKE' })).errors).toBeNull()
-    expect((await validateContent(config, fields, { code: 'TOOLONG' })).errors).toEqual({ code: 'Usá hasta 4 caracteres' })
+    expect((await validateContent(config, fields, { code: 'TOOLONG' })).errors).toEqual({ 'code.es': 'Usá hasta 4 caracteres' })
   })
 
   it('types the validator with the field value', () => {

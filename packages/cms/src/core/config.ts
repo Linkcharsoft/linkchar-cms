@@ -1,7 +1,7 @@
 import { createTranslator } from './i18n/translator'
 import { BUILTIN_FIELDS } from './kinds/builtins'
 import { dataFields } from './walk'
-import type { ContentSchema, EntryValues } from './define'
+import type { ContentSchema, EntryValues, StoredEntryValues } from './define'
 import type { DataField, FieldsRecord } from './fields'
 import type { MessageOverridesType, TranslatorType } from './i18n/types'
 import type { FieldDefinitionType } from './kinds/registry'
@@ -185,3 +185,6 @@ export type LocaleType = RegisteredConfigType['locales'][number]
 
 // Exact data type of an entry, e.g. ContentOf<'home'>['hero']['title'] is string.
 export type ContentOf<K extends EntryIdType> = EntryValues<RegisteredSchemaType[K]>
+
+// The same entry as stored, with its localized values as { es, en } maps.
+export type StoredContentOf<K extends EntryIdType> = StoredEntryValues<RegisteredSchemaType[K]>

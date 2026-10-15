@@ -4,13 +4,16 @@ import { textarea, text } from './kinds/strings'
 import { msg } from './text'
 import type { ValuesOf } from './infer'
 import type { FieldInputLoaderType, LeafField, ValidationModeType } from './kinds/registry'
-import type { TextType } from './text'
+import type { LocalizedType } from './locales'
+import type { LocalizedTextType, TextType } from './text'
 
 export interface FieldCheckContextType {
   mode: ValidationModeType
   // The whole document and the record that holds this field (siblings), as sent.
   document: Record<string, unknown>
   parent: Record<string, unknown>
+  // The locale of `value` when the field is localized; the default locale otherwise.
+  locale: string
 }
 
 // A project rule on top of the kind's own: returns the problem, or nothing when the value is fine.
@@ -20,7 +23,10 @@ export interface BaseOptions<V> {
   label: TextType
   help?: TextType
   required?: boolean
-  default?: V
+  // A localized field takes one default per locale ({ es, en }); a plain one goes to the default locale.
+  default?: V | LocalizedType<V>
+  // Overrides the kind's localization: false shares the value across locales, true gives each its own.
+  localized?: boolean
   // Technical fields hidden from clients (only superadmin sees and edits them).
   superadminOnly?: boolean
   // Runs only when the value passes the kind's rules.
@@ -51,7 +57,7 @@ export interface SectionMarkType {
   hideable: boolean
 }
 
-type StructuralOptions = Omit<BaseOptions<never>, 'default' | 'component' | 'validate'> & { validate?: FieldValidatorType<unknown> }
+type StructuralOptions = Omit<BaseOptions<never>, 'default' | 'component' | 'validate' | 'localized'> & { validate?: FieldValidatorType<unknown> }
 
 export interface GroupField<F extends FieldsRecord = FieldsRecord> extends StructuralOptions {
   kind: 'group'
@@ -111,7 +117,7 @@ export const group = <const F extends FieldsRecord>(options: Omit<Options<GroupF
   ({ kind: 'group', ...options, fields })
 
 export const list = <const F extends FieldsRecord>(
-  options: Omit<Options<ListField<F>>, 'fields' | 'default'> & { default?: Partial<ValuesOf<F>>[] },
+  options: Omit<Options<ListField<F>>, 'fields' | 'default'> & { default?: (Partial<ValuesOf<F>> | Partial<ValuesOf<F, true>>)[] },
   fields: F
 ): ListField<F> =>
   ({ kind: 'list', ...options, fields })
@@ -124,9 +130,9 @@ export const blocks = <const B extends Record<string, BlockDef>>(options: Omit<O
 
 // A group, so defaults, validation and media references need nothing special.
 interface SeoOptionsType extends SeoMarkType {
-  // Defaults of the SEO title and description.
-  title?: string
-  description?: string
+  // Defaults of the SEO title and description, one per locale if needed.
+  title?: string | LocalizedTextType
+  description?: string | LocalizedTextType
   label?: TextType
 }
 

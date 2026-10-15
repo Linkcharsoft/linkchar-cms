@@ -1,11 +1,13 @@
 import { fieldDefinition, textContext } from './config'
+import { languageName } from './i18n/translator'
 import { isRecord } from './kinds/shared'
+import { fieldLocalize, leafVariants } from './locales'
 import { sameContent } from './merge'
 import { resolveText } from './text'
 import { dataFields } from './walk'
 import type { CmsConfigType } from './config'
 import type { DataField, FieldsRecord } from './fields'
-import type { DiffNamesType, SummaryContextType } from './kinds/registry'
+import type { DiffNamesType, LeafField, SummaryContextType } from './kinds/registry'
 
 export interface FieldDiffType {
   path: string
@@ -31,6 +33,38 @@ const itemSummary = (fields: FieldsRecord, item: unknown, ctx: SummaryContextTyp
   const first = dataFields(fields).find(([key, field]) => summarize(field, asRecord(item)[key], ctx) !== ctx.t('common.empty'))
   return first ? summarize(first[1], asRecord(item)[first[0]], ctx) : ctx.t('common.empty')
 }
+
+const pick = (value: unknown, parts: string[] | null) =>
+  (parts === null ? value : Object.fromEntries(parts.map(part => [part, asRecord(value)[part]])))
+
+// Localized fields differ per locale: "Portada › Título (Inglés)". Shared parts of a button show once.
+const leafDiffs = (field: LeafField, a: unknown, b: unknown, ctx: SummaryContextType, path: string, label: string): FieldDiffType[] => {
+  const { config } = ctx
+  const many = fieldLocalize(config, field) !== false && config.locales.length > 1
+  const before = new Map(leafVariants(config, field, a).map(variant => [variant.locale, variant]))
+  const after = new Map(leafVariants(config, field, b).map(variant => [variant.locale, variant]))
+
+  return config.locales.flatMap(locale => {
+    const variant = before.get(locale) ?? after.get(locale)
+    if (!variant) return []
+    const valueA = before.get(locale)?.value
+    const valueB = after.get(locale)?.value
+    if (sameContent(pick(valueA, variant.parts), pick(valueB, variant.parts))) return []
+    const current = summarize(field, valueA, ctx)
+    const version = summarize(field, valueB, ctx)
+    const suffix = many && !(variant.primary && variant.parts === null && typeof fieldLocalize(config, field) === 'object')
+      ? ` (${languageName(locale, config.panelLocale)})`
+      : ''
+    return [{
+      path: join(path, variant.path(variant.parts?.length === 1 ? variant.parts[0] : '')),
+      label: `${label}${suffix}`,
+      current,
+      version: version === current ? ctx.t('common.changed') : version
+    }]
+  })
+}
+
+const join = (head: string, inner: string) => (inner ? `${head}.${inner}` : head)
 
 const walk = (fields: FieldsRecord, current: DataRecord, version: DataRecord, ctx: SummaryContextType, path: string, label: string): FieldDiffType[] =>
   dataFields(fields).flatMap(([key, field]) => {
@@ -67,9 +101,7 @@ const walk = (fields: FieldsRecord, current: DataRecord, version: DataRecord, ct
       })
     }
 
-    const before = summarize(field, a, ctx)
-    const after = summarize(field, b, ctx)
-    return [{ path: fieldPath, label: fieldLabel, current: before, version: after === before ? ctx.t('common.changed') : after }]
+    return leafDiffs(field, a, b, ctx, fieldPath, fieldLabel)
   })
 
 // Fields that differ between the current draft and a saved version, labeled and summarized for people.

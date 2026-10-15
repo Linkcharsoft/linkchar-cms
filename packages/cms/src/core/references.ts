@@ -1,5 +1,6 @@
 import { fieldDefinition } from './config'
 import { isRecord } from './kinds/shared'
+import { leafVariants } from './locales'
 import { dataFields } from './walk'
 import type { CmsConfigType } from './config'
 import type { FieldsRecord } from './fields'
@@ -27,9 +28,13 @@ const collect = (config: CmsConfigType, fields: FieldsRecord, data: unknown, fou
         break
       default: {
         if (value === undefined) break
-        const { relations = [], media = [] } = fieldDefinition(config, field.kind).references(value, field)
-        found.relations.push(...relations)
-        found.media.push(...media)
+        const definition = fieldDefinition(config, field.kind)
+        for (const variant of leafVariants(config, field, value)) {
+          if (variant.value === undefined) continue
+          const { relations = [], media = [] } = definition.references(variant.value, field)
+          found.relations.push(...relations)
+          found.media.push(...media)
+        }
       }
     }
   }

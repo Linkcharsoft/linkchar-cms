@@ -21,11 +21,11 @@ describe('buildDefaults', () => {
     const defaults = buildDefaults(config, fields)
 
     expect(defaults).toMatchObject({
-      title: 'Hola',
+      title: { es: 'Hola' },
       visible: true,
-      subtitle: '',
-      cta: { label: '', link: { type: 'internal', href: '', newTab: false }, variant: 'primary' },
-      meta: { badge: '' },
+      subtitle: { es: '' },
+      cta: { label: { es: '' }, link: { type: 'internal', href: '', newTab: false }, variant: 'primary' },
+      meta: { badge: { es: '' } },
       author: null,
       tags: [],
       items: [],
@@ -40,8 +40,8 @@ describe('withDefaults', () => {
   it('fills missing fields and drops unknown keys', () => {
     const value = withDefaults(config, fields, { subtitle: 'Guardado', legacy: 'x' })
 
-    expect(value.subtitle).toBe('Guardado')
-    expect(value.title).toBe('Hola')
+    expect(value.subtitle).toEqual({ es: 'Guardado' })
+    expect(value.title).toEqual({ es: 'Hola' })
     expect(value).not.toHaveProperty('legacy')
   })
 
@@ -53,10 +53,10 @@ describe('withDefaults', () => {
     })
 
     expect(value.items).toHaveLength(1)
-    expect(value.items[0].name).toBe('Sin key')
+    expect(value.items[0].name).toEqual({ es: 'Sin key' })
     expect(value.items[0]._key).toMatch(/^[0-9a-f-]{36}$/)
-    expect(value.content).toEqual([{ _key: 'b1', _type: 'cita', quote: 'Hola' }])
-    expect(value.cta).toEqual({ label: 'Turnos', link: { type: 'internal', href: '', newTab: false }, variant: 'primary' })
+    expect(value.content).toEqual([{ _key: 'b1', _type: 'cita', quote: { es: 'Hola' } }])
+    expect(value.cta).toEqual({ label: { es: 'Turnos' }, link: { type: 'internal', href: '', newTab: false }, variant: 'primary' })
   })
 
   it('returns full defaults for non-object input', () => {
@@ -67,7 +67,7 @@ describe('withDefaults', () => {
 describe('newBlock', () => {
   it('creates a typed block with a fresh key', () => {
     const created = newBlock(config, 'cita', fields.content.blocks.cita)
-    expect(created).toMatchObject({ _type: 'cita', quote: '' })
+    expect(created).toMatchObject({ _type: 'cita', quote: { es: '' } })
     expect(created._key).toMatch(/^[0-9a-f-]{36}$/)
   })
 })
@@ -82,7 +82,7 @@ describe('list defaults', () => {
 
   it('fills each default item and gives it a key', () => {
     const { links } = buildDefaults(config, menu)
-    expect(links).toMatchObject([{ label: 'Inicio', visible: true }, { label: 'Blog', visible: false }])
+    expect(links).toMatchObject([{ label: { es: 'Inicio' }, visible: true }, { label: { es: 'Blog' }, visible: false }])
     expect(links.every(item => /^[0-9a-f-]{36}$/.test(item._key))).toBe(true)
   })
 

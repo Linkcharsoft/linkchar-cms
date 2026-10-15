@@ -29,7 +29,7 @@ describe('keepSuperadminFields', () => {
 
   it('falls back to the field default when nothing was stored yet', () => {
     const result = keepSuperadminFields(config, fields, { title: 'x', anchor: 'hackeado', meta: { badge: '' }, secret: 'y' }, null)
-    expect(result).toMatchObject({ anchor: 'inicio', secret: '' })
+    expect(result).toMatchObject({ anchor: { es: 'inicio' }, secret: { es: '' } })
   })
 })
 

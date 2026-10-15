@@ -1,13 +1,15 @@
 import { fieldDefinition, textContext } from './config'
 import { withDefaults } from './defaults'
 import { isStructural } from './fields'
+import { languageName } from './i18n/translator'
 import { issue } from './kinds/registry'
 import { isRecord } from './kinds/shared'
+import { fieldLocalize, leafVariants, missingInLeaf } from './locales'
 import { resolveText } from './text'
 import { dataFields } from './walk'
 import type { CmsConfigType } from './config'
 import type { DataField, FieldCheckContextType, FieldsRecord, FieldValidatorType } from './fields'
-import type { FieldContextType, IssueType, ValidationModeType } from './kinds/registry'
+import type { FieldContextType, IssueType, LeafField, ValidationModeType } from './kinds/registry'
 import type { TextContextType } from './text'
 
 export type { IssueType, ValidationModeType }
@@ -42,23 +44,48 @@ const itemsIssues = (value: unknown, path: string, ctx: WalkContextType, check: 
   return { items: value, issues }
 }
 
-const queueCheck = (field: DataField, value: unknown, path: string, parent: Record<string, unknown>, ctx: WalkContextType) => {
+const queueCheck = (field: DataField, value: unknown, path: string, parent: Record<string, unknown>, ctx: WalkContextType, locale?: string) => {
   const { validate } = field
   if (!validate) return
   ctx.checks.push(async () => {
-    const message = await (validate as (value: unknown, check: FieldCheckContextType) => ReturnType<FieldValidatorType<unknown>>)(value, { mode: ctx.mode, document: ctx.document, parent })
-    return message ? { path, code: 'custom', message } : null
+    const check = validate as (value: unknown, check: FieldCheckContextType) => ReturnType<FieldValidatorType<unknown>>
+    const message = await check(value, { mode: ctx.mode, document: ctx.document, parent, locale: locale ?? ctx.config.defaultLocale })
+    return message ? { path, code: 'custom', message, ...(locale ? { locale } : {}) } : null
   })
 }
 
-const fieldIssues = (field: DataField, value: unknown, path: string, parent: Record<string, unknown>, ctx: WalkContextType): IssueType[] => {
-  const current = value === undefined && !isStructural(field) ? fieldDefinition(ctx.config, field.kind).defaultValue(field) : value
-  const issues = kindIssues(field, current, path, ctx)
-  if (issues.length === 0) queueCheck(field, current, path, parent, ctx)
+const belongsTo = (parts: string[] | null, path: string) => parts === null || parts.some(part => path === part || path.startsWith(`${part}.`))
+
+// Each locale's value is checked on its own; emptiness only in the default one, translations by missingInLeaf.
+const leafIssues = (field: LeafField, value: unknown, path: string, parent: Record<string, unknown>, ctx: WalkContextType): IssueType[] => {
+  const definition = fieldDefinition(ctx.config, field.kind)
+  const localized = fieldLocalize(ctx.config, field) !== false
+  const required = ctx.mode === 'publish' && !!field.required
+  const issues: IssueType[] = []
+
+  for (const variant of leafVariants(ctx.config, field, value)) {
+    const current = variant.value === undefined ? definition.defaultValue(field) : variant.value
+    const found = definition.validate(current, field, { ...ctx, required: required && variant.primary })
+      .filter(item => belongsTo(variant.parts, item.path))
+      .map(item => ({ ...item, path: join(path, variant.path(item.path)), ...(localized ? { locale: variant.locale } : {}) }))
+    issues.push(...found)
+    if (found.length === 0 && variant.parts === null) queueCheck(field, current, join(path, variant.path('')), parent, ctx, localized ? variant.locale : undefined)
+  }
+
+  if (ctx.mode === 'publish') {
+    issues.push(...missingInLeaf(ctx.config, field, value).map(missing => ({ path: join(path, missing.path), code: 'translationMissing', locale: missing.locale })))
+  }
   return issues
 }
 
-const kindIssues = (field: DataField, value: unknown, path: string, ctx: WalkContextType): IssueType[] => {
+const fieldIssues = (field: DataField, value: unknown, path: string, parent: Record<string, unknown>, ctx: WalkContextType): IssueType[] => {
+  if (!isStructural(field)) return leafIssues(field, value, path, parent, ctx)
+  const issues = structuralIssues(field, value, path, ctx)
+  if (issues.length === 0) queueCheck(field, value, path, parent, ctx)
+  return issues
+}
+
+const structuralIssues = (field: DataField, value: unknown, path: string, ctx: WalkContextType): IssueType[] => {
   const required = !!field.required
 
   switch (field.kind) {
@@ -80,10 +107,8 @@ const kindIssues = (field: DataField, value: unknown, path: string, ctx: WalkCon
       return [...at(path, countIssues(items.length, field.min, field.max, ctx, ['maxBlocks', 'minBlocks'], required)), ...issues]
     }
 
-    default: {
-      const definition = fieldDefinition(ctx.config, field.kind)
-      return at(path, definition.validate(value, field, { ...ctx, required: ctx.mode === 'publish' && required }))
-    }
+    default:
+      return []
   }
 }
 
@@ -108,8 +133,11 @@ export const validateFields = async (config: CmsConfigType, fields: FieldsRecord
   return [...issues, ...custom.filter(found => found !== null)]
 }
 
-export const issueMessage = (found: IssueType, ctx: TextContextType): string =>
-  (found.message ? resolveText(found.message, ctx) : ctx.translator.translate(`validation.${found.code}`, found.params))
+export const issueMessage = (found: IssueType, ctx: TextContextType): string => {
+  if (found.message) return resolveText(found.message, ctx)
+  const language = found.locale ? languageName(found.locale, ctx.locale) : ''
+  return ctx.translator.translate(`validation.${found.code}`, { language, ...found.params })
+}
 
 export type ContentErrorsType = Record<string, string>
 

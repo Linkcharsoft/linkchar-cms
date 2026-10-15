@@ -38,8 +38,8 @@ describe('validateContent', () => {
 
     const { errors } = await validateContent(config, fields, empty, { mode: 'publish' })
     expect(errors).toMatchObject({
-      title: 'Este campo es obligatorio',
-      body: 'Este campo es obligatorio',
+      'title.es': 'Este campo es obligatorio',
+      'body.es': 'Este campo es obligatorio',
       items: 'Cargá al menos 1'
     })
   })
@@ -62,8 +62,8 @@ describe('validateContent', () => {
     }, { mode: 'draft' })
 
     expect(errors).toMatchObject({
-      title: 'Usá hasta 10 caracteres',
-      slug: 'Usá minúsculas, números y guiones',
+      'title.es': 'Usá hasta 10 caracteres',
+      'slug.es': 'Usá minúsculas, números y guiones',
       contact: 'Ingresá un email válido',
       site: 'Ingresá una URL que empiece con https://',
       clip: 'Pegá un link de YouTube o Vimeo',
@@ -79,7 +79,7 @@ describe('validateContent', () => {
       items: [{ _key: 'a', name: 'x' }, { _key: 'b', name: '' }, { _key: 'c', name: 'z' }]
     }, { mode: 'publish' })
 
-    expect(errors).toMatchObject({ items: 'Podés cargar hasta 2', 'items.1.name': 'Este campo es obligatorio' })
+    expect(errors).toMatchObject({ items: 'Podés cargar hasta 2', 'items.1.name.es': 'Este campo es obligatorio' })
   })
 
   it('rejects unknown block types and bad opening hours', async () => {
@@ -108,7 +108,7 @@ describe('validateContent', () => {
       ]
     }
     const { value } = await validateContent(config, fields, { ...valid(), body })
-    expect(value?.body).toEqual(body)
+    expect(value?.body).toEqual({ es: body })
   })
 
   it('validates media references by id', async () => {
@@ -121,13 +121,13 @@ describe('validateContent', () => {
 
     expect((await validateContent(config, media, { cover: null, photos: [], pdf: null }, { mode: 'draft' })).errors).toBeNull()
     expect((await validateContent(config, media, { cover: null, photos: [id()], pdf: null }, { mode: 'publish' })).errors).toMatchObject({
-      cover: 'Este campo es obligatorio',
-      photos: 'Elegí al menos 2 imágenes'
+      'cover.es': 'Este campo es obligatorio',
+      'photos.es': 'Elegí al menos 2 imágenes'
     })
     expect((await validateContent(config, media, { cover: 'x', photos: [id(), id(), id(), id()], pdf: 'y' }, { mode: 'draft' })).errors).toMatchObject({
-      cover: 'Archivo inválido',
-      photos: 'Podés elegir hasta 3 imágenes',
-      pdf: 'Archivo inválido'
+      'cover.es': 'Archivo inválido',
+      'photos.es': 'Podés elegir hasta 3 imágenes',
+      'pdf.es': 'Archivo inválido'
     })
   })
 
@@ -135,6 +135,6 @@ describe('validateContent', () => {
     const { value } = await validateContent(config, fields, { ...valid(), hacked: true, items: [{ _key: 'k', name: 'x', extra: 1 }] })
 
     expect(value).not.toHaveProperty('hacked')
-    expect(value?.items).toEqual([{ _key: 'k', name: 'x' }])
+    expect(value?.items).toEqual([{ _key: 'k', name: { es: 'x' } }])
   })
 })

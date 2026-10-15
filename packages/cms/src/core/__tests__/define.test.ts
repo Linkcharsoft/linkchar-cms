@@ -88,7 +88,7 @@ describe('page', () => {
   it('adds a trailing SEO section only to pages with a path', () => {
     expect(Object.keys(schema.home.fields)).toEqual(['hero', 'obras', 'extra', 'seo'])
     expect(schema.home.fields.seo).toMatchObject({ kind: 'group', seo: { path: '/' }, section: { hideable: false } })
-    expect(buildDefaults(config, schema.home.fields).seo.title).toBe('Inicio')
+    expect(buildDefaults(config, schema.home.fields).seo.title).toEqual({ es: 'Inicio' })
     expect(Object.keys(schema.notFound.fields)).toEqual(['content'])
   })
 
@@ -112,8 +112,8 @@ describe('page', () => {
 
   it('validates nested section fields', async () => {
     const data = buildDefaults(config, schema.home.fields)
-    expect((await validateContent(config, schema.home.fields, data, { mode: 'publish' })).errors).toEqual({ 'hero.title': 'Este campo es obligatorio' })
-    data.hero.title = 'Hola'
+    expect((await validateContent(config, schema.home.fields, data, { mode: 'publish' })).errors).toEqual({ 'hero.title.es': 'Este campo es obligatorio' })
+    data.hero.title = { es: 'Hola' }
     expect((await validateContent(config, schema.home.fields, data, { mode: 'publish' })).errors).toBeNull()
   })
 })

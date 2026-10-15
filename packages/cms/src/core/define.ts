@@ -1,7 +1,7 @@
 import { seo } from './fields'
 import type { FieldsRecord } from './fields'
 import type { ValuesOf } from './infer'
-import type { TextType } from './text'
+import type { LocalizedTextType, TextType } from './text'
 
 interface EntryOptions {
   icon?: string
@@ -31,7 +31,7 @@ export interface PageSitemapType {
 interface PageOptions<P extends string | undefined> extends Omit<EntryOptions, 'path' | 'anchor'> {
   path?: P
   // Defaults of the page's SEO group, added when the page has a path.
-  seo?: { title?: string, description?: string }
+  seo?: { title?: string | LocalizedTextType, description?: string | LocalizedTextType }
   sitemap?: PageSitemapType
 }
 
@@ -114,3 +114,5 @@ export const collection = <const F extends FieldsRecord>(label: TextType, fields
 export const defineSchema = <const S extends ContentSchema>(schema: S): S => schema
 
 export type EntryValues<E extends SchemaEntry> = E extends { fields: infer F extends FieldsRecord } ? ValuesOf<F> : never
+
+export type StoredEntryValues<E extends SchemaEntry> = E extends { fields: infer F extends FieldsRecord } ? ValuesOf<F, true> : never

@@ -23,7 +23,7 @@ describe('diffContent', () => {
     const current = { hero: { title: 'Hola', image: 'm1', tone: 'light', visible: true }, items: [], body: null, author: null, extra: [] }
     const version = { ...current, hero: { ...current.hero, title: 'Chau', tone: 'dark', visible: false } }
     expect(diffContent(config, fields, current, version)).toEqual([
-      { path: 'hero.title', label: 'Portada › Título', current: 'Hola', version: 'Chau' },
+      { path: 'hero.title.es', label: 'Portada › Título', current: 'Hola', version: 'Chau' },
       { path: 'hero.tone', label: 'Portada › Tono', current: 'Claro', version: 'Oscuro' },
       { path: 'hero.visible', label: 'Portada › Visible', current: 'Sí', version: 'No' }
     ])
@@ -42,7 +42,7 @@ describe('diffContent', () => {
   it('compares list items by position and shows added or removed ones whole', () => {
     const diff = diffContent(config, fields, { items: [{ _key: 'a', text: 'Uno' }, { _key: 'b', text: 'Dos' }] }, { items: [{ _key: 'x', text: 'Uno' }, { _key: 'y', text: 'Otro' }, { _key: 'z', text: 'Tres' }] })
     expect(diff).toEqual([
-      { path: 'items.1.text', label: 'Puntos 2 › Punto', current: 'Dos', version: 'Otro' },
+      { path: 'items.1.text.es', label: 'Puntos 2 › Punto', current: 'Dos', version: 'Otro' },
       { path: 'items.2', label: 'Puntos 3', current: '—', version: 'Tres' }
     ])
   })

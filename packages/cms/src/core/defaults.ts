@@ -1,9 +1,9 @@
-import { fieldDefinition } from './config'
 import { isRecord } from './kinds/shared'
+import { storedLeaf } from './locales'
 import { dataFields } from './walk'
 import type { CmsConfigType } from './config'
 import type { BlockDef, DataField, FieldsRecord } from './fields'
-import type { ValuesOf } from './infer'
+import type { StoredValuesOf } from './infer'
 import type { DataRecord } from './kinds/shared'
 
 export const newKey = (): string => crypto.randomUUID()
@@ -17,14 +17,11 @@ export const fieldDefault = (config: CmsConfigType, field: DataField): unknown =
     case 'blocks':
       return []
   }
-  const definition = fieldDefinition(config, field.kind)
-  return field.default !== undefined
-    ? definition.normalize(structuredClone(field.default), field)
-    : definition.defaultValue(field)
+  return storedLeaf(config, field, undefined)
 }
 
-export const buildDefaults = <F extends FieldsRecord>(config: CmsConfigType, fields: F): ValuesOf<F> =>
-  Object.fromEntries(dataFields(fields).map(([key, field]) => [key, fieldDefault(config, field)])) as ValuesOf<F>
+export const buildDefaults = <F extends FieldsRecord>(config: CmsConfigType, fields: F): StoredValuesOf<F> =>
+  Object.fromEntries(dataFields(fields).map(([key, field]) => [key, fieldDefault(config, field)])) as StoredValuesOf<F>
 
 export const newListItem = (config: CmsConfigType, fields: FieldsRecord) => ({ _key: newKey(), ...buildDefaults(config, fields) })
 
@@ -52,14 +49,15 @@ const valueWithDefault = (config: CmsConfigType, field: DataField, value: unknow
         })
         : []
     default:
-      return fieldDefinition(config, field.kind).normalize(value, field)
+      return storedLeaf(config, field, value)
   }
 }
 
-// Fills in whatever is missing (new fields, empty content) so a page never breaks; unknown keys are dropped.
-export const withDefaults = <F extends FieldsRecord>(config: CmsConfigType, fields: F, data: unknown): ValuesOf<F> => {
+// Fills in whatever is missing (new fields, new locales, empty content) so a page never breaks; unknown keys
+// and locales are dropped, and values saved before a field was localized move to the default locale.
+export const withDefaults = <F extends FieldsRecord>(config: CmsConfigType, fields: F, data: unknown): StoredValuesOf<F> => {
   const source = isRecord(data) ? data : {}
   return Object.fromEntries(
     dataFields(fields).map(([key, field]) => [key, valueWithDefault(config, field, source[key])])
-  ) as ValuesOf<F>
+  ) as StoredValuesOf<F>
 }

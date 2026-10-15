@@ -28,12 +28,20 @@ export const pageSections = (fields: FieldsRecord): PageSectionType[] =>
 export const isSectionHidden = (value: unknown): boolean =>
   typeof value === 'object' && value !== null && (value as Record<string, unknown>)[HIDDEN_KEY] === true
 
-// One line that identifies a closed section: its title, or else its first filled-in text.
-export const sectionSummary = (value: unknown): string => {
+const textIn = (value: unknown, locale?: string): string | null => {
+  if (typeof value === 'string') return value.trim() ? value : null
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return null
+  const map = value as Record<string, unknown>
+  const own = locale ? textIn(map[locale]) : null
+  return own ?? Object.values(map).map(item => (typeof item === 'string' && item.trim() ? item : null)).find(Boolean) ?? null
+}
+
+// One line that identifies a closed section: its title, or else its first filled-in text (in `locale` if given).
+export const sectionSummary = (value: unknown, locale?: string): string => {
   if (typeof value !== 'object' || value === null) return ''
   const record = value as Record<string, unknown>
-  const texts = [record.title, ...Object.values(record)].filter((item): item is string => typeof item === 'string' && !!item.trim())
-  return texts[0]?.replace(/\s+/g, ' ').trim() ?? ''
+  const text = [record.title, ...Object.values(record)].map(item => textIn(item, locale)).find(Boolean)
+  return text?.replace(/\s+/g, ' ').trim() ?? ''
 }
 
 // Error paths ("hero.title", "seo.description") counted by the section they belong to.

@@ -52,12 +52,14 @@ describe('schema texts in the panel language', () => {
 
   it('writes validation messages, including the schema ones, in the asked language', async () => {
     const data = { hero: { title: 'Muy largo', code: 'abc' } }
-    expect((await validateContent(english, schema.home.fields, data)).errors).toEqual({ 'hero.title': 'Use up to 5 characters', 'hero.code': 'Numbers only' })
-    expect((await validateContent(english, schema.home.fields, data, { locale: 'es' })).errors).toEqual({ 'hero.title': 'Usá hasta 5 caracteres', 'hero.code': 'Solo números' })
+    expect((await validateContent(english, schema.home.fields, data)).errors).toEqual({ 'hero.title.es': 'Use up to 5 characters', 'hero.code.es': 'Numbers only' })
+    expect((await validateContent(english, schema.home.fields, data, { locale: 'es' })).errors).toEqual({ 'hero.title.es': 'Usá hasta 5 caracteres', 'hero.code.es': 'Solo números' })
   })
 
   it('names untitled documents with the collection name', () => {
     expect(documentTitle(schema.posts, { title: ' ' }, textContext(english))).toBe('Untitled Post')
     expect(documentTitle(schema.posts, { title: 'Hola' }, textContext(spanish))).toBe('Hola')
+    expect(documentTitle(schema.posts, { title: { es: 'Hola', en: 'Hello' } }, textContext(english))).toBe('Hello')
+    expect(documentTitle(schema.posts, { title: { es: 'Hola', en: '' } }, textContext(english))).toBe('Hola')
   })
 })

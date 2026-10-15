@@ -1,7 +1,8 @@
+import { isRecord } from './kinds/shared'
 import { resolveText } from './text'
 import type { CmsConfigType } from './config'
 import type { CollectionEntry, PageEntry, SchemaEntry } from './define'
-import type { TextContextType } from './text'
+import type { LocalizedTextType, TextContextType } from './text'
 
 export const getEntry = (config: CmsConfigType, id: string): SchemaEntry | null =>
   (Object.hasOwn(config.schema, id) ? config.schema[id] : null)
@@ -24,7 +25,8 @@ export const collectionNewLabel = (entry: CollectionEntry, ctx: TextContextType)
   (entry.newLabel ? resolveText(entry.newLabel, ctx) : ctx.translator.t('collection.new', { name: lowerName(entry, ctx) }))
 
 export const documentTitle = (entry: CollectionEntry, data: unknown, ctx: TextContextType): string => {
-  const title = typeof data === 'object' && data !== null ? (data as Record<string, unknown>)[entry.titleField] : null
-  if (typeof title === 'string' && title.trim()) return title
+  const stored = isRecord(data) ? data[entry.titleField] : null
+  const title = typeof stored === 'string' ? stored : isRecord(stored) ? resolveText(stored as LocalizedTextType, ctx) : ''
+  if (title.trim()) return title
   return ctx.translator.t('collection.untitled', { name: resolveText(entry.singularLabel, ctx) })
 }

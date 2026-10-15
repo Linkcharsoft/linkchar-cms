@@ -19,7 +19,7 @@ export const isMessageRef = (value: unknown): value is MessageRefType =>
 
 export interface TextContextType {
   locale: string
-  // Used when a { es, en } text lacks the asked locale.
+  // Used when a { es, en } text lacks the asked locale or has it empty.
   defaultLocale: string
   translator: TranslatorType
 }
@@ -28,5 +28,5 @@ export const resolveText = (text: TextType | undefined, ctx: TextContextType): s
   if (text === undefined) return ''
   if (typeof text === 'string') return text
   if (isMessageRef(text)) return ctx.translator.translate(text.$msg, text.params)
-  return text[ctx.locale] ?? text[ctx.defaultLocale] ?? Object.values(text)[0] ?? ''
+  return [text[ctx.locale], text[ctx.defaultLocale], ...Object.values(text)].find(value => value?.trim()) ?? ''
 }
