@@ -80,7 +80,14 @@ type FieldTypesMap = ReadonlyMap<string, FieldDefinitionType>
 
 const isStructuralKind = (kind: string) => kind === 'group' || kind === 'list' || kind === 'blocks'
 
-const checkFields = (schema: ContentSchema, types: FieldTypesMap, fields: FieldsRecord, where: string) => {
+interface CheckContextType {
+  schema: ContentSchema
+  types: FieldTypesMap
+  folders: readonly MediaFolderType[]
+}
+
+const checkFields = (ctx: CheckContextType, fields: FieldsRecord, where: string) => {
+  const { schema, types, folders } = ctx
   const keys = dataFields(fields).map(([key]) => key)
   for (const [key, field] of dataFields(fields)) {
     const path = `${where}.${key}`
@@ -93,13 +100,18 @@ const checkFields = (schema: ContentSchema, types: FieldTypesMap, fields: Fields
     if (field.kind === 'slug' && !keys.includes(field.from)) {
       throw new CmsConfigError(`${path} is generated from "${field.from}", which is not a field next to it.`)
     }
-    nestedFields(field).forEach(inner => checkFields(schema, types, inner, path))
+    const { folder } = field as { folder?: string }
+    if (folder && !folders.some(item => item.value === folder)) {
+      throw new CmsConfigError(`${path} uploads to the folder "${folder}", which is not one of the mediaFolders.`)
+    }
+    nestedFields(field).forEach(inner => checkFields(ctx, inner, path))
   }
 }
 
-const checkSchema = (schema: ContentSchema, types: FieldTypesMap) => {
+const checkSchema = (ctx: CheckContextType) => {
+  const { schema } = ctx
   for (const [id, entry] of Object.entries(schema)) {
-    checkFields(schema, types, entry.fields, id)
+    checkFields(ctx, entry.fields, id)
     if (entry.kind !== 'collection') continue
     const keys = dataFields(entry.fields).map(([key]) => key)
     if (!keys.includes(entry.titleField)) throw new CmsConfigError(`${id}.titleField "${entry.titleField}" is not one of its fields.`)
@@ -126,7 +138,7 @@ export const defineCmsConfig = <const S extends ContentSchema, const L extends s
     if (fieldTypes.has(definition.kind) || isStructuralKind(definition.kind)) throw new CmsConfigError(`The field kind "${definition.kind}" is defined twice.`)
     fieldTypes.set(definition.kind, definition)
   }
-  checkSchema(input.schema, fieldTypes)
+  checkSchema({ schema: input.schema, types: fieldTypes, folders: input.mediaFolders ?? [] })
 
   return Object.freeze({
     schema: input.schema,

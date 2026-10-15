@@ -2,7 +2,7 @@ import { describe, expect, expectTypeOf, it } from 'vitest'
 import { defineCmsConfig, translatorFor } from '../config'
 import { collection, page, singleton } from '../define'
 import { getCollection, getEntry, getPage } from '../entries'
-import { relation, section, slug, text } from '../fields'
+import { image, relation, section, slug, text } from '../fields'
 
 const schema = {
   settings: singleton('Sitio', { name: text({ label: 'Nombre' }) }),
@@ -44,6 +44,7 @@ describe('defineCmsConfig', () => {
     expect(broken({ title: text({ label: 'Título' }), author: relation({ label: 'Autor', to: 'authors' }) })).toThrow('posts.author points to "authors"')
     expect(broken({ title: text({ label: 'Título' }), slug: slug({ label: 'Slug', from: 'name' }) })).toThrow('generated from "name"')
     expect(broken({ name: text({ label: 'Nombre' }) })).toThrow('titleField "title"')
+    expect(broken({ title: text({ label: 'Título' }), cover: image({ label: 'Portada', folder: 'blog' }) })).toThrow('folder "blog"')
   })
 })
 
