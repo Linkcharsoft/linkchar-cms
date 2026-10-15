@@ -30,7 +30,7 @@ const schema = defineSchema({
       meta: group({ label: 'Meta' }, { badge: text({ label: 'Badge' }) }),
       items: list({ label: 'Servicios', max: 9 }, { title: text({ label: 'Título' }) })
     }, { anchor: 'inicio', icon: 'pi-home' }),
-    obras: section('Obras sociales', {
+    obras: section('Obras', {
       title: text({ label: 'Título' })
     }, { anchor: 'obras', uses: ['posts'], hideable: true }),
     extra: blocks({ label: 'Bloques al final' }, {

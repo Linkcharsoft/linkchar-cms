@@ -17,7 +17,7 @@ const fields = {
 
 const base = () => ({
   ...buildDefaults(config, fields),
-  cta: { label: 'Turnos', link: { type: 'internal', href: '/turnos', newTab: false }, variant: 'primary' },
+  cta: { label: 'Contacto', link: { type: 'internal', href: '/contacto', newTab: false }, variant: 'primary' },
   extra: { note: 'Hola' },
   sections: [{ _key: 'b1', _type: 'texto', body: 'Algo' }]
 })

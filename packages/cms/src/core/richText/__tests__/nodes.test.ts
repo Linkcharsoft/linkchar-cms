@@ -3,7 +3,7 @@ import { isEmptyRichText, sanitizeHref } from '../nodes'
 
 describe('sanitizeHref', () => {
   it('keeps web, mail, phone, anchor and site links', () => {
-    for (const href of ['https://hologramaspsi.com', 'http://x.com', 'mailto:hola@x.com', 'tel:+543510000000', '#turnos', '/blog/nota']) {
+    for (const href of ['https://estudionorte.com', 'http://x.com', 'mailto:hola@x.com', 'tel:+543510000000', '#contacto', '/blog/nota']) {
       expect(sanitizeHref(href)).toBe(href)
     }
     expect(sanitizeHref('  /servicios  ')).toBe('/servicios')

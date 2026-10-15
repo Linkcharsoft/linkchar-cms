@@ -5,7 +5,7 @@
     "paths": {
       "@linkcharsoft/cms/core": ["./src/core/index.ts"],
       "@linkcharsoft/cms/core/opening-hours": ["./src/core/kinds/openingHours.ts"],
-      "@playground/*": ["../../apps/playground/src/*"]
+      "@playground/*": ["../../apps/playground/*"]
     }
   },
   "include": ["src", "vitest.config.ts"]

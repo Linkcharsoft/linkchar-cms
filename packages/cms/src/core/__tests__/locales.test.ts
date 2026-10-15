@@ -69,11 +69,11 @@ describe('storage', () => {
 
   it('moves values saved before localizing to the default locale and drops unknown locales', () => {
     const value = withDefaults(config, fields, {
-      hero: { title: 'Viejo', cta: { label: 'Turnos', link: { type: 'internal', href: '/turnos' } }, cover: ID.es, code: { es: 'A1' } },
+      hero: { title: 'Viejo', cta: { label: 'Contacto', link: { type: 'internal', href: '/contacto' } }, cover: ID.es, code: { es: 'A1' } },
       items: [{ _key: 'k', name: { es: 'Uno', en: 'One', fr: 'Un' }, photo: { es: ID.es, en: ID.en } }]
     })
     expect(value.hero.title).toEqual({ es: 'Viejo', en: 'Hello' })
-    expect(value.hero.cta.label).toEqual({ es: 'Turnos', en: '' })
+    expect(value.hero.cta.label).toEqual({ es: 'Contacto', en: '' })
     expect(value.hero.cover).toEqual({ es: ID.es })
     expect(value.hero.code).toBe('A1')
     expect(value.items[0]).toEqual({ _key: 'k', name: { es: 'Uno', en: 'One' }, photo: { es: ID.es, en: ID.en } })

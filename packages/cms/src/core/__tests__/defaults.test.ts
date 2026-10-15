@@ -49,14 +49,14 @@ describe('withDefaults', () => {
     const value = withDefaults(config, fields, {
       items: [{ name: 'Sin key' }, 'basura'],
       content: [{ _key: 'b1', _type: 'cita', quote: 'Hola' }, { _key: 'b2', _type: 'borrado' }],
-      cta: { label: 'Turnos' }
+      cta: { label: 'Contacto' }
     })
 
     expect(value.items).toHaveLength(1)
     expect(value.items[0].name).toEqual({ es: 'Sin key' })
     expect(value.items[0]._key).toMatch(/^[0-9a-f-]{36}$/)
     expect(value.content).toEqual([{ _key: 'b1', _type: 'cita', quote: { es: 'Hola' } }])
-    expect(value.cta).toEqual({ label: { es: 'Turnos' }, link: { type: 'internal', href: '', newTab: false }, variant: 'primary' })
+    expect(value.cta).toEqual({ label: { es: 'Contacto' }, link: { type: 'internal', href: '', newTab: false }, variant: 'primary' })
   })
 
   it('returns full defaults for non-object input', () => {

@@ -27,7 +27,7 @@ const valid = () => ({
   ...buildDefaults(config, fields),
   title: 'Hola',
   body: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Algo' }] }] },
-  items: [{ _key: 'k1', name: 'Psicología' }]
+  items: [{ _key: 'k1', name: 'Arquitectura' }]
 })
 
 describe('validateContent', () => {
