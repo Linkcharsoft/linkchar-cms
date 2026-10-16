@@ -16,6 +16,7 @@
   "exports": {
     "./core": "./src/core/index.ts",
     "./core/opening-hours": "./src/core/kinds/openingHours.ts",
+    "./server": "./src/server/index.ts",
     "./publish/amplify": "./src/publish/amplify.ts",
     "./publish/mock": "./src/publish/mock.ts",
     "./package.json": "./package.json"
@@ -38,6 +39,7 @@
     "@supabase/ssr": "0.12.7",
     "@supabase/supabase-js": "2.117.3",
     "@types/node": "24.13.3",
+    "@types/react": "19.2.17",
     "next": "16.2.12",
     "react": "19.2.7",
     "react-dom": "19.2.7",
