@@ -1,0 +1,77 @@
+.VersionHistory
+  width: min(420px, 100vw)
+
+  &__Body
+    display: flex
+    flex-direction: column
+    gap: 16px
+
+  &__List
+    display: flex
+    flex-direction: column
+
+  &__Item
+    display: flex
+    flex-wrap: wrap
+    align-items: center
+    justify-content: space-between
+    gap: 12px
+    padding: 10px 0
+    @apply border-b border-cms-border
+
+  &__Reason
+    @apply cms-text-semibold-14 text-cms-ink-900
+
+  &__Meta
+    @apply cms-text-regular-14 text-cms-ink-600
+
+  &__Actions
+    display: flex
+    gap: 4px
+
+  &__Preview
+    width: 100%
+    padding: 8px 12px
+    border-radius: 10px
+    @apply bg-cms-neutral-50
+
+  &__SectionList
+    display: flex
+    flex-direction: column
+    gap: 12px
+
+  &__Section
+    display: flex
+    flex-direction: column
+    gap: 6px
+
+  &__SectionHeader
+    display: flex
+    align-items: center
+    justify-content: space-between
+    gap: 12px
+    @apply cms-text-semibold-14 text-cms-ink-900
+
+  &__Diff
+    display: flex
+    flex-direction: column
+    gap: 8px
+
+  &__Change
+    display: flex
+    flex-direction: column
+    gap: 2px
+
+  &__ChangeLabel
+    @apply cms-text-semibold-14 text-cms-ink-700
+
+  &__ChangeValue
+    display: flex
+    gap: 6px
+    overflow-wrap: anywhere
+    @apply cms-text-regular-14 text-cms-ink-700
+
+  &__ChangeTag
+    flex-shrink: 0
+    min-width: 52px
+    @apply cms-text-medium-14 text-cms-ink-500
