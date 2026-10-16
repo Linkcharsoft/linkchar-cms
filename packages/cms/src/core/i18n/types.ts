@@ -4,11 +4,12 @@ type PluralFormType = 'zero' | 'one' | 'two' | 'few' | 'many'
 
 export type PluralMessageType = { other: string } & Partial<Record<PluralFormType, string>>
 
-type WidenType<T> = T extends string
+// The shape a translation must match: same keys as the Spanish mold, any text.
+export type CatalogType<T> = T extends string
   ? string
-  : T extends { other: string } ? PluralMessageType : { -readonly [K in keyof T]: WidenType<T[K]> }
+  : T extends { other: string } ? PluralMessageType : { -readonly [K in keyof T]: CatalogType<T[K]> }
 
-export type MessagesType = WidenType<typeof es>
+export type MessagesType = CatalogType<typeof es>
 
 type DeepPartialType<T> = T extends string | PluralMessageType ? T : { [K in keyof T]?: DeepPartialType<T[K]> }
 

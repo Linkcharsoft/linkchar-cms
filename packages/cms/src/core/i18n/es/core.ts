@@ -1,5 +1,4 @@
-// A namespace never has a key named `other`: an object with `other` is a plural message.
-const es = {
+const core = {
   common: {
     yes: 'Sí',
     no: 'No',
@@ -185,4 +184,4 @@ const es = {
   }
 } as const
 
-export default es
+export default core

@@ -1,6 +1,7 @@
-import type { MessagesType } from './types'
+import type es from '../es/core'
+import type { CatalogType } from '../types'
 
-const en = {
+const core = {
   common: {
     yes: 'Yes',
     no: 'No',
@@ -184,6 +185,6 @@ const en = {
     image: 'Image when shared',
     imageHelp: 'Shown when the link is shared on WhatsApp or social media. Ideally 1200 × 630 px.'
   }
-} satisfies MessagesType
+} satisfies CatalogType<typeof es>
 
-export default en
+export default core
