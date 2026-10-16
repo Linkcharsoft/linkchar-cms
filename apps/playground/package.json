@@ -9,7 +9,10 @@
     "type-check": "next typegen && tsc --noEmit",
     "db:start": "supabase start",
     "db:stop": "supabase stop",
-    "db:reset": "supabase db reset"
+    "db:reset": "supabase db reset",
+    "db:status": "supabase status -o env",
+    "db:sync": "linkchar-cms migrations sync",
+    "db:test": "supabase test db"
   },
   "dependencies": {
     "@linkcharsoft/cms": "workspace:*",

@@ -22,6 +22,8 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - name: The package never imports project code
         run: '! grep -rnE "from ''@/|from ''@playground/" packages/cms/src --include=*.ts --include=*.tsx --exclude-dir=__tests__'
+      - name: The playground has the package migrations
+        run: pnpm --filter playground exec linkchar-cms migrations sync --check
       - run: pnpm lint-check
       - run: pnpm type-check
       - run: pnpm test
