@@ -1,5 +1,8 @@
 node_modules/
 .next/
+.next-en/
+test-results/
+playwright-report/
 out/
 coverage/
 *.tsbuildinfo

@@ -13,7 +13,8 @@
     "db:status": "supabase status -o env",
     "db:sync": "linkchar-cms migrations sync",
     "routes": "linkchar-cms routes",
-    "db:test": "supabase test db"
+    "db:test": "supabase test db",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "@linkcharsoft/cms": "workspace:*",
@@ -25,6 +26,7 @@
     "server-only": "0.0.1"
   },
   "devDependencies": {
+    "@playwright/test": "1.64.0",
     "@types/node": "24.13.3",
     "@types/react": "19.2.17",
     "@types/react-dom": "19.2.3",

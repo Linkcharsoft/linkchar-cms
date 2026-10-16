@@ -79,7 +79,7 @@ importers:
         version: 2.117.3
       next:
         specifier: 16.2.12
-        version: 16.2.12(@babel/core@7.29.7(supports-color@7.2.0))(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(sass@1.105.1)
+        version: 16.2.12(@babel/core@7.29.7(supports-color@7.2.0))(@playwright/test@1.64.0)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(sass@1.105.1)
       react:
         specifier: 19.2.7
         version: 19.2.7
@@ -90,6 +90,9 @@ importers:
         specifier: 0.0.1
         version: 0.0.1
     devDependencies:
+      '@playwright/test':
+        specifier: 1.64.0
+        version: 1.64.0
       '@types/node':
         specifier: 24.13.3
         version: 24.13.3
@@ -195,7 +198,7 @@ importers:
         version: 30.1.2(@noble/hashes@1.8.0)
       next:
         specifier: 16.2.12
-        version: 16.2.12(@babel/core@7.29.7(supports-color@7.2.0))(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(sass@1.105.1)
+        version: 16.2.12(@babel/core@7.29.7(supports-color@7.2.0))(@playwright/test@1.64.0)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(sass@1.105.1)
       react:
         specifier: 19.2.7
         version: 19.2.7
@@ -883,6 +886,11 @@ packages:
   '@pkgr/core@0.3.6':
     resolution: {integrity: sha512-SEeaJLb3qBNF/OaXnaR1NmmBbFYk1zC0ZH/52fATcRPLFg/p791YrcyFFy44Bo9sLaGuSuLp5Q6axbb/O+v/RA==}
     engines: {node: ^14.18.0 || >=16.0.0}
+
+  '@playwright/test@1.64.0':
+    resolution: {integrity: sha512-oTN9FNYuN6bqQMwiho6jJKLCG2/QOYCixGXuCjRmzOq23eODeukuY2XiAVoVpAECbuezMt1MHQjAiQxK8F+Y+g==}
+    engines: {node: '>=20'}
+    hasBin: true
 
   '@pnpm/config.env-replace@1.1.0':
     resolution: {integrity: sha512-htyl8TWnKL7K/ESFa1oW2UB5lVDxuF5DpM7tBi6Hu2LNL3mWkIzNLG6N4zoCUP1lCKNxWy/3iu8mS8MvToGd6w==}
@@ -2807,6 +2815,16 @@ packages:
     resolution: {integrity: sha512-TfySrs/5nm8fQJDcBDuUng3VOUKsd7S+zqvbOTiGXHfxX4wK31ard+hoNuvkicM/2YFzlpDgABOevKSsB4G/FA==}
     engines: {node: '>= 6'}
 
+  playwright-core@1.64.0:
+    resolution: {integrity: sha512-T9r+MZkTECl2+oUcZ26YgZzTrYidTsIhYYkJix+6iDOymOb1FB2RLLSOxRGnZGv5DStt+aduIVbt+E8WygXYpg==}
+    engines: {node: '>=20'}
+    hasBin: true
+
+  playwright@1.64.0:
+    resolution: {integrity: sha512-kVzTnYFYEyQ9RGzBjNCd2+yEqWmVbxl3AHPynv3qQ6JTjv4a+kwRcnqQwIpuP3NnrnIrE/Q6wWAIAvMfIE2/Yg==}
+    engines: {node: '>=20'}
+    hasBin: true
+
   possible-typed-array-names@1.1.0:
     resolution: {integrity: sha512-/+5VFTchJDoVj3bhoqi6UeymcD00DAwb1nJwamzPvHEszJ4FpF6SNNbUbOS8yI56qHzdV8eK0qEfOSiodkTdxg==}
     engines: {node: '>= 0.4'}
@@ -4137,6 +4155,10 @@ snapshots:
     optional: true
 
   '@pkgr/core@0.3.6': {}
+
+  '@playwright/test@1.64.0':
+    dependencies:
+      playwright: 1.64.0
 
   '@pnpm/config.env-replace@1.1.0': {}
 
@@ -5975,7 +5997,7 @@ snapshots:
 
   natural-compare@1.4.0: {}
 
-  next@16.2.12(@babel/core@7.29.7(supports-color@7.2.0))(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(sass@1.105.1):
+  next@16.2.12(@babel/core@7.29.7(supports-color@7.2.0))(@playwright/test@1.64.0)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(sass@1.105.1):
     dependencies:
       '@next/env': 16.2.12
       '@swc/helpers': 0.5.15
@@ -5994,6 +6016,7 @@ snapshots:
       '@next/swc-linux-x64-musl': 16.2.12
       '@next/swc-win32-arm64-msvc': 16.2.12
       '@next/swc-win32-x64-msvc': 16.2.12
+      '@playwright/test': 1.64.0
       babel-plugin-react-compiler: 1.0.0
       sass: 1.105.1
       sharp: 0.34.5
@@ -6124,6 +6147,12 @@ snapshots:
   picomatch@4.0.7: {}
 
   pirates@4.0.7: {}
+
+  playwright-core@1.64.0: {}
+
+  playwright@1.64.0:
+    dependencies:
+      playwright-core: 1.64.0
 
   possible-typed-array-names@1.1.0: {}
 
