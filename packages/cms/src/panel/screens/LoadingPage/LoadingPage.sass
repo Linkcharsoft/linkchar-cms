@@ -1,0 +1,17 @@
+@use '../../theme/mixins' as cms
+
+.LoadingPage
+  flex: 1
+
+  &__Card
+    display: flex
+    flex-direction: column
+    gap: 16px
+    @include cms.card()
+
+  &__Row
+    height: 20px
+    border-radius: 6px
+
+    &:nth-child(odd)
+      width: 85%

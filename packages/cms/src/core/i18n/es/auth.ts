@@ -1,0 +1,50 @@
+const auth = {
+  auth: {
+    email: 'Email',
+    password: 'Contraseña',
+    newPassword: 'Contraseña nueva',
+    confirmPassword: 'Repetí la contraseña',
+    fullName: 'Nombre y apellido',
+    backToLogin: 'Volver a iniciar sesión',
+    login: {
+      title: 'Iniciar sesión',
+      subtitle: 'Entrá con el email y la contraseña de tu usuario.',
+      submit: 'Ingresar',
+      forgot: 'Olvidé mi contraseña'
+    },
+    urlErrors: {
+      inactivo: 'Tu usuario está desactivado. Contactá a un administrador.',
+      sesion: 'Tu sesión se cerró. Volvé a ingresar.',
+      'link-invalido': 'El link no es válido. Pedí uno nuevo.',
+      'link-vencido': 'El link venció o ya fue usado. Pedí uno nuevo.'
+    },
+    recovery: {
+      title: 'Recuperar contraseña',
+      subtitle: 'Ingresá tu email y te enviamos un link para elegir una contraseña nueva.',
+      sent: 'Si el email tiene un usuario en el panel, te llega un link en unos minutos. Revisá también el spam.',
+      submit: 'Enviar link'
+    },
+    reset: {
+      title: 'Elegí una contraseña nueva',
+      subtitle: 'Usá al menos {min} caracteres, con letras y números.',
+      submit: 'Guardar contraseña'
+    },
+    invite: {
+      title: 'Te damos la bienvenida',
+      subtitle: 'Para terminar de crear tu usuario, contanos tu nombre y elegí una contraseña.',
+      submit: 'Crear mi usuario'
+    },
+    mfa: {
+      title: 'Verificación en dos pasos',
+      subtitle: 'Abrí la app de autenticación de tu celular e ingresá el código de 6 números.',
+      device: 'Celular',
+      code: 'Código',
+      submit: 'Verificar',
+      otherAccount: 'Usar otra cuenta',
+      rateLimit: 'Demasiados intentos. Esperá unos minutos.',
+      wrongCode: 'El código no es correcto o ya venció. Probá con el que muestra ahora la app.'
+    }
+  }
+} as const
+
+export default auth
