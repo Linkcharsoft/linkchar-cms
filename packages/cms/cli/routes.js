@@ -69,9 +69,23 @@ export const planRoutes = ({ basePath, paths }, configFile) => {
     [join(base, 'auth', 'signout', 'route.ts'), handler('GET', 'signout')],
     [join(panel, 'layout.tsx'), view('panel', 'panelLayout', 'layout')],
     [join(workspace, 'loading.tsx'), loading],
+    [join(workspace, 'page.tsx'), view('overview', 'overviewRoute', 'page', ['metadata'])],
+    [join(workspace, paths.pages, 'page.tsx'), view('pages', 'pagesRoute', 'page', ['metadata'])],
+    [join(workspace, paths.pages, '[page]', 'page.tsx'), view('page-editor', 'pageEditorRoute', 'page', ['generateMetadata'])],
+    [join(workspace, paths.collections, '[entry]', 'page.tsx'), view('collection', 'collectionRoute', 'page', ['generateMetadata'])],
+    [join(workspace, paths.collections, '[entry]', '[id]', 'page.tsx'), view('document-editor', 'documentEditorRoute', 'page', ['generateMetadata'])],
+    [join(workspace, paths.site, '[entry]', 'page.tsx'), view('singleton-editor', 'singletonEditorRoute', 'page', ['generateMetadata'])],
+    [join(workspace, paths.media, 'page.tsx'), view('media', 'mediaRoute', 'page', ['metadata'])],
+    [join(workspace, paths.publish, 'page.tsx'), view('publish', 'publishRoute', 'page', ['metadata'])],
+    [join(workspace, paths.trash, 'page.tsx'), view('trash', 'trashRoute', 'page', ['metadata'])],
+    [join(workspace, paths.account, 'page.tsx'), view('account', 'accountRoute', 'page', ['metadata'])],
     [join(admin, 'layout.tsx'), view('admin', 'adminLayout', 'layout')],
     [join(admin, 'loading.tsx'), loading],
+    [join(admin, paths.users, 'page.tsx'), view('users', 'usersRoute', 'page', ['metadata'])],
+    [join(admin, paths.activity, 'page.tsx'), view('activity', 'activityRoute', 'page', ['metadata'])],
     [join('app', 'api', 'cms', 'build-status', 'route.ts'), handler('POST', 'buildStatus')],
+    [join('app', 'api', 'cms', 'draft', 'route.ts'), handler('GET', 'draft')],
+    [join('app', 'api', 'cms', 'disable-draft', 'route.ts'), handler('GET', 'disableDraft')],
     [join('cms', 'actions.ts'), () => ['\'use server\'', 'import { cms } from \'./server\'', '', ...ACTION_NAMES.map(name => `export const ${name} = cms.actions.${name}`)].join('\n')]
   ]
 
