@@ -1,0 +1,39 @@
+.Notice
+  display: flex
+  flex-wrap: wrap
+  align-items: flex-start
+  gap: 8px 10px
+  padding: 12px 16px
+  border: 1px solid transparent
+  border-radius: 8px
+  @apply cms-text-regular-14
+
+  &__Icon
+    margin-top: 2px
+    flex-shrink: 0
+
+  &__Body
+    flex: 1 1 240px
+    min-width: 0
+
+    ul
+      margin: 0
+      padding-left: 18px
+
+  &__Action
+    display: flex
+    align-items: center
+    gap: 8px
+    margin: -4px 0
+
+  &--Info
+    @apply bg-cms-primary-50 border-cms-primary-100 text-cms-ink-700
+
+  &--Success
+    @apply bg-cms-success-50 border-cms-success-200 text-cms-success-800
+
+  &--Warning
+    @apply bg-cms-warning-50 border-cms-warning-200 text-cms-warning-800
+
+  &--Error
+    @apply bg-cms-danger-50 border-cms-danger-200 text-cms-danger-700

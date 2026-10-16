@@ -1,0 +1,82 @@
+.CustomButton
+  --CustomButton-size: 44px
+  position: relative
+  display: inline-flex
+  justify-content: center
+  align-items: center
+  gap: 8px
+  min-height: var(--CustomButton-size)
+  padding: 8px 16px
+  border: 1px solid transparent
+  border-radius: 8px
+  font-family: inherit
+  line-height: 1.25
+  text-align: center
+  text-decoration: none
+  cursor: pointer
+  user-select: none
+  transition: background-color .2s, border-color .2s, color .2s, box-shadow .2s
+
+  &:focus
+    outline: none
+
+  &:focus-visible
+    @apply ring-2 ring-cms-primary-ring ring-offset-2
+
+  // Variants
+  &--Primary
+    @apply bg-cms-primary border-cms-primary text-cms-primary-contrast
+    &:not(.CustomButton--Disabled):hover
+      @apply bg-cms-primary-hover border-cms-primary-hover text-cms-primary-contrast
+
+  &--Secondary
+    @apply bg-cms-surface border-cms-border-strong text-cms-primary
+    &:not(.CustomButton--Disabled):hover
+      @apply bg-cms-neutral-50 border-cms-primary text-cms-primary
+
+  &--Ghost
+    @apply bg-transparent text-cms-ink-900
+    &:not(.CustomButton--Disabled):hover
+      @apply bg-cms-primary-50 text-cms-ink-900
+
+  &--Danger
+    @apply bg-cms-danger-700 border-cms-danger-700 text-white
+    &:not(.CustomButton--Disabled):hover
+      @apply bg-cms-danger-800 border-cms-danger-800 text-white
+
+  &--DangerGhost
+    @apply bg-transparent text-cms-danger-700
+    &:not(.CustomButton--Disabled):hover
+      @apply bg-cms-danger-50 text-cms-danger-800
+
+  // Sizes
+  &--Xs
+    --CustomButton-size: 32px
+    gap: 4px
+    padding: 4px 8px
+    border-radius: 6px
+    @apply cms-text-medium-14
+
+  &--Sm
+    --CustomButton-size: 36px
+    gap: 6px
+    padding: 6px 12px
+    @apply cms-text-semibold-14
+
+  &--Md
+    @apply cms-text-semibold-16
+
+  &--Lg
+    --CustomButton-size: 52px
+    padding: 12px 24px
+    border-radius: 10px
+    @apply cms-text-semibold-16
+
+  &--IconOnly
+    width: var(--CustomButton-size)
+    padding: 0
+
+  // States
+  &--Disabled
+    opacity: .5
+    cursor: not-allowed

@@ -1,0 +1,30 @@
+.EmptyState
+  display: flex
+  flex-direction: column
+  align-items: center
+  gap: 6px
+  padding: 40px 24px
+  text-align: center
+
+  &--Compact
+    padding: 24px 16px
+
+  &__Icon
+    display: inline-flex
+    align-items: center
+    justify-content: center
+    width: 48px
+    height: 48px
+    margin-bottom: 6px
+    border-radius: 50%
+    @apply bg-cms-primary-50 text-cms-primary cms-text-regular-20
+
+  &__Title
+    @apply cms-text-semibold-16 text-cms-ink-900
+
+  &__Description
+    max-width: 420px
+    @apply cms-text-regular-14 text-cms-ink-600
+
+  &__Action
+    margin-top: 10px

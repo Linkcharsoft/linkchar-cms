@@ -10,8 +10,26 @@ export default defineConfig({
     ]
   },
   test: {
-    environment: 'node',
-    include: ['{cli,src}/**/__tests__/**/*.test.{ts,tsx}'],
-    typecheck: { enabled: true, include: ['{cli,src}/**/__tests__/**/*.test.ts'] }
+    projects: [
+      {
+        extends: true,
+        test: {
+          name: 'node',
+          environment: 'node',
+          include: ['{cli,src}/**/__tests__/**/*.test.ts'],
+          typecheck: { enabled: true, include: ['{cli,src}/**/__tests__/**/*.test.ts'] }
+        }
+      },
+      {
+        extends: true,
+        test: {
+          name: 'dom',
+          environment: 'jsdom',
+          include: ['src/**/__tests__/**/*.test.tsx'],
+          css: false,
+          typecheck: { enabled: true, include: ['src/**/__tests__/**/*.test.tsx'] }
+        }
+      }
+    ]
   }
 })
