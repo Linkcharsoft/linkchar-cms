@@ -1,0 +1,51 @@
+import { panelPaths } from './paths'
+import { headerPublishStatus } from './publish'
+import type { CmsConfigType } from './config'
+import type { BuildStatusType } from './publish'
+
+export interface AlertPublishType {
+  buildStatus: BuildStatusType
+  requestedAt: string
+}
+
+export interface AlertChangeType {
+  title: string
+  href: string
+  problems: string[]
+  warnings: string[]
+}
+
+interface AlertBaseType {
+  tone: 'warning' | 'error'
+  // Where it gets solved.
+  href: string
+}
+
+export type OverviewAlertType = AlertBaseType & (
+  | { code: 'publish', status: 'failed' | 'unconfirmed' }
+  | { code: 'incomplete', title: string, fields: string[] }
+  | { code: 'reference', title: string, warning: string }
+)
+
+// Things that need someone: a publish that failed or wasn't confirmed, changes that won't go out as expected.
+export const overviewAlerts = (
+  config: CmsConfigType,
+  latest: AlertPublishType | null,
+  changes: AlertChangeType[],
+  now = Date.now()
+): OverviewAlertType[] => {
+  const publish = latest ? headerPublishStatus(latest.buildStatus, latest.requestedAt, now) : null
+  const publishAlerts: OverviewAlertType[] = publish && publish.status !== 'building'
+    ? [{ code: 'publish', status: publish.status, tone: publish.status === 'failed' ? 'error' : 'warning', href: panelPaths(config).publish }]
+    : []
+
+  return [
+    ...publishAlerts,
+    ...changes.flatMap((change): OverviewAlertType[] => [
+      ...(change.problems.length > 0
+        ? [{ code: 'incomplete' as const, tone: 'warning' as const, title: change.title, fields: change.problems, href: change.href }]
+        : []),
+      ...change.warnings.map(warning => ({ code: 'reference' as const, tone: 'warning' as const, title: change.title, warning, href: change.href }))
+    ])
+  ]
+}

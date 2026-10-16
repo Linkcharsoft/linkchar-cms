@@ -1,0 +1,64 @@
+@use '../../theme/mixins' as cms
+
+.OverviewPage
+  flex: 1
+
+  &__Grid
+    display: grid
+    align-items: start
+    gap: 20px
+    @apply lg:grid-cols-2
+
+  &__Card
+    display: flex
+    flex-direction: column
+    gap: 12px
+    @include cms.card()
+
+  &__CardTitle
+    @apply cms-text-semibold-18 text-cms-ink-900
+
+  &__List
+    display: flex
+    flex-direction: column
+
+  &__Item
+    display: flex
+    flex-direction: column
+    gap: 2px
+    min-height: 44px
+    padding: 10px 12px
+    border-radius: 10px
+    text-decoration: none
+    @apply hover:bg-cms-neutral-50
+
+  &__ItemTitle
+    @apply cms-text-semibold-16 text-cms-ink-900
+
+  &__ItemMeta
+    @apply cms-text-regular-14 text-cms-ink-600
+
+  &__Tasks
+    display: grid
+    gap: 8px
+    @apply sm:grid-cols-2
+
+  &__Task
+    width: 100%
+    justify-content: flex-start
+
+  &__Alerts
+    display: flex
+    flex-direction: column
+    gap: 8px
+
+  &__Row
+    display: flex
+    align-items: center
+    justify-content: space-between
+    gap: 12px
+    min-height: 44px
+    padding: 6px 12px
+    border-radius: 10px
+    text-decoration: none
+    @apply hover:bg-cms-neutral-50
