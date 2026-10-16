@@ -31,6 +31,15 @@ const PublishStatus = ({ latest: initialLatest, pendingCount: initialCount }: Pr
   const pathname = usePathname()
   const [latest, setLatest] = useState(initialLatest)
   const [pendingCount, setPendingCount] = useState(initialCount)
+  const [props, setProps] = useState({ initialLatest, initialCount })
+
+  // router.refresh() (after publishing) re-renders the layout with fresh props: adopt them.
+  if (props.initialLatest !== initialLatest || props.initialCount !== initialCount) {
+    setProps({ initialLatest, initialCount })
+    setLatest(initialLatest)
+    setPendingCount(initialCount)
+  }
+
   const shown = latest ? headerPublishStatus(latest.buildStatus, latest.requestedAt) : null
   const status = shown?.status ?? null
 
