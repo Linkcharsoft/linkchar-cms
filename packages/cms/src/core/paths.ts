@@ -26,6 +26,8 @@ export interface PanelPathsType {
   publishItem: (documentId?: string) => string
   // Where an entry is edited: a page or singleton editor, a collection list, or one collection document.
   entry: (kind: SchemaEntry['kind'], entryId: string, id?: string) => string
+  // A project screen or link declared in `extensions`.
+  extension: (id: string) => string
   // Reachable without a session.
   publicPaths: string[]
   // A signed-in user is sent to the panel home instead.
@@ -98,6 +100,10 @@ export const panelPaths = (config: CmsConfigType): PanelPathsType => {
       if (kind === 'page') return page(entryId)
       if (kind === 'singleton') return site(entryId)
       return id ? document(entryId, id) : collection(entryId)
+    },
+    extension: id => {
+      const found = config.extensions.find(extension => extension.id === id)
+      return found?.href ?? (found?.path ? `${base}/${found.path}` : base)
     },
     publicPaths: [login, passwordRecovery, auth],
     guestOnlyPaths: [login, passwordRecovery]

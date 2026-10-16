@@ -7,6 +7,7 @@ import type { DataField, FieldsRecord } from './fields'
 import type { MessageOverridesType, TranslatorType } from './i18n/types'
 import type { FieldDefinitionType } from './kinds/registry'
 import type { PanelSegmentType } from './paths'
+import type { RoleType } from './roles'
 import type { TextContextType, TextType } from './text'
 
 export interface MediaFolderType {
@@ -21,9 +22,25 @@ export interface BrandingType {
   footer?: TextType
 }
 
-// Project screens and menu items with the panel layout (stage 3).
+export interface SiteType {
+  // Public origin of the site ("https://acme.com"), for the Google preview and links out of the panel.
+  url?: string
+  // How pages title themselves, e.g. "%s | Acme".
+  titleTemplate?: string
+}
+
+// A project menu item: its own panel screen (a route the project adds under (panel)) or an external link.
 export interface CmsExtensionType {
   id: string
+  label: TextType
+  // PrimeIcons class, e.g. 'pi-chart-bar'.
+  icon?: string
+  // Menu group; 'admin' items are listed for admins only.
+  group?: 'content' | 'site' | 'admin'
+  // URL segment of the screen under basePath, e.g. 'estadisticas'.
+  path?: string
+  href?: string
+  minRole?: RoleType
 }
 
 export interface CmsConfigInputType<S extends ContentSchema, L extends string> {
@@ -37,6 +54,7 @@ export interface CmsConfigInputType<S extends ContentSchema, L extends string> {
   paths?: Partial<Record<PanelSegmentType, string>>
   timeZone?: string
   branding?: BrandingType
+  site?: SiteType
   mediaFolders?: readonly MediaFolderType[]
   extensions?: readonly CmsExtensionType[]
   // Opt-in kinds (openingHours) and the project's own, made with defineField.
@@ -53,6 +71,7 @@ export interface CmsConfigType<S extends ContentSchema = ContentSchema, L extend
   paths: Readonly<Record<PanelSegmentType, string>>
   timeZone: string
   branding: BrandingType
+  site: { readonly url: string | null, readonly titleTemplate: string }
   mediaFolders: readonly MediaFolderType[]
   extensions: readonly CmsExtensionType[]
   fieldTypes: ReadonlyMap<string, FieldDefinitionType>
@@ -69,6 +88,23 @@ export class CmsConfigError extends Error {
 const LOCALE = /^[a-z]{2,3}(-[A-Z]{2})?$/
 
 const SEGMENT = /^[a-z0-9]+(-[a-z0-9]+)*$/
+
+const checkExtensions = (extensions: readonly CmsExtensionType[], segments: Readonly<Record<PanelSegmentType, string>>) => {
+  const taken = new Set<string>([...Object.values(segments), AUTH_SEGMENT])
+  const ids = new Set<string>()
+  for (const extension of extensions) {
+    const where = `extensions "${extension.id}"`
+    if (ids.has(extension.id)) throw new CmsConfigError(`${where} is defined twice.`)
+    ids.add(extension.id)
+    if (!extension.path === !extension.href) throw new CmsConfigError(`${where} needs either a path (a panel screen) or an href (a link).`)
+    if (extension.href && !/^https?:\/\//.test(extension.href)) throw new CmsConfigError(`${where} href must start with https://.`)
+    if (extension.path) {
+      if (!SEGMENT.test(extension.path)) throw new CmsConfigError(`${where} path "${extension.path}" must be lowercase letters, numbers and dashes.`)
+      if (taken.has(extension.path)) throw new CmsConfigError(`${where} path "${extension.path}" is already a panel screen.`)
+      taken.add(extension.path)
+    }
+  }
+}
 
 const panelSegments = (overrides: Partial<Record<PanelSegmentType, string>> = {}) => {
   const segments = { ...DEFAULT_PANEL_SEGMENTS, ...overrides }
@@ -151,6 +187,11 @@ export const defineCmsConfig = <const S extends ContentSchema, const L extends s
     fieldTypes.set(definition.kind, definition)
   }
   checkSchema({ schema: input.schema, types: fieldTypes, folders: input.mediaFolders ?? [] })
+  const paths = panelSegments(input.paths)
+  checkExtensions(input.extensions ?? [], paths)
+  const titleTemplate = input.site?.titleTemplate ?? '%s'
+  if (!titleTemplate.includes('%s')) throw new CmsConfigError(`site.titleTemplate "${titleTemplate}" needs %s where the page title goes.`)
+  if (input.site?.url && !/^https?:\/\/[^/]+$/.test(input.site.url)) throw new CmsConfigError(`site.url "${input.site.url}" must be an origin like https://acme.com.`)
 
   return Object.freeze({
     schema: input.schema,
@@ -158,9 +199,10 @@ export const defineCmsConfig = <const S extends ContentSchema, const L extends s
     defaultLocale,
     panelLocale: input.panelLocale ?? 'es',
     basePath,
-    paths: panelSegments(input.paths),
+    paths,
     timeZone: input.timeZone ?? 'America/Argentina/Buenos_Aires',
     branding: input.branding ?? { name: 'CMS' },
+    site: Object.freeze({ url: input.site?.url ?? null, titleTemplate }),
     mediaFolders: input.mediaFolders ?? [],
     extensions: input.extensions ?? [],
     fieldTypes,

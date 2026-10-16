@@ -37,6 +37,23 @@ describe('defineCmsConfig', () => {
     expect(() => defineCmsConfig({ schema, basePath: 'admin' })).toThrow('basePath')
   })
 
+  it('checks the project extensions', () => {
+    const stats = { id: 'stats', label: 'Estadísticas', path: 'estadisticas' }
+    expect(defineCmsConfig({ schema, extensions: [stats] }).extensions).toEqual([stats])
+    expect(() => defineCmsConfig({ schema, extensions: [stats, stats] })).toThrow('defined twice')
+    expect(() => defineCmsConfig({ schema, extensions: [{ id: 'x', label: 'X' }] })).toThrow('either a path')
+    expect(() => defineCmsConfig({ schema, extensions: [{ id: 'x', label: 'X', path: 'a', href: 'https://a.com' }] })).toThrow('either a path')
+    expect(() => defineCmsConfig({ schema, extensions: [{ id: 'x', label: 'X', path: 'media' }] })).toThrow('already a panel screen')
+    expect(() => defineCmsConfig({ schema, extensions: [{ id: 'x', label: 'X', href: 'javascript:alert(1)' }] })).toThrow('https://')
+  })
+
+  it('checks the site settings', () => {
+    expect(defineCmsConfig({ schema }).site).toEqual({ url: null, titleTemplate: '%s' })
+    expect(defineCmsConfig({ schema, site: { url: 'https://acme.com', titleTemplate: '%s | Acme' } }).site.titleTemplate).toBe('%s | Acme')
+    expect(() => defineCmsConfig({ schema, site: { titleTemplate: 'Acme' } })).toThrow('%s')
+    expect(() => defineCmsConfig({ schema, site: { url: 'https://acme.com/blog' } })).toThrow('origin')
+  })
+
   it('rejects panel segments that are not URL-safe or collide', () => {
     expect(() => defineCmsConfig({ schema, paths: { pages: 'Pages' } })).toThrow('paths.pages')
     expect(() => defineCmsConfig({ schema, paths: { trash: 'auth' } })).toThrow('sign-in links')
