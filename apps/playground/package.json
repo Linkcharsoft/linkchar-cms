@@ -12,6 +12,7 @@
     "db:reset": "supabase db reset",
     "db:status": "supabase status -o env",
     "db:sync": "linkchar-cms migrations sync",
+    "routes": "linkchar-cms routes",
     "db:test": "supabase test db"
   },
   "dependencies": {
