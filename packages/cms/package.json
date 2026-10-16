@@ -22,6 +22,7 @@
     "./server": "./src/server/index.ts",
     "./publish/amplify": "./src/publish/amplify.ts",
     "./publish/mock": "./src/publish/mock.ts",
+    "./panel": "./src/panel/index.ts",
     "./panel/client": "./src/panel/client/createCmsClient.tsx",
     "./panel/routes/*": "./src/panel/routes/*.tsx",
     "./panel/styles.css": "./src/panel/theme/styles.css",

@@ -77,8 +77,22 @@ export const entryNavLabel = (config: CmsConfigType, entryId: string): string =>
   return resolveText(entry.label, ctx)
 }
 
+// The project's extensions for one menu group that this role may see.
+const extensionItems = (config: CmsConfigType, role: RoleType, group: 'content' | 'site' | 'admin'): NavItemType[] => {
+  const ctx = textContext(config)
+  const paths = panelPaths(config)
+  return config.extensions
+    .filter(extension => (extension.group ?? 'content') === group && hasRole(role, extension.minRole ?? (group === 'admin' ? 'admin' : 'editor')))
+    .map(extension => ({
+      label: resolveText(extension.label, ctx),
+      href: paths.extension(extension.id),
+      icon: extension.icon ?? 'pi-th-large',
+      external: !!extension.href
+    }))
+}
+
 // The menu comes from the schema: pages are listed in Pages, top-level collections go to Content,
-// singletons to Site. Publishing lives in the header.
+// singletons to Site, and the project's extensions to the group they ask for. Publishing lives in the header.
 export const buildPanelNav = (config: CmsConfigType, role: RoleType): NavGroupType[] => {
   const ctx = textContext(config)
   const { t } = ctx.translator
@@ -98,18 +112,25 @@ export const buildPanelNav = (config: CmsConfigType, role: RoleType): NavGroupTy
           icon: entry.icon ?? 'pi-list',
           matches: childrenOf(config, id).map(([childId]) => paths.collection(childId))
         })),
-        items.media
+        items.media,
+        ...extensionItems(config, role, 'content')
       ]
     },
     {
       label: t('nav.groups.site'),
-      items: entries.filter(([, entry]) => entry.kind === 'singleton').map(([id, entry]) => ({
-        label: resolveText(entry.label, ctx),
-        href: paths.site(id),
-        icon: entry.icon ?? 'pi-cog'
-      }))
+      items: [
+        ...entries.filter(([, entry]) => entry.kind === 'singleton').map(([id, entry]) => ({
+          label: resolveText(entry.label, ctx),
+          href: paths.site(id),
+          icon: entry.icon ?? 'pi-cog'
+        })),
+        ...extensionItems(config, role, 'site')
+      ]
     },
-    ...(hasRole(role, 'admin') ? [{ label: t('nav.groups.admin'), items: [items.users, items.activity] }] : []),
+    {
+      label: t('nav.groups.admin'),
+      items: [...(hasRole(role, 'admin') ? [items.users, items.activity] : []), ...extensionItems(config, role, 'admin')]
+    },
     { label: null, items: [items.trash] }
   ].filter(group => group.items.length > 0)
 }

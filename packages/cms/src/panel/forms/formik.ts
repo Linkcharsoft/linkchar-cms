@@ -30,3 +30,6 @@ export const submitWithFocus = <T extends object>(formik: FormikProps<T>, fieldO
 
     formik.handleSubmit()
   }
+
+// Re-exported so custom inputs bind with Formik like the package's, without depending on it directly.
+export { useField, useFormikContext } from 'formik'
