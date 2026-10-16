@@ -24,3 +24,21 @@ export const dayRange = (day: string, timeZone: string) => {
   const to = startOfDay(year, month, date + 1, timeZone) - 1
   return { from: new Date(from).toISOString(), to: new Date(to).toISOString() }
 }
+
+export type DateStyleType = 'dateTime' | 'shortDateTime' | 'date' | 'time' | 'longDate'
+
+const DATE_STYLES: Record<DateStyleType, Intl.DateTimeFormatOptions> = {
+  dateTime: { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' },
+  shortDateTime: { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' },
+  date: { day: '2-digit', month: '2-digit', year: 'numeric' },
+  time: { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' },
+  longDate: { day: 'numeric', month: 'long', year: 'numeric' }
+}
+
+// Servers render in UTC and browsers in local time: always format in the site's zone so both agree.
+// A calendar date ("2026-10-13") has no zone, so it is read and written in UTC to stay on its day.
+export const formatDate = (value: string | Date, style: DateStyleType, { locale, timeZone }: { locale: string, timeZone: string }) => {
+  const isCalendarDate = typeof value === 'string' && DATE_ONLY.test(value)
+  const date = isCalendarDate ? new Date(`${value}T00:00:00Z`) : new Date(value)
+  return new Intl.DateTimeFormat(locale, { ...DATE_STYLES[style], timeZone: isCalendarDate ? 'UTC' : timeZone }).format(date)
+}
