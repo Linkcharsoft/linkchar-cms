@@ -2,11 +2,13 @@
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "types": ["node"],
+    "allowJs": true,
+    "checkJs": true,
     "paths": {
       "@linkcharsoft/cms/core": ["./src/core/index.ts"],
       "@linkcharsoft/cms/core/opening-hours": ["./src/core/kinds/openingHours.ts"],
       "@playground/*": ["../../apps/playground/*"]
     }
   },
-  "include": ["src", "vitest.config.ts"]
+  "include": ["cli", "src", "vitest.config.ts"]
 }

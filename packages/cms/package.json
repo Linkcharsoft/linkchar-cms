@@ -18,10 +18,14 @@
     "./core/opening-hours": "./src/core/kinds/openingHours.ts",
     "./package.json": "./package.json"
   },
+  "bin": {
+    "linkchar-cms": "./cli/linkchar-cms.js"
+  },
   "files": [
+    "cli",
     "src",
     "supabase",
-    "!src/**/__tests__"
+    "!**/__tests__"
   ],
   "scripts": {
     "type-check": "tsc --noEmit",
