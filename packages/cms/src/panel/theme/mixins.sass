@@ -1,0 +1,31 @@
+@use "sass:map"
+
+$dialog-widths: (sm: 480px, md: 640px, lg: 960px)
+
+@mixin dialog-width($size: md)
+  width: min(map.get($dialog-widths, $size), calc(100vw - 32px))
+
+@mixin card()
+  padding: 20px
+  border-radius: 16px
+  @apply bg-cms-surface border border-cms-border md:p-6
+
+@mixin table()
+  overflow: hidden
+  border-radius: 16px
+  @apply bg-cms-surface border border-cms-border
+
+@mixin scroll($bar-size: 8px)
+  scrollbar-width: thin
+  scrollbar-color: var(--cms-ink-300) transparent
+
+  &::-webkit-scrollbar
+    width: $bar-size
+    height: $bar-size
+
+    &-thumb
+      border-radius: 20px
+      background-color: var(--cms-ink-300)
+
+    &-track
+      background-color: transparent

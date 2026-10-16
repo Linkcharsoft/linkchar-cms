@@ -1,0 +1,53 @@
+/* :where() keeps these at zero specificity, so a project's `:root { --cms-primary: … }` always wins. */
+:where(:root) {
+  --cms-primary: #2457a6;
+  --cms-on-primary: #ffffff;
+  --cms-sidebar: color-mix(in oklab, var(--cms-primary) 30%, #0b1524);
+  --cms-on-sidebar: #ffffff;
+
+  --cms-primary-hover: color-mix(in oklab, var(--cms-primary) 86%, #000000);
+  --cms-primary-active: color-mix(in oklab, var(--cms-primary) 74%, #000000);
+  --cms-primary-ring: color-mix(in oklab, var(--cms-primary) 55%, #ffffff);
+  --cms-primary-50: color-mix(in oklab, var(--cms-primary) 6%, #ffffff);
+  --cms-primary-100: color-mix(in oklab, var(--cms-primary) 12%, #ffffff);
+  --cms-primary-200: color-mix(in oklab, var(--cms-primary) 24%, #ffffff);
+
+  --cms-sidebar-hover: color-mix(in oklab, var(--cms-sidebar) 86%, var(--cms-on-sidebar));
+  --cms-sidebar-active: color-mix(in oklab, var(--cms-sidebar) 78%, var(--cms-on-sidebar));
+  --cms-on-sidebar-muted: color-mix(in oklab, var(--cms-on-sidebar) 68%, var(--cms-sidebar));
+
+  --cms-ink-900: #172131;
+  --cms-ink-800: #263347;
+  --cms-ink-700: #3c4b60;
+  --cms-ink-600: #52627a;
+  --cms-ink-500: #67778d;
+  --cms-ink-400: #94a1b2;
+  --cms-ink-300: #c2cad5;
+
+  --cms-surface: #ffffff;
+  --cms-neutral-50: #f6f8fa;
+  --cms-neutral-100: #eef1f5;
+  --cms-neutral-200: #e2e7ee;
+  --cms-border: #e3e8ee;
+  --cms-border-strong: #cfd7e1;
+  --cms-overlay: rgb(15 23 42 / 0.45);
+
+  --cms-danger-50: #fef3f2;
+  --cms-danger-200: #fecdca;
+  --cms-danger-600: #d92d20;
+  --cms-danger-700: #b42318;
+  --cms-danger-800: #912018;
+  --cms-warning-50: #fffaeb;
+  --cms-warning-200: #fedf89;
+  --cms-warning-500: #f79009;
+  --cms-warning-700: #b54708;
+  --cms-warning-800: #93370d;
+  --cms-success-50: #ecfdf3;
+  --cms-success-200: #abefc6;
+  --cms-success-600: #079455;
+  --cms-success-700: #067647;
+  --cms-success-800: #085d3a;
+
+  --cms-font-sans: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --cms-font-display: var(--cms-font-sans);
+}
