@@ -10,5 +10,5 @@
       "@playground/*": ["../../apps/playground/*"]
     }
   },
-  "include": ["cli", "src", "vitest.config.ts"]
+  "include": ["cli", "src", "vitest.config.ts", "vitest.db.config.ts"]
 }

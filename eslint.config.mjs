@@ -93,7 +93,7 @@ const ESLintConfig = [
   },
   {
     files: ['packages/cms/src/**/*.{ts,tsx}'],
-    ignores: ['**/__tests__/**'],
+    ignores: ['**/__tests__/**', '**/__integration__/**'],
     rules: {
       'no-restricted-imports': ['error', {
         patterns: [{

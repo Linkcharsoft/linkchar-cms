@@ -21,10 +21,25 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - name: The package never imports project code
-        run: '! grep -rnE "from ''@/|from ''@playground/" packages/cms/src --include=*.ts --include=*.tsx --exclude-dir=__tests__'
+        run: '! grep -rnE "from ''@/|from ''@playground/" packages/cms/src --include=*.ts --include=*.tsx --exclude-dir=__tests__ --exclude-dir=__integration__'
       - name: The playground has the package migrations
         run: pnpm --filter playground exec linkchar-cms migrations sync --check
       - run: pnpm lint-check
       - run: pnpm type-check
       - run: pnpm test
       - run: pnpm --filter playground build
+
+  db:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Local Supabase with the package migrations and the QA seed
+        run: pnpm --filter playground exec supabase start -x studio,imgproxy,vector,logflare,edge-runtime,realtime,supavisor
+      - run: pnpm --filter playground db:test
+      - run: pnpm --filter @linkcharsoft/cms test:db
