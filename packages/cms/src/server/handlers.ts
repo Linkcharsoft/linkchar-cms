@@ -1,5 +1,8 @@
+import { draftMode } from 'next/headers'
 import { NextResponse } from 'next/server'
 import { panelPaths } from '../core/paths'
+import { safePreviewPath } from '../core/preview'
+import { getCurrentProfile } from './auth'
 import type { CmsContextType } from './context'
 import type { EmailOtpType } from '@supabase/supabase-js'
 
@@ -29,4 +32,24 @@ export const signOutTo = async (ctx: CmsContextType, request: Request) => {
   const reason = new URL(request.url).searchParams.get('error')
   const known = (SIGN_OUT_REASONS as readonly (string | null)[]).includes(reason) ? reason : 'inactivo'
   return redirectTo(request, `${panelPaths(ctx.config).login}?error=${known}`)
+}
+
+// Panel preview: a signed-in, active panel user opens `?path=` of the site in Draft Mode.
+export const enableDraft = async (ctx: CmsContextType, request: Request) => {
+  const path = safePreviewPath(new URL(request.url).searchParams.get('path') ?? '/', ctx.config.basePath)
+  if (!path) return new Response('Invalid path', { status: 400 })
+
+  const { user, profile, mfaPending } = await getCurrentProfile(ctx)
+  if (!user || !profile?.active || mfaPending) return new Response('Unauthorized', { status: 401 })
+
+  const draft = await draftMode()
+  draft.enable()
+  return redirectTo(request, path)
+}
+
+// Leaves the preview (clears the Draft Mode cookie) and goes back to the published site.
+export const disableDraft = async (_ctx: CmsContextType, request: Request) => {
+  const draft = await draftMode()
+  draft.disable()
+  return redirectTo(request, '/')
 }

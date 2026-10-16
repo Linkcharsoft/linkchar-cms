@@ -13,7 +13,7 @@ import { createDocument, createRelated, duplicateDocument, reorderCollection, se
 import { CmsRedirect } from './context'
 import * as documents from './documents'
 import { saveDocument } from './editing'
-import { confirmEmailLink, signOutTo } from './handlers'
+import { confirmEmailLink, disableDraft, enableDraft, signOutTo } from './handlers'
 import * as media from './media'
 import { listPages } from './pages'
 import { applyBuildEvent, getLatestPublish, getPendingChanges, getPendingCount, getPublishHistory, getPublishStatus, publishChanges } from './publish'
@@ -174,7 +174,13 @@ export const createCmsServer = ({ config, supabase, publishTarget = null }: CmsS
     context,
     actions: bind(ACTIONS),
     queries: bind(QUERIES),
-    handlers: { buildStatus, authConfirm: handler(confirmEmailLink), signout: handler(signOutTo) },
+    handlers: {
+      buildStatus,
+      authConfirm: handler(confirmEmailLink),
+      signout: handler(signOutTo),
+      draft: handler(enableDraft),
+      disableDraft: handler(disableDraft)
+    },
     updateSession,
     proxy,
     // What the browser needs to talk to Supabase itself (uploads, MFA): public values only.
