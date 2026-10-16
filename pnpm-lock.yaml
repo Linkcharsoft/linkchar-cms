@@ -159,6 +159,9 @@ importers:
       primeicons:
         specifier: 7.0.0
         version: 7.0.0
+      primelocale:
+        specifier: 2.4.0
+        version: 2.4.0
       primereact:
         specifier: 10.9.9
         version: 10.9.9(@types/react@19.2.17)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
@@ -2873,6 +2876,10 @@ packages:
 
   primeicons@7.0.0:
     resolution: {integrity: sha512-jK3Et9UzwzTsd6tzl2RmwrVY/b8raJ3QZLzoDACj+oTJ0oX7L9Hy+XnVwgo4QVKlKpnP/Ur13SXV/pVh4LzaDw==}
+
+  primelocale@2.4.0:
+    resolution: {integrity: sha512-+FxfN+NjImzSoFTE8n5TLidMucC+7pl1DZKrNokgcMPbN7iVWYtb9+zC+y9ZSkn81vDa328PiCPh966gSjW6zQ==}
+    engines: {node: '>=18.0.0', npm: '>=8.6.0'}
 
   primereact@10.9.9:
     resolution: {integrity: sha512-cM2mI1+usdIhQQQZre85Lv2GaiYrKaRlTUT+xXQSWwhPmel+YwhljNQ210mpjuY30aF3eQg6hU5Yl0VwJp0PWQ==}
@@ -6179,6 +6186,8 @@ snapshots:
       react-is: 17.0.2
 
   primeicons@7.0.0: {}
+
+  primelocale@2.4.0: {}
 
   primereact@10.9.9(@types/react@19.2.17)(react-dom@19.2.7(react@19.2.7))(react@19.2.7):
     dependencies:

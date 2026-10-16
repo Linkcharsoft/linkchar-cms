@@ -52,6 +52,7 @@ const cmsPreset = {
           surface: 'var(--cms-surface)',
           border: { DEFAULT: 'var(--cms-border)', strong: 'var(--cms-border-strong)' },
           overlay: 'var(--cms-overlay)',
+          veil: 'var(--cms-veil)',
           danger: scale('danger', [50, 200, 600, 700, 800]),
           warning: scale('warning', [50, 200, 500, 700, 800]),
           success: scale('success', [50, 200, 600, 700, 800])
