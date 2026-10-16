@@ -1,0 +1,92 @@
+.RichTextEditor
+  overflow: hidden
+  border-radius: 8px
+  @apply bg-cms-surface border border-cms-border focus-within:border-cms-primary
+
+  &--Invalid
+    @apply border-cms-danger-600
+
+  &--Loading
+    padding: 16px
+    min-height: 160px
+    @apply cms-text-regular-14 text-cms-ink-600
+
+  &__Toolbar
+    position: sticky
+    top: 0
+    z-index: 1
+    display: flex
+    flex-wrap: wrap
+    align-items: center
+    gap: 2px
+    padding: 4px
+    @apply bg-cms-neutral-50 border-b border-cms-border
+
+  &__Tool
+    @apply text-cms-ink-700
+
+    &--Active
+      @apply bg-cms-primary-100 text-cms-ink-900
+
+  &__Divider
+    width: 1px
+    height: 20px
+    margin: 0 4px
+    @apply bg-cms-border-strong
+
+  &__Content
+    min-height: 200px
+    padding: 16px
+    outline: none
+
+    > * + *
+      margin-top: 12px
+
+    h2
+      @apply font-cms-display cms-text-bold-24 text-cms-ink-900
+
+    h3
+      @apply font-cms-display cms-text-bold-20 text-cms-ink-900
+
+    h4
+      @apply cms-text-bold-18 text-cms-ink-900
+
+    p, li
+      @apply cms-text-regular-16 text-cms-ink-900
+
+    ul
+      padding-left: 24px
+      list-style: disc
+
+    ol
+      padding-left: 24px
+      list-style: decimal
+
+    blockquote
+      padding-left: 16px
+      font-style: italic
+      @apply border-l-4 border-cms-primary
+
+    a
+      text-decoration: underline
+      @apply text-cms-primary
+
+    hr
+      @apply border-cms-border-strong
+
+    img
+      display: block
+      max-width: 100%
+      height: auto
+      border-radius: 8px
+
+      &.ProseMirror-selectednode
+        @apply ring-2 ring-cms-primary-ring
+
+  &__Video
+    padding: 16px
+    border-radius: 8px
+    @apply cms-text-medium-14 bg-cms-primary-50 text-cms-ink-700
+
+    &.ProseMirror-selectednode
+      @apply ring-2 ring-cms-primary-ring

@@ -1,0 +1,53 @@
+.OpeningHoursInput
+  display: flex
+  flex-direction: column
+  gap: 12px
+  min-width: 0
+
+  &__Legend
+    margin-bottom: 4px
+    @apply cms-text-medium-16 text-cms-ink-700
+
+  &__Help
+    @apply cms-text-regular-14 text-cms-ink-600
+
+  &__Days
+    display: flex
+    flex-direction: column
+    border-radius: 12px
+    overflow: hidden
+    @apply border border-cms-border
+
+  &__Day
+    display: grid
+    grid-template-columns: 96px 1fr
+    align-items: center
+    gap: 8px 16px
+    padding: 10px 16px
+    @apply bg-cms-surface border-b border-cms-border sm:grid-cols-[110px_140px_1fr]
+
+    &:last-child
+      border-bottom: none
+
+  &__DayName
+    @apply cms-text-semibold-14 text-cms-ink-900
+
+  &__Status
+    cursor: pointer
+    @apply cms-text-regular-14 text-cms-ink-700
+
+  &__Times
+    display: flex
+    align-items: center
+    gap: 8px
+    grid-column: 1 / -1
+    @apply cms-text-regular-14 text-cms-ink-600 sm:col-auto
+
+  &__Time
+    width: 84px
+
+  &__Error
+    grid-column: 1 / -1
+
+  &__NoteLabel
+    @apply cms-text-medium-14 text-cms-ink-700
