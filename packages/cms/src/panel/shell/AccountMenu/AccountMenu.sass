@@ -1,0 +1,32 @@
+.AccountMenu
+  display: flex
+  align-items: center
+  gap: 10px
+  min-width: 0
+  min-height: 44px
+  padding: 4px 10px 4px 4px
+  margin-left: -4px
+  border: 0
+  border-radius: 10px
+  background: transparent
+  font-family: inherit
+  text-align: left
+  cursor: pointer
+  @apply hover:bg-cms-neutral-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cms-primary-ring
+
+  &__Who
+    flex-direction: column
+    min-width: 0
+    @apply hidden sm:flex
+
+  &__Name
+    overflow: hidden
+    text-overflow: ellipsis
+    white-space: nowrap
+    @apply cms-text-semibold-14 text-cms-ink-900
+
+  &__Role
+    @apply cms-text-regular-12 text-cms-ink-600
+
+  &__Chevron
+    @apply cms-text-regular-12 text-cms-ink-600

@@ -1,0 +1,41 @@
+.DashboardLayout
+  min-height: 100dvh
+  display: flex
+  flex-direction: column
+  @apply bg-cms-neutral-50 lg:flex-row
+
+  &__Content
+    flex: 1
+    min-width: 0
+    display: flex
+    flex-direction: column
+
+  // Unstyled mode drops the CSS PrimeReact injects for responsiveLayout='stack' tables.
+  [data-pc-name="datatable"]
+    @media (max-width: 767px)
+      thead
+        display: none
+
+      tbody > tr
+        display: block
+        padding: 10px 16px
+        @apply border-b border-cms-border
+
+      tbody > tr > td
+        display: flex
+        align-items: center
+        justify-content: space-between
+        gap: 16px
+        width: 100%
+        padding: 6px 0
+        border: 0
+        text-align: left
+
+      // Action columns have a visually hidden title: push their buttons to the right.
+      tbody > tr > td:has(> [data-pc-section="columntitle"] > .sr-only)
+        justify-content: flex-end
+
+      tbody > tr > td > [data-pc-section="columntitle"]
+        display: block
+        flex-shrink: 0
+        @apply cms-text-semibold-12 text-cms-ink-600

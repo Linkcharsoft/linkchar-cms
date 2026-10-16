@@ -1,0 +1,40 @@
+.DashboardPageHeader
+  display: flex
+  flex-wrap: wrap
+  align-items: flex-start
+  justify-content: space-between
+  gap: 12px 16px
+  margin-bottom: 20px
+
+  &__Text
+    display: flex
+    flex-direction: column
+    flex: 1 1 320px
+    gap: 4px
+    min-width: 0
+
+  &__Title
+    overflow-wrap: anywhere
+    @apply font-cms-display text-cms-ink-900
+
+  &--Page &__Title
+    @apply cms-text-bold-28
+
+  &--Editor &__Title
+    @apply cms-text-bold-24
+
+  &__Meta
+    display: flex
+    flex-wrap: wrap
+    align-items: center
+    gap: 4px 12px
+
+  &__Subtitle
+    max-width: 720px
+    @apply cms-text-regular-14 text-cms-ink-600
+
+  &__Actions
+    display: flex
+    flex-wrap: wrap
+    align-items: center
+    gap: 8px

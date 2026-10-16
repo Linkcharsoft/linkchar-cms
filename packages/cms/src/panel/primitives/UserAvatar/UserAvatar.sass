@@ -1,0 +1,22 @@
+.UserAvatar
+  position: relative
+  display: inline-flex
+  flex-shrink: 0
+  align-items: center
+  justify-content: center
+  border-radius: 999px
+  overflow: hidden
+  @apply bg-cms-primary-50 text-cms-primary
+
+  &--Small
+    width: 36px
+    height: 36px
+    @apply cms-text-bold-14
+
+  &--Large
+    width: 88px
+    height: 88px
+    @apply cms-text-bold-28
+
+  &__Image
+    object-fit: cover

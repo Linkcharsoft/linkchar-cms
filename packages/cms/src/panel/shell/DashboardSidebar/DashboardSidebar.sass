@@ -1,0 +1,90 @@
+.DashboardSidebar
+  display: flex
+  flex-direction: column
+  flex-shrink: 0
+  @apply bg-cms-sidebar text-cms-sidebar-ink lg:w-64 lg:min-h-dvh
+
+  &__Top
+    display: flex
+    align-items: center
+    justify-content: space-between
+    gap: 12px
+    padding: 12px 16px
+    @apply lg:py-6
+
+  &__Brand
+    display: flex
+    align-items: center
+    gap: 8px
+    text-decoration: none
+    @apply font-cms-display cms-text-bold-18 text-cms-sidebar-ink
+
+  &__BrandTag
+    padding: 2px 8px
+    border-radius: 999px
+    @apply cms-text-semibold-12 bg-cms-primary text-cms-primary-contrast
+
+  &__Logo
+    width: auto
+    max-width: 140px
+    height: 28px
+    object-fit: contain
+
+  &__Toggle
+    display: flex
+    align-items: center
+    justify-content: center
+    min-width: 44px
+    min-height: 44px
+    border-radius: 8px
+    cursor: pointer
+    @apply text-cms-sidebar-ink hover:bg-cms-sidebar-hover lg:hidden
+
+  &__Nav
+    display: none
+    flex-direction: column
+    justify-content: space-between
+    flex: 1
+    padding: 8px 12px 16px
+    @apply lg:flex
+
+    &--Open
+      display: flex
+
+  &__Groups
+    display: flex
+    flex-direction: column
+    gap: 20px
+
+  &__GroupLabel
+    padding: 0 12px 6px
+    text-transform: uppercase
+    letter-spacing: .06em
+    @apply cms-text-semibold-12 text-cms-sidebar-muted
+
+  &__List
+    display: flex
+    flex-direction: column
+    gap: 4px
+
+  &__Item
+    display: flex
+    align-items: center
+    gap: 12px
+    min-height: 44px
+    padding: 0 12px
+    border-radius: 8px
+    text-decoration: none
+    transition: background-color .2s
+    @apply cms-text-medium-14 text-cms-sidebar-muted hover:bg-cms-sidebar-hover hover:text-cms-sidebar-ink
+
+    &--Active
+      @apply bg-cms-sidebar-active text-cms-sidebar-ink
+
+  &__External
+    margin-left: auto
+    font-size: 12px
+
+  &__Footer
+    padding: 16px 12px 0
+    @apply cms-text-regular-12 text-cms-sidebar-muted

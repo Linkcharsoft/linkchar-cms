@@ -1,0 +1,24 @@
+.DashboardHeader
+  display: flex
+  align-items: center
+  justify-content: space-between
+  gap: 16px
+  padding: 12px 16px
+  @apply bg-cms-surface border-b border-cms-border lg:px-8
+
+  &__Actions
+    display: flex
+    align-items: center
+    gap: 8px
+
+    // Icon-only squares on phones: every label is sr-only below sm.
+    @media (max-width: 639px)
+      gap: 4px
+
+      .CustomButton
+        width: 44px
+        min-height: 44px
+        padding: 0
+
+  &__Label
+    @apply sr-only sm:not-sr-only

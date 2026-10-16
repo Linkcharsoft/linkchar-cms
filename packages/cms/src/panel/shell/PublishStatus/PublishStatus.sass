@@ -1,0 +1,18 @@
+.PublishStatus
+  display: flex
+  align-items: center
+  gap: 8px
+
+  &__State
+    white-space: nowrap
+    @apply hidden md:inline-flex
+
+  &__Label
+    @apply sr-only sm:not-sr-only
+
+  &__Count
+    min-width: 22px
+    padding: 0 6px
+    border-radius: 999px
+    text-align: center
+    @apply cms-text-semibold-12 bg-cms-surface text-cms-ink-900
