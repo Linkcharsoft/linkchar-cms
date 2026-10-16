@@ -11,8 +11,8 @@ type Result = { data: unknown, error: ErrorType | null, count?: number | null }
 export interface FakeDbType {
   tables: Record<string, Row[]>
   rpc: Record<string, (args: Record<string, unknown>) => Result | Promise<Result>>
-  // Runs right before an update is applied, e.g. to slip in someone else's save.
-  beforeUpdate: ((table: string, values: Row) => void) | null
+  // Runs right before an insert or update is applied, e.g. to slip in someone else's save.
+  beforeWrite: ((table: string, op: 'insert' | 'update', values: Row | Row[]) => void) | null
   failNext: { table: string, op: 'select' | 'insert' | 'update' | 'delete', error: ErrorType } | null
   user: { id: string, factors?: unknown[] } | null
   claims: Row
@@ -177,6 +177,7 @@ class Query implements PromiseLike<Result> {
     const table = this.rows()
 
     if (this.op === 'insert') {
+      this.db.beforeWrite?.(this.table, 'insert', this.values!)
       const inserted = (Array.isArray(this.values) ? this.values : [this.values!]).map(values => ({ ...DEFAULTS[this.table]?.(this.db), ...clone(values) }))
       for (const row of inserted) {
         if (this.conflict(this.table, row, table)) return { data: null, error: { code: '23505', message: 'duplicate key' } }
@@ -186,7 +187,7 @@ class Query implements PromiseLike<Result> {
     }
 
     if (this.op === 'update') {
-      this.db.beforeUpdate?.(this.table, this.values as Row)
+      this.db.beforeWrite?.(this.table, 'update', this.values!)
       const targets = this.matching()
       const next = targets.map(row => {
         const updated = { ...row, ...clone(this.values as Row) }
@@ -223,7 +224,7 @@ export const createFakeDb = (seed: Partial<Record<string, Row[]>> = {}): FakeDbT
     ...clone(seed) as Record<string, Row[]>
   },
   rpc: {},
-  beforeUpdate: null,
+  beforeWrite: null,
   failNext: null,
   user: null,
   claims: {},
