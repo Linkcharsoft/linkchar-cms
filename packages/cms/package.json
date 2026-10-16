@@ -16,6 +16,8 @@
   "exports": {
     "./core": "./src/core/index.ts",
     "./core/opening-hours": "./src/core/kinds/openingHours.ts",
+    "./publish/amplify": "./src/publish/amplify.ts",
+    "./publish/mock": "./src/publish/mock.ts",
     "./package.json": "./package.json"
   },
   "bin": {
