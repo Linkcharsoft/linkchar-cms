@@ -1,0 +1,39 @@
+.HelpMenu
+  &__Label
+    @apply sr-only sm:not-sr-only
+
+  &__Menu
+    width: min(320px, calc(100vw - 32px))
+
+// driver.js appends its popover to <body>, outside any component root.
+.driver-popover.HelpMenu__Popover
+  max-width: 340px
+  padding: 18px 20px
+  border-radius: 14px
+  font-family: inherit
+  @apply bg-cms-surface text-cms-ink-700
+
+  .driver-popover-title
+    font-family: inherit
+    @apply font-cms-display cms-text-bold-18 text-cms-ink-900
+
+  .driver-popover-description
+    margin-top: 6px
+    line-height: 1.5
+    @apply cms-text-regular-14 text-cms-ink-700
+
+  .driver-popover-progress-text
+    @apply cms-text-regular-12 text-cms-ink-600
+
+  .driver-popover-footer button
+    padding: 6px 12px
+    border-radius: 8px
+    text-shadow: none
+    font-family: inherit
+    @apply cms-text-semibold-14 text-cms-primary bg-cms-surface border border-cms-border-strong hover:bg-cms-neutral-50
+
+  .driver-popover-footer .driver-popover-next-btn
+    @apply text-cms-primary-contrast bg-cms-primary border-cms-primary hover:bg-cms-primary-hover hover:border-cms-primary-hover
+
+  .driver-popover-close-btn
+    @apply text-cms-ink-600 hover:text-cms-ink-900

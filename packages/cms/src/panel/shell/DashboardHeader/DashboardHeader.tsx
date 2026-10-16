@@ -2,6 +2,7 @@
 import './DashboardHeader.sass'
 import { useT } from '../../client/context'
 import CustomButton from '../../primitives/CustomButton/CustomButton'
+import HelpMenu from '../../tours/HelpMenu/HelpMenu'
 import AccountMenu from '../AccountMenu/AccountMenu'
 import PublishStatus from '../PublishStatus/PublishStatus'
 import type { RoleType } from '../../../core/roles'
@@ -11,11 +12,12 @@ interface Props {
   name: string
   role: RoleType
   avatar: string | null
+  seenTours: string[]
   latestPublish: PublishRecordType | null
   pendingCount: number
 }
 
-const DashboardHeader = ({ name, role, avatar, latestPublish, pendingCount }: Props) => {
+const DashboardHeader = ({ name, role, avatar, seenTours, latestPublish, pendingCount }: Props) => {
   const { t } = useT()
 
   return (
@@ -24,6 +26,8 @@ const DashboardHeader = ({ name, role, avatar, latestPublish, pendingCount }: Pr
 
       <div className='DashboardHeader__Actions'>
         <PublishStatus latest={latestPublish} pendingCount={pendingCount} />
+
+        <HelpMenu seenTours={seenTours} />
 
         <CustomButton href='/' target='_blank' variant='ghost' size='sm' aria-label={t('shell.viewSiteNewTab')} data-tour='view-site'>
           <i className='pi pi-external-link' aria-hidden='true' />

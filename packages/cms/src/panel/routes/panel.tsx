@@ -16,7 +16,7 @@ export const panelLayout = (cms: CmsServerType) => {
       <DashboardLayout
         groups={buildPanelNav(cms.config, profile.role)}
         brand={{ name, logo, footer: footer ? resolveText(footer, ctx) : undefined }}
-        user={{ name: profile.name || user.email || ctx.translator.t('shell.someone'), role: profile.role, avatar: profile.avatar }}
+        user={{ name: profile.name || user.email || ctx.translator.t('shell.someone'), role: profile.role, avatar: profile.avatar, seenTours: profile.seen_tours }}
         latestPublish={latestPublish}
         pendingCount={pendingCount}
       >
