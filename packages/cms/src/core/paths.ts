@@ -32,49 +32,74 @@ export interface PanelPathsType {
   guestOnlyPaths: string[]
 }
 
+export type PanelSegmentType =
+  | 'pages' | 'site' | 'collections' | 'media' | 'publish' | 'trash' | 'account' | 'users' | 'activity'
+  | 'login' | 'passwordRecovery' | 'passwordReset' | 'acceptInvite' | 'mfaVerify'
+
+// Hologramas' segments, so moving it to the package changes no URL.
+export const DEFAULT_PANEL_SEGMENTS: Readonly<Record<PanelSegmentType, string>> = {
+  pages: 'paginas',
+  site: 'sitio',
+  collections: 'colecciones',
+  media: 'media',
+  publish: 'publicar',
+  trash: 'papelera',
+  account: 'cuenta',
+  users: 'usuarios',
+  activity: 'actividad',
+  login: 'login',
+  passwordRecovery: 'recuperar-contrasena',
+  passwordReset: 'restablecer-contrasena',
+  acceptInvite: 'invitacion',
+  mfaVerify: 'verificacion'
+}
+
+// Holds the email link and sign-out route handlers.
+export const AUTH_SEGMENT = 'auth'
+
 const cache = new WeakMap<CmsConfigType, PanelPathsType>()
 
-// The segments are the ones Hologramas already serves, so moving it to the package changes no URL.
 export const panelPaths = (config: CmsConfigType): PanelPathsType => {
   const cached = cache.get(config)
   if (cached) return cached
 
   const base = config.basePath
-  const at = (segment: string) => `${base}/${segment}`
-  const page = (pageId: string, section?: string) => `${at('paginas')}/${pageId}${section ? `#${section}` : ''}`
-  const site = (entryId: string) => `${at('sitio')}/${entryId}`
-  const collection = (entryId: string) => `${at('colecciones')}/${entryId}`
+  const at = (segment: PanelSegmentType) => `${base}/${config.paths[segment]}`
+  const page = (pageId: string, section?: string) => `${at('pages')}/${pageId}${section ? `#${section}` : ''}`
+  const site = (entryId: string) => `${at('site')}/${entryId}`
+  const collection = (entryId: string) => `${at('collections')}/${entryId}`
   const document = (entryId: string, id: string) => `${collection(entryId)}/${id}`
   const login = at('login')
-  const passwordRecovery = at('recuperar-contrasena')
+  const passwordRecovery = at('passwordRecovery')
+  const auth = `${base}/${AUTH_SEGMENT}`
 
   const paths: PanelPathsType = {
     home: base,
-    pages: at('paginas'),
+    pages: at('pages'),
     media: at('media'),
-    publish: at('publicar'),
-    trash: at('papelera'),
-    account: at('cuenta'),
-    users: at('usuarios'),
-    activity: at('actividad'),
+    publish: at('publish'),
+    trash: at('trash'),
+    account: at('account'),
+    users: at('users'),
+    activity: at('activity'),
     login,
     passwordRecovery,
-    passwordReset: at('restablecer-contrasena'),
-    acceptInvite: at('invitacion'),
-    mfaVerify: at('verificacion'),
-    authConfirm: at('auth/confirm'),
-    signout: at('auth/signout'),
+    passwordReset: at('passwordReset'),
+    acceptInvite: at('acceptInvite'),
+    mfaVerify: at('mfaVerify'),
+    authConfirm: `${auth}/confirm`,
+    signout: `${auth}/signout`,
     site,
     page,
     collection,
     document,
-    publishItem: documentId => `${at('publicar')}${documentId ? `?doc=${documentId}` : ''}`,
+    publishItem: documentId => `${at('publish')}${documentId ? `?doc=${documentId}` : ''}`,
     entry: (kind, entryId, id) => {
       if (kind === 'page') return page(entryId)
       if (kind === 'singleton') return site(entryId)
       return id ? document(entryId, id) : collection(entryId)
     },
-    publicPaths: [login, passwordRecovery, at('auth')],
+    publicPaths: [login, passwordRecovery, auth],
     guestOnlyPaths: [login, passwordRecovery]
   }
 

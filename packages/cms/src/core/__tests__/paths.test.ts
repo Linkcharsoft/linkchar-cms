@@ -18,6 +18,15 @@ describe('panelPaths', () => {
     expect(paths.publicPaths).toContain('/admin/auth')
   })
 
+  it('uses the configured segments', () => {
+    const paths = panelPaths(defineCmsConfig({ schema: {}, paths: { pages: 'pages', publish: 'publish', login: 'sign-in' } }))
+    expect(paths.page('home')).toBe('/dashboard/pages/home')
+    expect(paths.publishItem()).toBe('/dashboard/publish')
+    expect(paths.trash).toBe('/dashboard/papelera')
+    expect(paths.guestOnlyPaths).toEqual(['/dashboard/sign-in', '/dashboard/recuperar-contrasena'])
+    expect(paths.signout).toBe('/dashboard/auth/signout')
+  })
+
   it('is built once per config', () => {
     expect(panelPaths(cmsConfig)).toBe(panelPaths(cmsConfig))
   })

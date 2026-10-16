@@ -1,10 +1,12 @@
 import { createTranslator } from './i18n/translator'
 import { BUILTIN_FIELDS } from './kinds/builtins'
+import { AUTH_SEGMENT, DEFAULT_PANEL_SEGMENTS } from './paths'
 import { dataFields } from './walk'
 import type { ContentSchema, EntryValues, StoredEntryValues } from './define'
 import type { DataField, FieldsRecord } from './fields'
 import type { MessageOverridesType, TranslatorType } from './i18n/types'
 import type { FieldDefinitionType } from './kinds/registry'
+import type { PanelSegmentType } from './paths'
 import type { TextContextType, TextType } from './text'
 
 export interface MediaFolderType {
@@ -31,6 +33,8 @@ export interface CmsConfigInputType<S extends ContentSchema, L extends string> {
   // Language of the panel itself, independent from the content locales.
   panelLocale?: string
   basePath?: string
+  // URL segments of the panel screens under basePath; the rest keep their defaults.
+  paths?: Partial<Record<PanelSegmentType, string>>
   timeZone?: string
   branding?: BrandingType
   mediaFolders?: readonly MediaFolderType[]
@@ -46,6 +50,7 @@ export interface CmsConfigType<S extends ContentSchema = ContentSchema, L extend
   defaultLocale: L
   panelLocale: string
   basePath: string
+  paths: Readonly<Record<PanelSegmentType, string>>
   timeZone: string
   branding: BrandingType
   mediaFolders: readonly MediaFolderType[]
@@ -62,6 +67,20 @@ export class CmsConfigError extends Error {
 }
 
 const LOCALE = /^[a-z]{2,3}(-[A-Z]{2})?$/
+
+const SEGMENT = /^[a-z0-9]+(-[a-z0-9]+)*$/
+
+const panelSegments = (overrides: Partial<Record<PanelSegmentType, string>> = {}) => {
+  const segments = { ...DEFAULT_PANEL_SEGMENTS, ...overrides }
+  for (const [key, segment] of Object.entries(segments)) {
+    if (!SEGMENT.test(segment)) throw new CmsConfigError(`paths.${key} "${segment}" must be lowercase letters, numbers and dashes.`)
+    if (segment === AUTH_SEGMENT) throw new CmsConfigError(`paths.${key} can't be "${AUTH_SEGMENT}": the panel uses it for sign-in links.`)
+  }
+  const values = Object.values(segments)
+  const repeated = values.find((segment, index) => values.indexOf(segment) !== index)
+  if (repeated) throw new CmsConfigError(`paths has "${repeated}" for two screens.`)
+  return Object.freeze(segments)
+}
 
 const nestedFields = (field: DataField): FieldsRecord[] => {
   if (field.kind === 'group' || field.kind === 'list') return [field.fields]
@@ -139,6 +158,7 @@ export const defineCmsConfig = <const S extends ContentSchema, const L extends s
     defaultLocale,
     panelLocale: input.panelLocale ?? 'es',
     basePath,
+    paths: panelSegments(input.paths),
     timeZone: input.timeZone ?? 'America/Argentina/Buenos_Aires',
     branding: input.branding ?? { name: 'CMS' },
     mediaFolders: input.mediaFolders ?? [],

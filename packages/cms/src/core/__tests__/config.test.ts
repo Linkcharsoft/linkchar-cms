@@ -37,6 +37,12 @@ describe('defineCmsConfig', () => {
     expect(() => defineCmsConfig({ schema, basePath: 'admin' })).toThrow('basePath')
   })
 
+  it('rejects panel segments that are not URL-safe or collide', () => {
+    expect(() => defineCmsConfig({ schema, paths: { pages: 'Pages' } })).toThrow('paths.pages')
+    expect(() => defineCmsConfig({ schema, paths: { trash: 'auth' } })).toThrow('sign-in links')
+    expect(() => defineCmsConfig({ schema, paths: { pages: 'media' } })).toThrow('"media" for two screens')
+  })
+
   it('rejects schemas that point to entries or fields that do not exist', () => {
     const broken = (fields: Parameters<typeof collection>[1]) =>
       () => defineCmsConfig({ schema: { posts: collection('Blog', fields, { singularLabel: 'Artículo', titleField: 'title' }) } })
