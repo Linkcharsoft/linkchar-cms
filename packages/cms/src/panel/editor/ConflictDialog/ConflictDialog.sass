@@ -1,0 +1,8 @@
+@use '../../theme/mixins' as cms
+
+.ConflictDialog
+  @include cms.dialog-width(sm)
+
+  &__Text
+    margin-bottom: 12px
+    @apply cms-text-regular-14 text-cms-ink-700

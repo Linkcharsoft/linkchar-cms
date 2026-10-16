@@ -1,0 +1,396 @@
+'use client'
+import './CmsForm.sass'
+import { FormikProvider, setIn, useFormik } from 'formik'
+import { usePathname, useRouter } from 'next/navigation'
+import { Dropdown } from 'primereact/dropdown'
+import { Tag } from 'primereact/tag'
+import { classNames } from 'primereact/utils'
+import { Fragment, useCallback, useEffect, useRef, useState } from 'react'
+import { getEntry } from '../../../core/entries'
+import { languageName } from '../../../core/i18n/translator'
+import { changedKeys, pickKeys, rebase } from '../../../core/merge'
+import { pageSections } from '../../../core/pages'
+import { visibleFields } from '../../../core/permissions'
+import { resolveEntryPath } from '../../../core/preview'
+import { validateContent } from '../../../core/validation'
+import { fieldLabel } from '../../../core/walk'
+import { useCms, usePaths, useT, useTextContext } from '../../client/context'
+import { EntryContext } from '../../fields/entryContext'
+import { fieldId, useStoredText } from '../../fields/fieldUtils'
+import { errorPaths, FormFocusContext } from '../../fields/formFocusContext'
+import { ReferencesContext } from '../../fields/referencesContext'
+import { RemountContext } from '../../fields/remountContext'
+import VersionHistory from '../../history/VersionHistory/VersionHistory'
+import { DOCUMENT_SEVERITIES } from '../../lists/documentStatus'
+import { useConfirm } from '../../primitives/ConfirmAction/ConfirmAction'
+import CustomButton from '../../primitives/CustomButton/CustomButton'
+import DashboardPageHeader from '../../primitives/DashboardPageHeader/DashboardPageHeader'
+import Notice from '../../primitives/Notice/Notice'
+import { useNotify } from '../../providers/notify'
+import AutosaveStatus from '../AutosaveStatus/AutosaveStatus'
+import CmsFields from '../CmsFields/CmsFields'
+import ConflictDialog from '../ConflictDialog/ConflictDialog'
+import PageFields from '../PageFields/PageFields'
+import PreviewPane from '../PreviewPane/PreviewPane'
+import useAutosave from '../useAutosave'
+import type { DocumentStatusType } from '../../../core/status'
+import type { ContentErrorsType } from '../../../core/validation'
+import type { ReplaceDraftResultType } from '../../../server/versions'
+import type { RevealType } from '../../fields/formFocusContext'
+import type { ResolvedReferencesType } from '../../fields/referencesContext'
+import type { AutosaveOutcomeType } from '../useAutosave'
+import type { FormikErrors, FormikTouched } from 'formik'
+import type { Route } from 'next'
+import type { ReactNode } from 'react'
+
+type DataRecord = Record<string, unknown>
+
+interface Props {
+  entryId: string
+  documentId: string | null
+  initialData: DataRecord
+  initialRevision: number | null
+  // Pages only: published content, to mark which sections changed.
+  publishedData?: DataRecord | null
+  isSuperadmin: boolean
+  title: string
+  // Publication status when the page loaded; null while the content was never saved.
+  status?: DocumentStatusType | null
+  toolbar?: ReactNode
+  references?: ResolvedReferencesType
+  // Language being edited, from `?locale=`; the default one otherwise.
+  initialLocale?: string
+}
+
+const MAX_MISSING_LISTED = 4
+
+const EMPTY_REFERENCES: ResolvedReferencesType = { relations: {}, media: {} }
+
+const toNested = <V,>(errors: ContentErrorsType, value: (message: string) => V) =>
+  Object.entries(errors).reduce<DataRecord>((acc, [path, message]) => setIn(acc, path, value(message)), {})
+
+// The schema is resolved here: it holds functions and RegExps, which can't cross the server → client boundary.
+const CmsForm = ({
+  entryId, documentId, initialData, initialRevision, publishedData = null, isSuperadmin, title, status = null, toolbar,
+  references = EMPTY_REFERENCES, initialLocale
+}: Props) => {
+  const { t } = useT()
+  const { config, actions } = useCms()
+  const paths = usePaths()
+  const textCtx = useTextContext()
+  const stored = useStoredText()
+  const router = useRouter()
+  const pathname = usePathname()
+  const notify = useNotify()
+  const confirm = useConfirm()
+  const entry = getEntry(config, entryId)
+  const fields = visibleFields(entry?.fields ?? {}, isSuperadmin)
+  const document = useRef({ id: documentId, revision: initialRevision })
+  // Last state confirmed by the server, per top-level key: saves send only what changed since then.
+  const base = useRef(initialData)
+  const [locale, setLocale] = useState(initialLocale && config.locales.includes(initialLocale) ? initialLocale : config.defaultLocale)
+  const [conflict, setConflict] = useState<{ data: DataRecord, updatedAt: string, keys: string[] } | null>(null)
+  const [remounts, setRemounts] = useState<Record<string, number>>({})
+  const [missingPaths, setMissingPaths] = useState<string[]>([])
+  const [anchor, setAnchor] = useState<string | null>(entry?.anchor ?? null)
+  const [edited, setEdited] = useState(false)
+  const [previewOpen, setPreviewOpen] = useState(false)
+  const [reveal, setReveal] = useState<RevealType | null>(null)
+  const label = (path: string) => fieldLabel(fields, path, textCtx)
+
+  const formik = useFormik<DataRecord>({
+    initialValues: initialData,
+    validate: async values => toNested((await validateContent(config, fields, values, { mode: 'draft' })).errors ?? {}, message => message),
+    validateOnChange: false,
+    validateOnBlur: true,
+    onSubmit: () => undefined
+  })
+
+  const latestValues = useRef(formik.values)
+  useEffect(() => {
+    latestValues.current = formik.values
+  })
+
+  // Values that arrive from outside remount their inputs: rich text isn't controlled.
+  const remount = (keys: string[]) => {
+    if (keys.length > 0) setRemounts(current => ({ ...current, ...Object.fromEntries(keys.map(key => [key, (current[key] ?? 0) + 1])) }))
+  }
+
+  const adopt = (values: DataRecord, keys: string[]) => {
+    for (const key of keys) void formik.setFieldValue(key, values[key], false)
+    remount(keys)
+  }
+
+  const save = async (values: DataRecord): Promise<AutosaveOutcomeType> => {
+    // Plain JSON only: ProseMirror attrs aren't plain objects and would reach the server action as empty references.
+    const data = JSON.parse(JSON.stringify(values)) as DataRecord
+    const keys = changedKeys(data, base.current)
+    if (keys.length === 0) return 'saved'
+
+    const isNew = !document.current.id
+    const result = await actions.saveDocument({
+      entryId,
+      id: document.current.id,
+      patch: pickKeys(data, keys),
+      base: isNew ? base.current : pickKeys(base.current, keys)
+    })
+
+    switch (result.status) {
+      case 'saved': {
+        document.current = { id: result.id, revision: result.revision }
+        const rebased = rebase(latestValues.current, base.current, result.data, keys)
+        base.current = rebased.base
+        if (rebased.adopted.length > 0) adopt(rebased.values, rebased.adopted)
+        setEdited(true)
+        return 'saved'
+      }
+      case 'invalid':
+        formik.setErrors(toNested(result.errors, message => message) as FormikErrors<DataRecord>)
+        formik.setTouched(toNested(result.errors, () => true) as FormikTouched<DataRecord>, false)
+        return 'invalid'
+      case 'conflict':
+        document.current = { id: result.id, revision: result.revision }
+        setConflict({ data: result.data, updatedAt: result.updatedAt, keys: result.keys })
+        return 'conflict'
+      default:
+        return 'error'
+    }
+  }
+
+  const autosave = useAutosave({ values: formik.values, save, enabled: !conflict })
+
+  useEffect(() => {
+    let cancelled = false
+    validateContent(config, fields, formik.values, { mode: 'publish' }).then(({ errors }) => {
+      if (!cancelled) setMissingPaths(errors ? Object.keys(errors) : [])
+    })
+    return () => {
+      cancelled = true
+    }
+  // Re-checked after each save, not on every keystroke.
+  }, [autosave.savedAt])
+
+  useEffect(() => () => void autosave.flush(), [])
+
+  const replaceValues = (values: DataRecord) => {
+    const keys = changedKeys(latestValues.current, values)
+    base.current = values
+    formik.resetForm({ values })
+    autosave.markSaved(values)
+    remount(keys)
+  }
+
+  const loadCurrent = () => {
+    if (!conflict) return
+    replaceValues(conflict.data)
+    setConflict(null)
+  }
+
+  const prepareReplace = async () => ((await autosave.flush()) && !conflict ? document.current.revision : null)
+
+  const replace = async (run: (revision: number) => Promise<ReplaceDraftResultType>, success: string) => {
+    const revision = await prepareReplace()
+    if (revision === null) {
+      notify({ severity: 'warn', summary: t('editor.resolveFirst') })
+      return false
+    }
+
+    const result = await run(revision)
+    if (result.status === 'replaced') {
+      document.current = { id: document.current.id, revision: result.revision }
+      replaceValues(result.data)
+      setEdited(false)
+      router.refresh()
+      notify({ severity: 'success', summary: success })
+      return true
+    }
+    if (result.status === 'conflict') {
+      notify({ severity: 'warn', summary: t('editor.someoneSaved'), detail: t('editor.reloadAndRetry'), life: 6000 })
+    } else {
+      notify({ severity: 'error', summary: t('editor.couldNotFinish'), detail: textCtx.translator.translate(result.error) })
+    }
+    return false
+  }
+
+  const discardSection = (key: string, sectionLabel: string) => confirm({
+    header: t('editor.discardSection.header', { label: sectionLabel }),
+    message: t('editor.discardSection.message', { label: sectionLabel }),
+    acceptLabel: t('editor.discardSection.accept'),
+    tone: 'danger',
+    accept: () => {
+      void replace(
+        revision => actions.discardChanges(entryId, document.current.id ?? '', revision, key),
+        t('editor.discardSection.done', { label: sectionLabel })
+      )
+    }
+  })
+
+  const onAnchorChange = useCallback((next: string | null) => setAnchor(next), [])
+
+  const reviewAndPublish = async () => {
+    await autosave.flush()
+    router.push(paths.publishItem(document.current.id ?? undefined) as Route)
+  }
+
+  // The language lives in the URL, so a reload or a shared link opens the same one.
+  const switchLocale = (next: string) => {
+    setLocale(next)
+    const query = new URLSearchParams(window.location.search)
+    if (next === config.defaultLocale) query.delete('locale')
+    else query.set('locale', next)
+    const search = query.toString()
+    window.history.replaceState(null, '', `${pathname}${search ? `?${search}` : ''}${window.location.hash}`)
+  }
+
+  // Opens whatever hides the field (language, tab, panel, group, page section) and then focuses it.
+  const showField = (path: string) => {
+    const last = path.split('.').pop() ?? ''
+    if (config.locales.includes(last) && last !== locale) switchLocale(last)
+    setReveal({ path, nonce: Date.now() })
+    window.setTimeout(() => {
+      const id = fieldId(path)
+      const element = window.document.getElementById(id) ?? window.document.querySelector<HTMLElement>(`[id^="${id}"]`)
+      element?.scrollIntoView({ block: 'center' })
+      element?.focus({ preventScroll: true })
+    }, 350)
+  }
+
+  if (!entry) return null
+
+  const multilingual = config.locales.length > 1
+  const missingLabel = (path: string) => {
+    const last = path.split('.').pop() ?? ''
+    return multilingual && config.locales.includes(last) && last !== locale ? `${label(path)} (${languageName(last, config.panelLocale)})` : label(path)
+  }
+  const isPage = entry.kind === 'page'
+  const missing = [...new Map(missingPaths.map(path => [missingLabel(path), path])).entries()]
+  const issues = [...new Set([...missingPaths, ...errorPaths(formik.errors)])]
+  const extra = missing.length - MAX_MISSING_LISTED
+  const shownStatus = status === 'published' && edited ? 'changed' : status
+  const slug = entry.kind === 'collection' && entry.slugField ? stored(formik.values[entry.slugField]) : undefined
+  const previewPath = resolveEntryPath(entry.path, slug)
+  const showActions = toolbar || documentId || entry.path
+  const showPreview = previewOpen && !!previewPath
+
+  return (
+    <FormikProvider value={formik}>
+      <div className='CmsForm'>
+        <div className='CmsForm__Bar'>
+          <DashboardPageHeader
+            size='editor'
+            className='CmsForm__Header'
+            title={title}
+            meta={(
+              <>
+                {shownStatus && <Tag value={t(`documentStatus.${shownStatus}`)} severity={DOCUMENT_SEVERITIES[shownStatus]} />}
+                <AutosaveStatus status={autosave.status} savedAt={autosave.savedAt} />
+                {multilingual && (
+                  <Dropdown
+                    inputId={`${entryId}-locale`}
+                    className='CmsForm__Locale'
+                    aria-label={t('editor.language')}
+                    tooltip={t('editor.languageHelp')}
+                    value={locale}
+                    options={config.locales.map(value => ({ value, label: languageName(value, config.panelLocale) }))}
+                    onChange={event => switchLocale(event.value)}
+                    data-testid='editor-locale'
+                  />
+                )}
+              </>
+            )}
+            actions={showActions && (
+              <>
+                {entry.path && (
+                  <CustomButton
+                    type='button'
+                    variant={previewOpen ? 'primary' : 'secondary'}
+                    size='sm'
+                    aria-pressed={previewOpen}
+                    data-tour='preview'
+                    disabled={!previewPath}
+                    tooltip={previewPath ? undefined : t('editor.previewNeedsUrl')}
+                    onClick={() => setPreviewOpen(open => !open)}
+                  >
+                    <i className='pi pi-eye' aria-hidden='true' />
+                    {t('editor.preview')}
+                  </CustomButton>
+                )}
+                {documentId && (
+                  <VersionHistory
+                    entryId={entryId}
+                    documentId={documentId}
+                    canDiscard={shownStatus === 'changed'}
+                    replace={replace}
+                    sections={isPage ? pageSections(fields).map(({ key }) => ({ key, label: label(key) })) : undefined}
+                    flush={autosave.flush}
+                  />
+                )}
+                {documentId && (shownStatus === 'new' || shownStatus === 'changed' || shownStatus === 'unpublishing') && (
+                  <CustomButton type='button' size='sm' onClick={reviewAndPublish}>
+                    <i className='pi pi-send' aria-hidden='true' />
+                    {t('editor.reviewAndPublish')}
+                  </CustomButton>
+                )}
+                {toolbar}
+              </>
+            )}
+          />
+        </div>
+
+        {missing.length > 0 && (
+          <Notice tone='warning' data-tour='missing'>
+            {t('editor.missing')}{' '}
+            {missing.slice(0, MAX_MISSING_LISTED).map(([fieldName, path], index) => (
+              <Fragment key={path}>
+                {index > 0 && ', '}
+                <button type='button' className='CmsForm__MissingLink' onClick={() => showField(path)}>{fieldName}</button>
+              </Fragment>
+            ))}
+            {extra > 0 ? t('editor.missingMore', { count: extra }) : ''}.
+          </Notice>
+        )}
+
+        <div className={classNames({ CmsForm__Split: showPreview && !isPage, 'CmsForm__Page': isPage, 'CmsForm__Page--Preview': isPage && showPreview })}>
+          {showPreview && previewPath && <PreviewPane path={previewPath} savedAt={autosave.savedAt} anchor={anchor} />}
+          <form
+            className={isPage ? 'CmsForm__PageBody' : 'CmsForm__Body'}
+            data-tour='form'
+            noValidate
+            onSubmit={event => event.preventDefault()}
+          >
+            <FormFocusContext value={{ issues, reveal }}>
+              <EntryContext value={{ entryId, locale }}>
+                <ReferencesContext value={references}>
+                  <RemountContext value={remounts}>
+                    {isPage
+                      ? (
+                        <PageFields
+                          fields={fields}
+                          published={publishedData}
+                          missingPaths={missingPaths}
+                          remounts={remounts}
+                          compact={showPreview}
+                          onAnchorChange={onAnchorChange}
+                          onDiscardSection={publishedData && documentId ? key => discardSection(key, label(key)) : undefined}
+                        />
+                      )
+                      : <CmsFields fields={fields} />}
+                  </RemountContext>
+                </ReferencesContext>
+              </EntryContext>
+            </FormFocusContext>
+          </form>
+        </div>
+      </div>
+
+      <ConflictDialog
+        visible={!!conflict}
+        updatedAt={conflict?.updatedAt ?? null}
+        parts={conflict?.keys.map(label) ?? []}
+        onLoadCurrent={loadCurrent}
+      />
+    </FormikProvider>
+  )
+}
+
+export default CmsForm

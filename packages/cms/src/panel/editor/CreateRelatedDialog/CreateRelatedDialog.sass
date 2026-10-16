@@ -1,0 +1,12 @@
+@use '../../theme/mixins' as cms
+
+.CreateRelatedDialog
+  @include cms.dialog-width(sm)
+
+  &__Form
+    display: flex
+    flex-direction: column
+    gap: 12px
+
+  &__Help
+    @apply cms-text-regular-14 text-cms-ink-700

@@ -1,0 +1,49 @@
+.PreviewPane
+  display: flex
+  flex-direction: column
+  gap: 12px
+  padding: 12px
+  border-radius: 16px
+  @apply bg-cms-surface border border-cms-border xl:sticky xl:top-20
+
+  &__Toolbar
+    display: flex
+    flex-wrap: wrap
+    align-items: center
+    justify-content: space-between
+    gap: 8px
+
+  &__Device
+    display: flex
+    align-items: center
+    justify-content: center
+    min-width: 24px
+
+  &__Open
+    display: flex
+    align-items: center
+    gap: 8px
+    min-height: 44px
+    padding: 0 12px
+    border-radius: 8px
+    text-decoration: none
+    @apply cms-text-medium-14 text-cms-primary hover:bg-cms-primary-50
+
+  &__Viewport
+    display: flex
+    justify-content: center
+    height: 75vh
+    overflow: hidden
+    border-radius: 8px
+    @apply bg-cms-neutral-50
+
+  &__Stage
+    flex-shrink: 0
+    height: 100%
+
+  &__Frame
+    display: block
+    max-width: none
+    border: 0
+    transform-origin: top left
+    @apply bg-cms-surface

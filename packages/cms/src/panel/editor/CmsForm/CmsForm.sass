@@ -1,0 +1,57 @@
+@use '../../theme/mixins' as cms
+
+.CmsForm
+  display: flex
+  flex-direction: column
+  gap: 20px
+
+  // Sticky only from md: on phones a wrapped title + actions would cover most of the screen.
+  &__Bar
+    padding: 12px 0
+    @apply bg-cms-neutral-50 border-b border-cms-border md:sticky md:top-0 md:z-20
+
+  &__Header
+    margin-bottom: 0
+
+    .DashboardPageHeader__Title
+      display: -webkit-box
+      overflow: hidden
+      -webkit-line-clamp: 2
+      -webkit-box-orient: vertical
+
+      @media (min-width: 768px)
+        -webkit-line-clamp: 1
+
+  &__Split
+    display: flex
+    flex-direction: column
+    gap: 20px
+    @apply xl:grid xl:grid-cols-2 xl:items-start
+
+    .PreviewPane
+      @apply xl:order-2
+
+  &__Page
+    display: flex
+    flex-direction: column
+    gap: 20px
+
+    &--Preview
+      @apply xl:grid xl:grid-cols-2 xl:items-start
+
+      .PreviewPane
+        @apply xl:order-2
+
+  &__PageBody
+    min-width: 0
+
+  &__Body
+    display: flex
+    flex-direction: column
+    gap: 24px
+    @include cms.card()
+
+  &__MissingLink
+    text-decoration: underline
+    text-underline-offset: 2px
+    @apply cms-text-semibold-14 hover:text-cms-warning-800

@@ -1,0 +1,44 @@
+@use '../../theme/mixins' as cms
+
+.BlockPicker
+  @include cms.dialog-width(md)
+
+  &__Grid
+    display: grid
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr))
+    gap: 12px
+
+  &__Option
+    width: 100%
+    height: 100%
+    display: flex
+    flex-direction: column
+    align-items: flex-start
+    gap: 8px
+    padding: 14px
+    border-radius: 12px
+    text-align: left
+    cursor: pointer
+    transition: border-color .2s, background-color .2s
+    @apply bg-cms-surface border border-cms-border hover:border-cms-primary hover:bg-cms-neutral-50 focus-visible:ring-2 focus-visible:ring-cms-primary-ring
+
+  &__Thumb
+    width: 100%
+    height: auto
+    border-radius: 8px
+
+  &__IconBox
+    display: flex
+    align-items: center
+    justify-content: center
+    width: 44px
+    height: 44px
+    border-radius: 10px
+    font-size: 20px
+    @apply bg-cms-primary-50 text-cms-primary
+
+  &__Name
+    @apply cms-text-semibold-16 text-cms-ink-900
+
+  &__Description
+    @apply cms-text-regular-14 text-cms-ink-600

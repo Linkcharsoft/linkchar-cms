@@ -1,0 +1,25 @@
+.PageFields
+  display: flex
+  flex-direction: column
+  gap: 16px
+  @apply lg:grid lg:grid-cols-[13rem_minmax(0,1fr)] lg:items-start lg:gap-6
+
+  // Preview open: one column, so children stretch instead of growing to their content (grid's items-start).
+  &--Compact
+    align-items: stretch
+    @apply lg:flex lg:items-stretch
+
+    .PageOutline
+      display: none
+
+    .PageOutline__Mobile
+      display: block
+
+  &__Sections
+    display: flex
+    flex-direction: column
+    gap: 16px
+    min-width: 0
+
+  &__Help
+    @apply cms-text-regular-14 text-cms-ink-600

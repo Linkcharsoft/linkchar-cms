@@ -11,7 +11,7 @@ import type { CmsServerType } from '../../server/next'
 export type CmsActionsType = CmsServerType['actions']
 
 // Inputs for the project's own field kinds, by kind.
-export type FieldInputsType = Readonly<Record<string, FieldInputLoaderType>>
+export type FieldInputsType = Readonly<Partial<Record<string, FieldInputLoaderType>>>
 
 export interface CmsPanelType {
   config: CmsConfigType

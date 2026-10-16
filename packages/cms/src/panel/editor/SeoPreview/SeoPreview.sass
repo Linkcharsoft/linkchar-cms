@@ -1,0 +1,42 @@
+.SeoPreview
+  display: flex
+  flex-direction: column
+  gap: 8px
+  margin-top: 4px
+
+  &__Label
+    @apply cms-text-semibold-14 text-cms-ink-900
+
+  &__Card
+    display: flex
+    flex-direction: column
+    gap: 4px
+    max-width: 600px
+    padding: 16px
+    border-radius: 12px
+    @apply bg-cms-surface border border-cms-border
+
+  &__Url
+    overflow: hidden
+    text-overflow: ellipsis
+    white-space: nowrap
+    @apply cms-text-regular-14 text-cms-ink-700
+
+  &__Title
+    @apply cms-text-regular-20 text-cms-primary
+
+    &--Empty
+      @apply text-cms-ink-500
+
+  &__Description
+    @apply cms-text-regular-14 text-cms-ink-700
+
+    &--Empty
+      font-style: italic
+      @apply text-cms-ink-500
+
+  &__Note
+    display: flex
+    align-items: center
+    gap: 6px
+    @apply cms-text-regular-12 text-cms-ink-600

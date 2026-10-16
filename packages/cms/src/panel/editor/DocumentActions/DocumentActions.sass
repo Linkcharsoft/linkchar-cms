@@ -1,0 +1,20 @@
+// In the editor the buttons join the header's action row; in tables they stay grouped.
+.DocumentActions
+  display: contents
+
+  &--Compact
+    display: flex
+    justify-content: flex-end
+    align-items: center
+    gap: 4px
+
+  &__Visibility
+    display: flex
+    align-items: center
+    gap: 8px
+    min-height: 44px
+    padding: 0 8px
+
+  &__Label
+    cursor: pointer
+    @apply cms-text-medium-14 text-cms-ink-900

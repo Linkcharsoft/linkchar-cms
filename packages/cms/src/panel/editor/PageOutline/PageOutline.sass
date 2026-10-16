@@ -1,0 +1,77 @@
+.PageOutline
+  display: none
+  flex-direction: column
+  gap: 8px
+  position: sticky
+  top: 7rem
+  @apply lg:flex
+
+  &__Title
+    padding: 0 12px
+    @apply cms-text-semibold-12 uppercase tracking-wide text-cms-ink-500
+
+  &__List
+    display: flex
+    flex-direction: column
+    gap: 2px
+
+  &__Item
+    display: flex
+    align-items: center
+    gap: 10px
+    width: 100%
+    min-height: 40px
+    padding: 8px 12px
+    border-radius: 10px
+    text-align: left
+    cursor: pointer
+    @apply cms-text-medium-14 text-cms-ink-700 hover:bg-cms-primary-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-cms-primary
+
+    &--Active
+      @apply bg-cms-primary-50 text-cms-ink-900 cms-text-bold-14
+
+  &__Icon
+    flex-shrink: 0
+    @apply text-cms-ink-500
+
+  &__Label
+    flex: 1
+    min-width: 0
+    overflow: hidden
+    white-space: nowrap
+    text-overflow: ellipsis
+
+  &__Marks
+    display: flex
+    align-items: center
+    gap: 6px
+    flex-shrink: 0
+
+  &__Dot
+    width: 8px
+    height: 8px
+    border-radius: 999px
+
+    &--Missing
+      @apply bg-cms-warning-500
+
+    &--Changed
+      @apply bg-cms-primary
+
+  &__HiddenIcon
+    @apply cms-text-regular-12 text-cms-ink-500
+
+  &__Option
+    display: flex
+    align-items: center
+    justify-content: space-between
+    gap: 12px
+    width: 100%
+
+  // Phones and tablets: the outline becomes a select that stays at the top while scrolling.
+  &__Mobile
+    position: sticky
+    top: 0
+    z-index: 10
+    padding: 8px 0
+    @apply bg-cms-neutral-50 md:top-24 lg:hidden

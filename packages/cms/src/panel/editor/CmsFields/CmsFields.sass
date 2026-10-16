@@ -1,0 +1,27 @@
+.CmsFields
+  &__Row
+    display: grid
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr))
+    gap: 20px
+    align-items: start
+
+  &__Body
+    display: flex
+    flex-direction: column
+    gap: 24px
+    padding-top: 8px
+
+  &__Header
+    display: inline-flex
+    align-items: center
+    gap: 8px
+
+  &__Issues
+    display: inline-flex
+    align-items: center
+    justify-content: center
+    min-width: 20px
+    height: 20px
+    padding: 0 6px
+    border-radius: 999px
+    @apply cms-text-semibold-14 bg-cms-warning-50 text-cms-warning-800

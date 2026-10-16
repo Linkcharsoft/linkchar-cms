@@ -1,0 +1,114 @@
+.PageSection
+  // Lands below what's sticky when the outline or a #hash scrolls to it: the section select, the editor bar or both.
+  scroll-margin-top: 4.5rem
+  border-radius: 16px
+  @apply bg-cms-surface border border-cms-border md:scroll-mt-40 lg:scroll-mt-28
+
+  &--Hidden
+    @apply bg-cms-neutral-50
+
+  &__Header
+    display: flex
+    flex-wrap: wrap
+    align-items: center
+    gap: 8px 16px
+    padding: 8px 16px 8px 8px
+
+  &__Heading
+    flex: 1 1 260px
+    min-width: 0
+    margin: 0
+
+  &__Toggle
+    display: flex
+    align-items: center
+    gap: 12px
+    width: 100%
+    min-height: 52px
+    padding: 8px
+    border-radius: 12px
+    text-align: left
+    cursor: pointer
+    @apply text-cms-ink-900 hover:bg-cms-neutral-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-cms-primary
+
+  &__Icon
+    display: flex
+    align-items: center
+    justify-content: center
+    flex-shrink: 0
+    width: 36px
+    height: 36px
+    border-radius: 10px
+    @apply bg-cms-primary-50 text-cms-primary
+
+  &__Text
+    display: flex
+    flex-direction: column
+    flex: 1
+    min-width: 0
+
+  &__Title
+    @apply cms-text-bold-16
+
+  &__Summary
+    overflow: hidden
+    white-space: nowrap
+    text-overflow: ellipsis
+    @apply cms-text-regular-14 text-cms-ink-600
+
+  &__Mark
+    flex-shrink: 0
+    padding: 2px 8px
+    border-radius: 999px
+    @apply cms-text-semibold-12 bg-cms-primary-50 text-cms-ink-700
+
+    &--Missing
+      @apply bg-cms-warning-50 text-cms-warning-800
+
+    &--Changed
+      @apply bg-cms-primary-100 text-cms-ink-900
+
+  &__Chevron
+    flex-shrink: 0
+    @apply text-cms-ink-500
+
+  &__Actions
+    display: flex
+    flex-wrap: wrap
+    align-items: center
+    gap: 8px 16px
+    padding-left: 8px
+
+  &__Switch
+    display: flex
+    align-items: center
+    gap: 8px
+
+  &__SwitchLabel
+    cursor: pointer
+    @apply cms-text-medium-14 text-cms-ink-700
+
+  &__Body
+    display: flex
+    flex-direction: column
+    gap: 20px
+    padding: 4px 20px 24px
+    @apply md:px-6
+
+    // Server render: plain hidden. Once hydrated: hidden="until-found", which keeps a box (content-visibility).
+    &[hidden]
+      padding: 0
+
+    &[hidden='']
+      display: none
+
+  &__Uses
+    display: flex
+    align-items: baseline
+    gap: 8px
+    @apply cms-text-regular-14 text-cms-ink-600
+
+  &__UsesLink
+    text-decoration: underline
+    text-underline-offset: 2px
+    @apply cms-text-semibold-14 text-cms-primary hover:text-cms-ink-900

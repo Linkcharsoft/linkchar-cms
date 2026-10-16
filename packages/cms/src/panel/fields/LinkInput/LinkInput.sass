@@ -1,0 +1,27 @@
+.LinkInput
+  display: flex
+  flex-direction: column
+  gap: 10px
+  min-width: 0
+
+  &__Legend
+    margin-bottom: 8px
+    @apply cms-text-medium-16 text-cms-ink-700
+
+  &__Row
+    display: flex
+    flex-direction: column
+    gap: 8px
+    @apply sm:flex-row
+
+  &__Type
+    flex-shrink: 0
+    @apply sm:w-56
+
+  &__Href
+    flex: 1
+    min-width: 0
+
+  &__NewTab
+    cursor: pointer
+    @apply cms-text-regular-14 text-cms-ink-700
