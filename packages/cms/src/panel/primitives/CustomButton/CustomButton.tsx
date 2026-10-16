@@ -7,7 +7,7 @@ import { classNames } from 'primereact/utils'
 import { useRef } from 'react'
 import type { Route } from 'next'
 import type { ButtonProps as OriginalButtonProps } from 'primereact/button'
-import type { HTMLAttributeAnchorTarget, ReactNode, RefObject } from 'react'
+import type { HTMLAttributeAnchorTarget, ReactElement, ReactNode, RefObject } from 'react'
 
 export type CustomButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'danger-ghost'
 export type CustomButtonSize = 'xs' | 'sm' | 'md' | 'lg'
@@ -86,7 +86,7 @@ const CustomButton = ({
   children,
   ...props
 }: CustomButtonProps) => {
-  const anchor = useRef<HTMLAnchorElement>(null)
+  const host = useRef<HTMLSpanElement>(null)
   const classes = classNames(
     'CustomButton',
     VARIANT_CLASSES[variant],
@@ -95,42 +95,45 @@ const CustomButton = ({
     className
   )
 
-  if (href) {
-    return (
+  // PrimeReact's Tooltip alters its target's DOM: bound to a span React owns, unmounting the button stays safe.
+  const withTooltip = (element: ReactElement) => (tooltip
+    ? (
       <>
-        <Link
-          ref={anchor}
-          href={(disabled ? '#' : href) as Route}
-          replace={replace}
-          target={target}
-          rel={rel ?? (target === '_blank' ? 'noopener noreferrer' : undefined)}
-          className={classes}
-          aria-disabled={disabled}
-          aria-label={props['aria-label']}
-          data-tour={props['data-tour']}
-          onClick={(e) => {
-            if (disabled) {
-              e.preventDefault()
-              e.stopPropagation()
-            }
-          }}
-        >
-          { children }
-        </Link>
-
-        {tooltip && <Tooltip target={anchor as RefObject<HTMLElement>} content={tooltip} position='bottom' showOnDisabled />}
+        <span ref={host} className='inline-flex'>{element}</span>
+        <Tooltip target={host as RefObject<HTMLElement>} content={tooltip} position='bottom' />
       </>
+    )
+    : element)
+
+  if (href) {
+    return withTooltip(
+      <Link
+        href={(disabled ? '#' : href) as Route}
+        replace={replace}
+        target={target}
+        rel={rel ?? (target === '_blank' ? 'noopener noreferrer' : undefined)}
+        className={classes}
+        aria-disabled={disabled}
+        aria-label={props['aria-label']}
+        data-tour={props['data-tour']}
+        onClick={(e) => {
+          if (disabled) {
+            e.preventDefault()
+            e.stopPropagation()
+          }
+        }}
+      >
+        { children }
+      </Link>
     )
   }
 
-  return (
+  return withTooltip(
     <Button
       className={classes}
       onClick={disabled ? undefined : onClick}
       aria-disabled={disabled}
       disabled={disabled}
-      tooltip={tooltip}
-      tooltipOptions={{ position: 'bottom', showOnDisabled: true }}
       {...props}
     >
       { children }
