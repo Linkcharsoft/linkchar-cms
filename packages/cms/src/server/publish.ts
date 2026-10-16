@@ -1,0 +1,291 @@
+import { textContext, translatorFor } from '../core/config'
+import { withDefaults } from '../core/defaults'
+import { entryIds, getEntry } from '../core/entries'
+import { changedSections } from '../core/pages'
+import { panelPaths } from '../core/paths'
+import { slugPrefix } from '../core/preview'
+import { BUILD_CONFIRMATION_TIMEOUT_MS } from '../core/publish'
+import { documentReferences } from '../core/references'
+import { referenceWarnings } from '../core/relations'
+import { canPublish } from '../core/roles'
+import { resolveText } from '../core/text'
+import { validateContent } from '../core/validation'
+import { fieldLabel } from '../core/walk'
+import { requireRole } from './auth'
+import { authorNames } from './authors'
+import { getRelationLabels, titleOf } from './documents'
+import type { CmsContextType } from './context'
+import type { FieldsRecord } from '../core/fields'
+import type { MessageKeyType } from '../core/i18n/types'
+import type { BuildErrorCodeType, BuildEventType, BuildStatusType } from '../core/publish'
+import type { DocumentStatusType } from '../core/status'
+
+export interface PendingChangeType {
+  id: string
+  entryLabel: string
+  title: string
+  href: string
+  action: 'publish' | 'unpublish'
+  status: DocumentStatusType
+  revision: number
+  updatedAt: string
+  updatedBy: string | null
+  // Required fields still empty: the document stays out of the publication until they're filled.
+  problems: string[]
+  // Collections with a public URL: publishing a new slug creates the 301 from the old one.
+  redirectPrefix: string | null
+  urlChange: { from: string, to: string } | null
+  // Pages with changes: which sections, each linking to its place in the editor.
+  sections: { label: string, href: string }[]
+  // Picked items (author, category…) that won't be on the site after this publish. They don't block it.
+  warnings: string[]
+}
+
+export interface PublishRecordType {
+  id: number
+  requestedAt: string
+  requestedBy: string | null
+  published: number
+  removed: number
+  buildStatus: BuildStatusType
+  finishedAt: string | null
+  errorCode: BuildErrorCodeType | null
+  errorDetail: string | null
+  items: { id: string, title: string | null, action: 'publish' | 'unpublish' }[]
+}
+
+type StatusRowType = { id: string | null, type: string | null, data: unknown, deleted_at: string | null }
+
+export const describeDocument = (ctx: CmsContextType, row: StatusRowType) => {
+  const entry = row.type ? getEntry(ctx.config, row.type) : null
+  if (!entry || !row.id || !row.type) return null
+
+  const paths = panelPaths(ctx.config)
+  const entryLabel = resolveText(entry.label, textContext(ctx.config))
+  return {
+    id: row.id,
+    entry,
+    entryLabel,
+    title: entry.kind === 'collection' ? titleOf(ctx, entry, row.data) : entryLabel,
+    href: row.deleted_at ? paths.trash : paths.entry(entry.kind, row.type, row.id)
+  }
+}
+
+const missingFields = async (ctx: CmsContextType, fields: FieldsRecord, data: unknown) => {
+  const { errors } = await validateContent(ctx.config, fields, withDefaults(ctx.config, fields, data), { mode: 'publish' })
+  const texts = textContext(ctx.config)
+  return errors ? [...new Set(Object.keys(errors).map(path => fieldLabel(fields, path, texts)))] : []
+}
+
+export const getPendingChanges = async (ctx: CmsContextType): Promise<PendingChangeType[]> => {
+  const { data } = await ctx.db.from('document_status')
+    .select('id, type, data, slug, published_slug, revision, status, updated_at, updated_by, deleted_at')
+    .eq('pending', true).in('type', entryIds(ctx.config)).order('updated_at', { ascending: false })
+
+  const rows = data ?? []
+  const paths = panelPaths(ctx.config)
+  const texts = textContext(ctx.config)
+  const changedPages = rows.filter(row => row.id && row.status === 'changed' && row.type && getEntry(ctx.config, row.type)?.kind === 'page').map(row => row.id!)
+  const [names, published] = await Promise.all([
+    authorNames(ctx, rows.map(row => row.updated_by)),
+    changedPages.length > 0
+      ? ctx.db.from('published_documents').select('id, data').in('id', changedPages).then(({ data: live }) => live ?? [])
+      : []
+  ])
+
+  const changes = await Promise.all(rows.map(async (row): Promise<PendingChangeType | null> => {
+    const described = describeDocument(ctx, row)
+    if (!described || !row.status || row.revision === null || !row.updated_at) return null
+
+    const action = row.status === 'unpublishing' ? 'unpublish' : 'publish'
+    const redirectPrefix = described.entry.kind === 'collection' ? slugPrefix(described.entry.path) : null
+    const urlChanged = action === 'publish' && redirectPrefix && row.published_slug && row.slug && row.published_slug !== row.slug
+    return {
+      id: described.id,
+      entryLabel: described.entryLabel,
+      title: described.title,
+      href: described.href,
+      action,
+      status: row.status as DocumentStatusType,
+      revision: row.revision,
+      updatedAt: row.updated_at,
+      updatedBy: row.updated_by ? names[row.updated_by] ?? null : null,
+      problems: action === 'publish' ? await missingFields(ctx, described.entry.fields, row.data) : [],
+      redirectPrefix,
+      urlChange: urlChanged ? { from: `${redirectPrefix}${row.published_slug}`, to: `${redirectPrefix}${row.slug}` } : null,
+      sections: changedPages.includes(described.id)
+        ? changedSections(ctx.config, described.entry.fields, row.data, published.find(live => live.id === described.id)?.data)
+          .map(({ key, label }) => ({ label: resolveText(label, texts), href: paths.page(row.type!, key) }))
+        : [],
+      warnings: []
+    }
+  }))
+
+  const pending = changes.filter(change => change !== null)
+  await addReferenceWarnings(ctx, pending, rows)
+  return pending
+}
+
+const addReferenceWarnings = async (ctx: CmsContextType, changes: PendingChangeType[], rows: StatusRowType[]) => {
+  const references = new Map(changes.filter(change => change.action === 'publish').map(change => {
+    const row = rows.find(candidate => candidate.id === change.id)
+    const entry = row?.type ? getEntry(ctx.config, row.type) : null
+    return [change.id, entry ? documentReferences(ctx.config, entry.fields, withDefaults(ctx.config, entry.fields, row?.data)).relations : []]
+  }))
+  const refs = await getRelationLabels(ctx, [...new Set([...references.values()].flat())])
+  const comesOut = (id: string) => changes.find(change => change.id === id)?.problems.length === 0
+  const { t } = translatorFor(ctx.config)
+
+  for (const change of changes) change.warnings = referenceWarnings(references.get(change.id) ?? [], refs, comesOut, t)
+}
+
+export const getPendingCount = async (ctx: CmsContextType) => {
+  const { count } = await ctx.db.from('document_status').select('id', { count: 'exact', head: true })
+    .eq('pending', true).in('type', entryIds(ctx.config))
+  return count ?? 0
+}
+
+type LogItemType = { id: string, type: string, action: 'publish' | 'unpublish' }
+
+export const getPublishHistory = async (ctx: CmsContextType, limit = 10): Promise<PublishRecordType[]> => {
+  const { data } = await ctx.db.from('publish_log').select('*').order('requested_at', { ascending: false }).limit(limit)
+
+  const rows = data ?? []
+  const itemsOf = (items: unknown) => (Array.isArray(items) ? items : []) as LogItemType[]
+  const ids = [...new Set(rows.flatMap(row => itemsOf(row.items)).map(item => item.id))]
+
+  const [names, documents] = await Promise.all([
+    authorNames(ctx, rows.map(row => row.requested_by)),
+    ids.length ? ctx.db.from('document_status').select('id, type, data, deleted_at').in('id', ids).then(result => result.data ?? []) : []
+  ])
+  const titles = Object.fromEntries(documents.map(row => [row.id, describeDocument(ctx, row)?.title ?? null]))
+
+  return rows.map(row => ({
+    id: row.id,
+    requestedAt: row.requested_at,
+    requestedBy: row.requested_by ? names[row.requested_by] ?? null : null,
+    published: row.documents_count,
+    removed: row.removed_count,
+    buildStatus: row.build_status as BuildStatusType,
+    finishedAt: row.finished_at,
+    errorCode: row.error_code as BuildErrorCodeType | null,
+    errorDetail: row.error_detail,
+    // A purged document has no title left: the panel names it as deleted.
+    items: itemsOf(row.items).map(item => ({ id: item.id, action: item.action, title: titles[item.id] ?? null }))
+  }))
+}
+
+export const getLatestPublish = async (ctx: CmsContextType) => (await getPublishHistory(ctx, 1))[0] ?? null
+
+type BuildValuesType = { build_status: BuildStatusType, job_id?: string, error_code?: BuildErrorCodeType | null, error_detail?: string | null, finished_at?: string }
+
+// publish_log is written with the service role: the build webhook has no user session.
+const setBuildStatus = async (ctx: CmsContextType, publishId: number, values: BuildValuesType, onlyIfPending = false) => {
+  let request = ctx.admin().from('publish_log').update(values).eq('id', publishId)
+  // The "started" event can beat the hook response; it must not be overwritten.
+  if (onlyIfPending) request = request.eq('build_status', 'pending')
+  const { error } = await request
+  if (error) console.error('[publish] status update failed:', error.code ?? error.message)
+}
+
+// The oldest open publish owns a job nobody claimed yet, as long as it is recent: an old one that never heard
+// back must not take the next publish's events.
+export const applyBuildEvent = async (ctx: CmsContextType, { jobId, status }: BuildEventType) => {
+  const admin = ctx.admin()
+  let { data: row } = await admin.from('publish_log').select('id').eq('job_id', jobId).maybeSingle()
+
+  if (!row) {
+    const since = new Date(ctx.now().getTime() - BUILD_CONFIRMATION_TIMEOUT_MS).toISOString()
+    const { data: open } = await admin.from('publish_log').select('id')
+      .in('build_status', ['pending', 'building']).is('job_id', null).gte('requested_at', since)
+      .order('requested_at').limit(1).maybeSingle()
+    row = open
+  }
+
+  if (!row) return false
+
+  if (status === 'started') {
+    await setBuildStatus(ctx, row.id, { build_status: 'building', job_id: jobId })
+  } else {
+    await setBuildStatus(ctx, row.id, {
+      build_status: status === 'succeeded' ? 'success' : 'failed',
+      job_id: jobId,
+      error_code: status === 'failed' ? 'build_failed' : null,
+      error_detail: null,
+      finished_at: ctx.now().toISOString()
+    })
+  }
+
+  return true
+}
+
+export const triggerBuild = async (ctx: CmsContextType, publishId: number): Promise<BuildStatusType> => {
+  const fail = async (code: BuildErrorCodeType, detail?: string) => {
+    await setBuildStatus(ctx, publishId, { build_status: 'failed', error_code: code, error_detail: detail ?? null, finished_at: ctx.now().toISOString() })
+    return 'failed' as const
+  }
+
+  if (!ctx.publishTarget) return fail('target_missing')
+
+  const result = await ctx.publishTarget.trigger({ report: event => applyBuildEvent(ctx, event) })
+  if (!result.ok) return fail(result.code, result.detail)
+
+  await setBuildStatus(ctx, publishId, { build_status: 'building', ...(result.jobId ? { job_id: result.jobId } : {}) }, true)
+  return 'building'
+}
+
+export interface PublishSelectionType {
+  publish: { id: string, revision: number }[]
+  remove: string[]
+}
+
+export type PublishResultType =
+  | { ok: true, published: number, removed: number, buildStatus: BuildStatusType }
+  | { ok: false, error: MessageKeyType }
+
+const RPC_ERRORS: Record<string, MessageKeyType> = {
+  CM001: 'errors.publish.stale',
+  CM002: 'errors.publish.nothing',
+  '42501': 'errors.publish.forbidden',
+  '23505': 'errors.publish.slugTaken',
+  '22023': 'errors.publish.invalidSlug'
+}
+
+// Publishes exactly what the user reviewed: anything edited or incomplete since then aborts the run.
+export const publishChanges = async (ctx: CmsContextType, selection: PublishSelectionType): Promise<PublishResultType> => {
+  const { profile } = await requireRole(ctx, 'editor')
+  if (!canPublish(profile)) return { ok: false, error: 'errors.publish.forbidden' }
+
+  const pending = new Map((await getPendingChanges(ctx)).map(change => [change.id, change]))
+
+  const publishable = selection.publish.every(({ id, revision }) => {
+    const change = pending.get(id)
+    return change?.action === 'publish' && change.revision === revision && change.problems.length === 0
+  })
+  const removable = selection.remove.every(id => pending.get(id)?.action === 'unpublish')
+
+  if (!publishable || !removable) return { ok: false, error: 'errors.publish.stale' }
+  if (selection.publish.length + selection.remove.length === 0) return { ok: false, error: 'errors.publish.nothing' }
+
+  // The prefix comes from the schema on the server, never from the client.
+  const { data, error } = await ctx.db.rpc('publish_site', {
+    p_publish: selection.publish.map(({ id, revision }) => ({ id, revision, redirectPrefix: pending.get(id)?.redirectPrefix ?? null })),
+    p_remove: selection.remove
+  })
+
+  if (error) {
+    if (!RPC_ERRORS[error.code]) console.error('[publish] publish_site failed:', error.code ?? error.message)
+    return { ok: false, error: RPC_ERRORS[error.code] ?? 'errors.publish.failed' }
+  }
+
+  const result = data as { publishId: number, published: number, removed: number }
+  const buildStatus = await triggerBuild(ctx, result.publishId)
+
+  return { ok: true, published: result.published, removed: result.removed, buildStatus }
+}
+
+export const getPublishStatus = async (ctx: CmsContextType) => {
+  await requireRole(ctx, 'editor')
+  const [latest, pendingCount] = await Promise.all([getLatestPublish(ctx), getPendingCount(ctx)])
+  return { latest, pendingCount }
+}
