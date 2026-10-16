@@ -24,11 +24,13 @@ const clone = <T>(value: T): T => structuredClone(value)
 // JSON columns compare by content, like jsonb `is distinct from`.
 const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b)
 
+// Columns and PostgREST JSON paths: `data->>title`, `data->title->>es`.
 const read = (row: Row, column: string): unknown => {
-  const json = column.match(/^(\w+)->>(\w+)$/)
-  if (!json) return row[column]
-  const value = (row[json[1]] as Row | null)?.[json[2]]
-  return value === undefined || value === null ? null : typeof value === 'string' ? value : JSON.stringify(value)
+  if (!column.includes('->')) return row[column]
+  const [path, last] = column.split('->>')
+  const value = path.split('->').reduce<unknown>((node, key) => (node as Row | null | undefined)?.[key], row) as Row | null | undefined
+  const leaf = value?.[last]
+  return leaf === undefined || leaf === null ? null : typeof leaf === 'string' ? leaf : JSON.stringify(leaf)
 }
 
 const likeToRegExp = (pattern: string, flags: string) => {
