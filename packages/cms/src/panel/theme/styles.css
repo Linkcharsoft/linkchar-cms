@@ -5,6 +5,7 @@
 @tailwind utilities;
 
 @layer base {
+  /* :where() keeps these element defaults below any component class. */
   .CmsRoot {
     min-height: 100vh;
     margin: 0;
@@ -16,18 +17,18 @@
     -moz-osx-font-smoothing: grayscale;
   }
 
-  .CmsRoot :is(h1, h2, h3, h4, h5, h6) {
+  :where(.CmsRoot) :is(h1, h2, h3, h4, h5, h6) {
     margin: 0;
     letter-spacing: -0.01em;
     font-family: var(--cms-font-display);
   }
 
-  .CmsRoot a {
+  :where(.CmsRoot) a {
     color: inherit;
     text-decoration: none;
   }
 
-  .CmsRoot :is(a, button) {
+  :where(.CmsRoot) :is(a, button) {
     transition: border 0.2s, box-shadow 0.2s, background-color 0.2s, color 0.2s, opacity 0.2s;
   }
 }
