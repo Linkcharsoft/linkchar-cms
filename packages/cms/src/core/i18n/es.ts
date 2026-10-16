@@ -165,7 +165,9 @@ const es = {
   },
   collection: {
     new: 'Nuevo {name}',
-    untitled: '{name} sin título'
+    untitled: '{name} sin título',
+    copy: '{title} (copia)',
+    copySlug: 'copia'
   },
   section: {
     hide: 'Ocultar esta sección'
