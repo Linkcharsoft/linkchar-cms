@@ -19,11 +19,6 @@ export interface BrandingType {
   footer?: TextType
 }
 
-// Filled in by the publish adapters (stage 2): Amplify build hook first.
-export interface PublishTargetType {
-  name: string
-}
-
 // Project screens and menu items with the panel layout (stage 3).
 export interface CmsExtensionType {
   id: string
@@ -39,7 +34,6 @@ export interface CmsConfigInputType<S extends ContentSchema, L extends string> {
   timeZone?: string
   branding?: BrandingType
   mediaFolders?: readonly MediaFolderType[]
-  publishTarget?: PublishTargetType
   extensions?: readonly CmsExtensionType[]
   // Opt-in kinds (openingHours) and the project's own, made with defineField.
   fields?: readonly FieldDefinitionType[]
@@ -55,7 +49,6 @@ export interface CmsConfigType<S extends ContentSchema = ContentSchema, L extend
   timeZone: string
   branding: BrandingType
   mediaFolders: readonly MediaFolderType[]
-  publishTarget: PublishTargetType | null
   extensions: readonly CmsExtensionType[]
   fieldTypes: ReadonlyMap<string, FieldDefinitionType>
   messages: MessageOverridesType
@@ -149,7 +142,6 @@ export const defineCmsConfig = <const S extends ContentSchema, const L extends s
     timeZone: input.timeZone ?? 'America/Argentina/Buenos_Aires',
     branding: input.branding ?? { name: 'CMS' },
     mediaFolders: input.mediaFolders ?? [],
-    publishTarget: input.publishTarget ?? null,
     extensions: input.extensions ?? [],
     fieldTypes,
     messages: input.messages ?? {}

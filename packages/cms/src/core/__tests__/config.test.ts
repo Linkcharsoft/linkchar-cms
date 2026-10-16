@@ -18,7 +18,7 @@ const schema = {
 describe('defineCmsConfig', () => {
   it('fills the defaults', () => {
     const config = defineCmsConfig({ schema })
-    expect(config).toMatchObject({ locales: ['es'], defaultLocale: 'es', panelLocale: 'es', basePath: '/dashboard', publishTarget: null })
+    expect(config).toMatchObject({ locales: ['es'], defaultLocale: 'es', panelLocale: 'es', basePath: '/dashboard' })
     expect(Object.isFrozen(config)).toBe(true)
   })
 
