@@ -1,0 +1,54 @@
+@use '../../theme/mixins' as cms
+
+.PageList
+  &__Table
+    @include cms.table()
+
+  &__Name
+    display: flex
+    align-items: center
+    gap: 12px
+
+  &__Icon
+    display: flex
+    align-items: center
+    justify-content: center
+    flex-shrink: 0
+    width: 36px
+    height: 36px
+    border-radius: 10px
+    @apply bg-cms-primary-50 text-cms-primary
+
+  &__NameText
+    display: flex
+    flex-direction: column
+    gap: 2px
+
+  &__Title
+    @apply cms-text-semibold-16 text-cms-ink-900 hover:underline
+
+  &__Url
+    display: inline-flex
+    align-items: center
+    gap: 6px
+    @apply cms-text-regular-14 text-cms-primary hover:underline
+
+  &__Meta
+    @apply cms-text-regular-14 text-cms-ink-600
+
+  &__Edited
+    display: flex
+    flex-direction: column
+    gap: 2px
+
+  &__Uses
+    @apply cms-text-regular-14 text-cms-ink-700
+
+  &__UseLink
+    text-decoration: underline
+    text-underline-offset: 2px
+    @apply cms-text-semibold-14 text-cms-primary hover:text-cms-ink-900
+
+  &__Actions
+    display: flex
+    justify-content: flex-end

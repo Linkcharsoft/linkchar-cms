@@ -1,0 +1,21 @@
+.CollectionTabs
+  margin-bottom: 20px
+  overflow-x: auto
+  @apply border-b border-cms-border
+
+  &__List
+    display: flex
+    gap: 4px
+
+  &__Tab
+    display: flex
+    align-items: center
+    min-height: 44px
+    padding: 0 16px
+    margin-bottom: -1px
+    border-bottom: 2px solid transparent
+    white-space: nowrap
+    @apply cms-text-medium-16 text-cms-ink-600 hover:text-cms-ink-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-cms-primary
+
+    &--Active
+      @apply border-cms-primary cms-text-bold-16 text-cms-ink-900

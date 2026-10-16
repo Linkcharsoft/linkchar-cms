@@ -1,0 +1,20 @@
+@use '../../theme/mixins' as cms
+
+.TrashList
+  &__Table
+    @include cms.table()
+
+  &__Title
+    display: flex
+    flex-direction: column
+    gap: 2px
+    @apply cms-text-semibold-16 text-cms-ink-900
+
+  &__Meta
+    white-space: nowrap
+    @apply cms-text-regular-14 text-cms-ink-600
+
+  &__Actions
+    display: flex
+    justify-content: flex-end
+    gap: 8px

@@ -1,0 +1,97 @@
+const lists = {
+  listColumns: {
+    status: 'Estado',
+    edited: 'Última edición',
+    actions: 'Acciones',
+    reorder: 'Reordenar'
+  },
+  pagesList: {
+    subtitle: 'Cada página del sitio con todo su contenido: abrí una para editar sus secciones y cómo aparece en Google.',
+    page: 'Página',
+    alsoShows: 'Muestra también',
+    viewOnSite: '(ver en el sitio, se abre en otra pestaña)',
+    systemPage: 'Página del sistema',
+    noContent: 'Sin contenido',
+    useCount: '{label} ({count})',
+    edit: 'Editar',
+    editNamed: 'Editar {name}'
+  },
+  collectionList: {
+    fallbackTitle: 'Colección',
+    count: { one: '{count} elemento', other: '{count} elementos' },
+    sections: 'Secciones de {name}',
+    title: 'Título',
+    searchPlaceholder: 'Buscar por título',
+    sortBy: 'Ordenar por',
+    filterStatus: 'Filtrar por estado',
+    allStatuses: 'Todos los estados',
+    sorts: {
+      manual: 'Orden manual',
+      updated: 'Últimos editados',
+      title: 'Título'
+    },
+    reorderFailed: 'No se pudo guardar el orden',
+    createFailed: 'No se pudo crear',
+    noResults: 'No hay resultados con esos filtros.',
+    empty: 'Todavía no hay contenido.',
+    emptyHelp: 'Creá el primer {name} con el botón de arriba.'
+  },
+  publishPanel: {
+    title: 'Publicar cambios',
+    subtitle: 'Lo que editás se guarda como borrador. Al publicar, el sitio se actualiza con todos los cambios juntos en unos 5 minutos.',
+    pending: 'Cambios pendientes',
+    allLive: 'Todo lo que está en el panel ya está en el sitio.',
+    ready: { one: '{count} cambio listo para publicar', other: '{count} cambios listos para publicar' },
+    summary: '{ready}.',
+    summaryIncomplete: '{ready} · {incomplete}.',
+    incomplete: { one: '{count} incompleto', other: '{count} incompletos' },
+    publish: 'Publicar cambios',
+    publishCount: 'Publicar cambios ({count})',
+    cannotPublish: 'Tu usuario puede editar pero no publicar. Un administrador puede publicar estos cambios o darte permiso.',
+    groups: {
+      new: 'Nuevos en el sitio',
+      changed: 'Con cambios',
+      removed: 'Se quitan del sitio'
+    },
+    sectionsChanged: 'Cambió: ',
+    urlChange: 'La URL cambia de {from} a {to}. Los links viejos van a redirigir a la nueva.',
+    problems: 'No se publica hasta completar: {fields}.',
+    confirm: {
+      publishes: 'Se publica:',
+      removes: 'Se quita del sitio:',
+      item: '{title} ({entry})',
+      more: 'y {count} más',
+      accept: 'Publicar'
+    },
+    eta: 'El sitio se actualiza en unos 5 minutos.',
+    failed: 'No se publicó',
+    done: 'Cambios publicados',
+    buildNotStarted: 'Pero no pudimos iniciar la actualización del sitio. Avisá a soporte.',
+    history: 'Últimas publicaciones',
+    historyEmpty: 'Todavía no se publicó nada.',
+    published: { one: '{count} publicado', other: '{count} publicados' },
+    removed: { one: '{count} quitado', other: '{count} quitados' },
+    removedItem: 'Quitado: {title}',
+    errorReason: 'Motivo: {reason}',
+    errorDetail: 'Detalle técnico: {detail}'
+  },
+  trashList: {
+    subtitle: 'Los contenidos quedan acá {days} días y después se borran solos. Las imágenes y archivos tienen su propia papelera en {media}.',
+    content: 'Contenido',
+    trashedAt: 'Enviado a la papelera',
+    offSite: 'Fuera del sitio',
+    empty: 'La papelera está vacía.',
+    restore: 'Restaurar',
+    restoreFailed: 'No se pudo restaurar',
+    restored: 'Restaurado',
+    restoredDetail: '"{title}" volvió a {entry}.',
+    purgeHeader: 'Eliminar definitivamente',
+    purgeMessage: '"{title}" se borra para siempre, con su historial. No se puede deshacer.',
+    purge: 'Eliminar',
+    purgeNamed: 'Eliminar definitivamente {title}',
+    purgeFailed: 'No se pudo eliminar',
+    purged: 'Eliminado definitivamente'
+  }
+} as const
+
+export default lists

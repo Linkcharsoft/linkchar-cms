@@ -1,0 +1,19 @@
+@use '../../theme/mixins' as cms
+
+.CollectionTable
+  display: flex
+  flex-direction: column
+  gap: 16px
+
+  &__Table
+    @include cms.table()
+
+  &__Actions
+    width: 112px
+
+  &__Handle
+    width: 48px
+
+  &__Title
+    text-decoration: none
+    @apply cms-text-semibold-16 text-cms-ink-900 hover:text-cms-primary

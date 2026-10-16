@@ -1,0 +1,111 @@
+@use '../../theme/mixins' as cms
+
+.PublishPanel
+  display: grid
+  gap: 20px
+  @apply lg:grid-cols-[3fr_2fr] lg:items-start
+
+  &__Card
+    display: flex
+    flex-direction: column
+    gap: 16px
+    @include cms.card()
+
+  &__Header
+    display: flex
+    flex-wrap: wrap
+    align-items: center
+    justify-content: space-between
+    gap: 12px
+
+  &__CardTitle
+    @apply cms-text-semibold-18 text-cms-ink-900
+
+  &__Meta
+    @apply cms-text-regular-14 text-cms-ink-600
+
+  &__Group
+    display: flex
+    flex-direction: column
+    gap: 4px
+
+  &__GroupTitle
+    @apply cms-text-semibold-14 text-cms-ink-700
+
+  &__List
+    display: flex
+    flex-direction: column
+
+  &__Item
+    display: flex
+    flex-direction: column
+    gap: 4px
+    padding: 10px 12px
+    border-radius: 10px
+    @apply hover:bg-cms-neutral-50
+
+  &__Item--Highlight
+    border-left: 3px solid
+    @apply bg-cms-primary-50 border-cms-primary
+
+  &__Confirm
+    display: flex
+    flex-direction: column
+    gap: 8px
+
+  &__ConfirmTitle
+    @apply cms-text-semibold-14 text-cms-ink-900
+
+  &__ConfirmList
+    padding-left: 18px
+    list-style: disc
+    @apply cms-text-regular-14 text-cms-ink-700
+
+  &__ItemMain
+    display: flex
+    align-items: flex-start
+    justify-content: space-between
+    gap: 12px
+
+    [data-pc-name="tag"]
+      flex-shrink: 0
+
+  &__ItemTitle
+    min-width: 0
+    @apply cms-text-semibold-16 text-cms-ink-900
+
+  &__Sections
+    @apply cms-text-regular-14 text-cms-ink-700
+
+  &__SectionLink
+    text-decoration: underline
+    text-underline-offset: 2px
+    @apply cms-text-semibold-14 text-cms-primary hover:text-cms-ink-900
+
+  &__Note
+    display: flex
+    align-items: flex-start
+    gap: 6px
+    @apply cms-text-regular-14 text-cms-ink-700
+
+  &__Problem
+    display: flex
+    align-items: flex-start
+    gap: 6px
+    @apply cms-text-regular-14 text-cms-danger-700
+
+  &__Warning
+    display: flex
+    align-items: flex-start
+    gap: 6px
+    @apply cms-text-regular-14 text-cms-warning-800
+
+  &__Details
+    summary
+      cursor: pointer
+
+  &__Detail
+    margin-top: 4px
+    padding-left: 20px
+    list-style: disc
+    @apply cms-text-regular-14 text-cms-ink-700
