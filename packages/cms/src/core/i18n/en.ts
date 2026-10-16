@@ -44,7 +44,105 @@ const en = {
     maxBlocks: 'You can add up to {max} blocks',
     minBlocks: { one: 'Add at least {count} block', other: 'Add at least {count} blocks' },
     translationMissing: 'Missing in {language}',
-    altMissing: 'Missing alt text in {language}'
+    altMissing: 'Missing alt text in {language}',
+    slugTaken: 'Another item already uses this URL'
+  },
+  errors: {
+    invalidData: 'Check the data you entered.',
+    forbidden: 'You are not allowed to do this.',
+    unknownEntry: 'Unknown content.',
+    documents: {
+      saveFailed: 'We could not save. Check your connection.',
+      gone: 'This content no longer exists. Reload the page.',
+      busy: 'There are many changes at once. Wait a few seconds and try again.',
+      createFailed: 'We could not create the content. Try again.',
+      updateFailed: 'We could not save the change. Try again.'
+    },
+    versions: {
+      gone: 'That version no longer exists.',
+      notPublished: 'This content has not been published yet.',
+      slugTaken: 'Another item already uses the URL of that version. Change it first.',
+      failed: 'We could not restore. Try again.'
+    },
+    trash: {
+      slugTaken: 'Another item already uses its URL. Change that one first.',
+      restoreFailed: 'It could not be restored.',
+      notTrashed: 'It is not in the trash.',
+      stillPublished: 'It is still published: publish the changes to remove it from the site, then delete it.',
+      purgeFailed: 'It could not be deleted.'
+    },
+    publish: {
+      stale: 'Something changed while you were reviewing. Refresh the list and publish again.',
+      nothing: 'There are no changes to publish.',
+      forbidden: 'You are not allowed to publish. Ask an administrator.',
+      slugTaken: 'Two items would end up with the same URL. Change one of them and publish again.',
+      invalidSlug: 'One of the new URLs is not valid. Check it and publish again.',
+      failed: 'We could not publish. Try again.'
+    },
+    build: {
+      target_missing: 'How the site gets updated is not configured yet.',
+      hook_refused: 'The service that updates the site refused the request.',
+      hook_unreachable: 'We could not start updating the site.',
+      build_failed: 'Updating the site failed.'
+    },
+    media: {
+      altRequired: 'Images need an alternative text.',
+      invalidFolder: 'Invalid folder.',
+      invalidType: 'File type not allowed.',
+      tooLarge: 'The file is larger than {max} MB.',
+      invalidDimensions: 'Invalid dimensions.',
+      invalidPreview: 'Invalid preview.',
+      invalidFocalPoint: 'Invalid focal point.',
+      registerFailed: 'The file could not be saved in the library.',
+      gone: 'The file no longer exists.',
+      updateFailed: 'The changes could not be saved.'
+    },
+    users: {
+      forbidden: 'You are not allowed to manage this user.',
+      emailTaken: 'A user with that email already exists.',
+      emailRateLimit: 'The hourly email limit was reached. Try again later.',
+      inviteFailed: 'We could not send the invitation. Try again.',
+      saveFailed: 'We could not save the changes.',
+      alreadySignedIn: 'This user already signed in: they can use "Forgot my password".',
+      deleteSignedIn: 'This user already signed in: deactivate them instead of deleting them.',
+      deleteInviteFailed: 'We could not delete the invitation.',
+      mfaResetFailed: 'We could not reset the two-step verification.'
+    },
+    account: {
+      nameFailed: 'We could not save your name. Try again.',
+      invalidPhoto: 'The photo is not valid.',
+      photoFailed: 'We could not save the photo. Try again.',
+      wrongPassword: 'The current password is not correct.',
+      weakPassword: 'The password is too weak: use at least 10 characters with letters and numbers.',
+      samePassword: 'The new password must be different from the previous one.',
+      passwordFailed: 'We could not save the password. Try again.',
+      toursFailed: 'We could not restart the guides.'
+    },
+    auth: {
+      rateLimit: 'Too many attempts. Wait a few minutes.',
+      inactive: 'Your user is deactivated. Contact an administrator.',
+      wrongCredentials: 'Wrong email or password.',
+      linkRequired: 'This step only works from the link you got by email. Ask for a new one.',
+      nameFailed: 'We saved your password, but not your name. You can change it later.'
+    }
+  },
+  forms: {
+    emailRequired: 'Enter the email',
+    emailInvalid: 'Enter a valid email',
+    passwordRequired: 'Enter your password',
+    currentPasswordRequired: 'Enter your current password',
+    newPasswordRequired: 'Enter a password',
+    passwordLength: 'Use at least {min} characters',
+    passwordLetter: 'Include at least one letter',
+    passwordDigit: 'Include at least one number',
+    confirmRequired: 'Repeat the password',
+    confirmMismatch: 'The passwords do not match',
+    nameRequired: 'Enter the name',
+    nameLength: 'Use up to {max} characters',
+    roleRequired: 'Choose a role',
+    codeRequired: 'Enter the code',
+    codeFormat: 'The code has 6 digits',
+    deviceRequired: 'Choose a phone'
   },
   diff: {
     otherFile: 'Another file',
