@@ -5,6 +5,7 @@ import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { NextResponse } from 'next/server'
 import { cache } from 'react'
+import { panelPaths } from '../core/paths'
 import { changePassword, markTourSeen, recordMfaChange, resetTours, updateAvatar, updateProfile } from './account'
 import { listActivity, purgeExpiredActivity } from './activity'
 import { getCurrentProfile, requireRole } from './auth'
@@ -12,9 +13,10 @@ import { createDocument, createRelated, duplicateDocument, reorderCollection, se
 import { CmsRedirect } from './context'
 import * as documents from './documents'
 import { saveDocument } from './editing'
+import { confirmEmailLink, signOutTo } from './handlers'
 import * as media from './media'
 import { listPages } from './pages'
-import { applyBuildEvent, getPendingChanges, getPublishHistory, getPublishStatus, publishChanges } from './publish'
+import { applyBuildEvent, getLatestPublish, getPendingChanges, getPendingCount, getPublishHistory, getPublishStatus, publishChanges } from './publish'
 import { acceptInvite, completeSecondFactor, login, logout, requestPasswordReset, updatePassword } from './session'
 import { purgeDocument, restoreDocument } from './trash'
 import { deleteInvite, inviteUser, listPanelUsers, resendInvite, resetUserMfa, setUserActive, updateUserAccess } from './users'
@@ -58,7 +60,7 @@ const QUERIES = {
   listTrash: documents.listTrash, purgeExpiredDocuments: documents.purgeExpiredDocuments, getPublishedData: documents.getPublishedData,
   getDocumentState: documents.getDocumentState, getRelationLabels: documents.getRelationLabels, getRecentDrafts: documents.getRecentDrafts,
   listMedia: media.listMedia, getMediaByIds: media.getMediaByIds, purgeExpiredMedia: media.purgeExpiredMedia,
-  listPages, getPendingChanges, getPublishHistory, listPanelUsers, listActivity, purgeExpiredActivity
+  listPages, getPendingChanges, getPendingCount, getPublishHistory, getLatestPublish, listPanelUsers, listActivity, purgeExpiredActivity
 }
 
 export const createCmsServer = ({ config, supabase, publishTarget = null }: CmsServerOptionsType) => {
@@ -146,13 +148,40 @@ export const createCmsServer = ({ config, supabase, publishTarget = null }: CmsS
     return { response, claims: data?.claims ?? null }
   }
 
+  // The whole proxy for panel routes: signed-out users go to sign in, signed-in ones skip the guest screens.
+  // Role and `active` are checked by requireRole() in the layouts and actions.
+  const proxy = async (request: NextRequest) => {
+    const { response, claims } = await updateSession(request)
+    const paths = panelPaths(config)
+    const { pathname } = request.nextUrl
+    const matches = (list: string[]) => list.some(path => pathname === path || pathname.startsWith(`${path}/`))
+    const target = !claims && !matches(paths.publicPaths) ? paths.login : claims && matches(paths.guestOnlyPaths) ? paths.home : null
+    if (!target) return response
+
+    const url = request.nextUrl.clone()
+    url.pathname = target
+    url.search = ''
+    const redirect = NextResponse.redirect(url)
+    response.cookies.getAll().forEach(cookie => redirect.cookies.set(cookie))
+    return redirect
+  }
+
+  const handler = (fn: (ctx: CmsContextType, request: Request) => Promise<Response>) =>
+    async (request: Request) => fn(await context(), request)
+
   return {
     config,
     context,
     actions: bind(ACTIONS),
     queries: bind(QUERIES),
-    handlers: { buildStatus },
-    updateSession
+    handlers: { buildStatus, authConfirm: handler(confirmEmailLink), signout: handler(signOutTo) },
+    updateSession,
+    proxy,
+    // What the browser needs to talk to Supabase itself (uploads, MFA): public values only.
+    browserSupabase: () => {
+      const { url, publishableKey } = credentials()
+      return { url, publishableKey }
+    }
   }
 }
 

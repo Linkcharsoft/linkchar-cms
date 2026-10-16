@@ -1,3 +1,4 @@
+import { NextRequest } from 'next/server'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineCmsConfig } from '../../core/config'
 import { amplify } from '../../publish/amplify'
@@ -57,5 +58,45 @@ describe('createCmsServer', () => {
   it('has no webhook when the target reports in-process', async () => {
     const cms = createCmsServer({ config, supabase, publishTarget: mockBuild() })
     expect((await cms.handlers.buildStatus(webhook('Bearer x'))).status).toBe(404)
+  })
+
+  it('sends signed-out users to sign in and signed-in ones past the guest screens', async () => {
+    const cms = createCmsServer({ config, supabase })
+    const request = (path: string) => new NextRequest(`http://localhost${path}`)
+
+    db.claims = null as unknown as Record<string, unknown>
+    expect((await cms.proxy(request('/dashboard/paginas?x=1'))).headers.get('location')).toBe('http://localhost/dashboard/login')
+    expect((await cms.proxy(request('/dashboard/login'))).headers.get('location')).toBeNull()
+    expect((await cms.proxy(request('/dashboard/auth/confirm'))).headers.get('location')).toBeNull()
+
+    db.claims = { sub: 'u1' }
+    expect((await cms.proxy(request('/dashboard/login'))).headers.get('location')).toBe('http://localhost/dashboard')
+    expect((await cms.proxy(request('/dashboard/paginas'))).headers.get('location')).toBeNull()
+  })
+
+  it('lands email links on their fixed screen', async () => {
+    const verifyOtp = vi.fn(async ({ token_hash }: { token_hash: string }) => ({ error: token_hash === 'old' ? { code: 'otp_expired' } : null }))
+    db.authApi = { verifyOtp }
+    const cms = createCmsServer({ config, supabase })
+    const confirm = async (query: string) => (await cms.handlers.authConfirm(new Request(`http://localhost/dashboard/auth/confirm?${query}`))).headers.get('location')
+
+    expect(await confirm('token_hash=t1&type=invite')).toBe('http://localhost/dashboard/invitacion')
+    expect(await confirm('token_hash=t1&type=recovery')).toBe('http://localhost/dashboard/restablecer-contrasena')
+    expect(await confirm('token_hash=old&type=recovery')).toBe('http://localhost/dashboard/login?error=link-vencido')
+    expect(await confirm('token_hash=t1&type=signup')).toBe('http://localhost/dashboard/login?error=link-invalido')
+    expect(verifyOtp).toHaveBeenCalledTimes(3)
+  })
+
+  it('signs out with a reason the sign-in screen knows', async () => {
+    const cms = createCmsServer({ config, supabase })
+    const signout = async (query: string) => (await cms.handlers.signout(new Request(`http://localhost/dashboard/auth/signout${query}`))).headers.get('location')
+
+    expect(await signout('?error=sesion')).toBe('http://localhost/dashboard/login?error=sesion')
+    expect(await signout('?error=<script>')).toBe('http://localhost/dashboard/login?error=inactivo')
+    expect(await signout('')).toBe('http://localhost/dashboard/login?error=inactivo')
+  })
+
+  it('hands the browser only the public Supabase settings', () => {
+    expect(createCmsServer({ config, supabase }).browserSupabase()).toEqual({ url: supabase.url, publishableKey: 'pk' })
   })
 })
