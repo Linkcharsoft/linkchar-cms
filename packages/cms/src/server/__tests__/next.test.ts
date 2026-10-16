@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { ACTION_NAMES } from '../../../cli/routes.js'
 import { defineCmsConfig } from '../../core/config'
 import { amplify } from '../../publish/amplify'
 import { mockBuild } from '../../publish/mock'
@@ -94,6 +95,10 @@ describe('createCmsServer', () => {
     expect(await signout('?error=sesion')).toBe('http://localhost/dashboard/login?error=sesion')
     expect(await signout('?error=<script>')).toBe('http://localhost/dashboard/login?error=inactivo')
     expect(await signout('')).toBe('http://localhost/dashboard/login?error=inactivo')
+  })
+
+  it('lists for the CLI every action the project re-exports', () => {
+    expect(Object.keys(createCmsServer({ config, supabase }).actions).sort()).toEqual([...ACTION_NAMES].sort())
   })
 
   it('hands the browser only the public Supabase settings', () => {
