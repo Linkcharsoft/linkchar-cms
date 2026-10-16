@@ -28,7 +28,8 @@
     "cli",
     "src",
     "supabase",
-    "!**/__tests__"
+    "!**/__tests__",
+    "!**/__integration__"
   ],
   "scripts": {
     "type-check": "tsc --noEmit",
