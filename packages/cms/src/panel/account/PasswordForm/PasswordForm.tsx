@@ -1,0 +1,81 @@
+'use client'
+import './PasswordForm.sass'
+import { useFormik } from 'formik'
+import { Checkbox } from 'primereact/checkbox'
+import { Password } from 'primereact/password'
+import { validateChangePassword } from '../../../core/forms'
+import { useCms, useT } from '../../client/context'
+import { submitWithFocus, useFormValidation } from '../../forms/formik'
+import CustomButton from '../../primitives/CustomButton/CustomButton'
+import InputContainer from '../../primitives/InputContainer/InputContainer'
+import { useNotify } from '../../providers/notify'
+import type { ChangePasswordFormType } from '../../../core/forms'
+
+type PasswordFieldType = 'currentPassword' | 'password' | 'confirmPassword'
+
+const FIELDS = [
+  { name: 'currentPassword', label: 'account.currentPassword', autoComplete: 'current-password' },
+  { name: 'password', label: 'account.newPassword', autoComplete: 'new-password' },
+  { name: 'confirmPassword', label: 'account.confirmNewPassword', autoComplete: 'new-password' }
+] as const satisfies { name: PasswordFieldType, label: string, autoComplete: string }[]
+
+const PasswordForm = () => {
+  const { t, translate } = useT()
+  const { actions } = useCms()
+  const notify = useNotify()
+
+  const formik = useFormik<ChangePasswordFormType>({
+    initialValues: { currentPassword: '', password: '', confirmPassword: '', signOutOthers: false },
+    validate: useFormValidation(validateChangePassword),
+    validateOnChange: false,
+    validateOnBlur: false,
+    onSubmit: async (values, { resetForm }) => {
+      const result = await actions.changePassword(values)
+      if (result.error) return notify({ severity: 'error', summary: translate(result.error) })
+      resetForm()
+      notify({
+        severity: 'success',
+        summary: t('account.passwordChanged'),
+        detail: values.signOutOthers ? t('account.othersSignedOut') : undefined
+      })
+    }
+  })
+
+  const error = (name: PasswordFieldType) => (formik.touched[name] ? formik.errors[name] : undefined)
+
+  return (
+    <form className='PasswordForm' onSubmit={submitWithFocus(formik, FIELDS.map(field => field.name))} noValidate>
+      {FIELDS.map(field => (
+        <InputContainer key={field.name} label={t(field.label)} htmlFor={field.name} error={error(field.name)}>
+          <Password
+            inputId={field.name}
+            name={field.name}
+            autoComplete={field.autoComplete}
+            className='PasswordForm__Input'
+            inputClassName='PasswordForm__Input'
+            value={formik.values[field.name]}
+            onChange={formik.handleChange}
+            invalid={!!error(field.name)}
+            feedback={false}
+            toggleMask
+          />
+        </InputContainer>
+      ))}
+
+      <div className='flex items-center gap-2'>
+        <Checkbox
+          inputId='signOutOthers'
+          checked={formik.values.signOutOthers}
+          onChange={event => formik.setFieldValue('signOutOthers', !!event.checked)}
+        />
+        <label htmlFor='signOutOthers' className='PasswordForm__Check'>{t('account.signOutOthers')}</label>
+      </div>
+
+      <CustomButton type='submit' size='sm' className='self-start' loading={formik.isSubmitting}>
+        {t('account.changePassword')}
+      </CustomButton>
+    </form>
+  )
+}
+
+export default PasswordForm

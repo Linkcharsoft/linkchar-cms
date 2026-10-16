@@ -1,0 +1,54 @@
+@use '../../theme/mixins' as cms
+
+.MfaSettings
+  display: flex
+  flex-direction: column
+  gap: 14px
+
+  &__Text
+    @apply cms-text-regular-14 text-cms-ink-700
+
+  &__List
+    display: flex
+    flex-direction: column
+    gap: 8px
+
+  &__Device
+    display: flex
+    align-items: center
+    gap: 12px
+    padding: 8px 8px 8px 14px
+    border-radius: 12px
+    @apply bg-cms-neutral-50 text-cms-primary
+
+  &__DeviceName
+    display: flex
+    flex: 1
+    flex-direction: column
+    min-width: 0
+    @apply cms-text-semibold-14 text-cms-ink-900
+
+  &__DeviceMeta
+    @apply cms-text-regular-12 text-cms-ink-600
+
+  &__Dialog
+    @include cms.dialog-width(sm)
+
+  &__Form
+    display: flex
+    flex-direction: column
+    gap: 16px
+
+  &__Steps
+    padding-left: 20px
+    list-style: decimal
+    @apply cms-text-regular-14 text-cms-ink-700
+
+  &__Qr
+    align-self: center
+    border-radius: 8px
+    @apply border border-cms-border
+
+  &__Secret
+    overflow-wrap: anywhere
+    @apply cms-text-regular-12 text-cms-ink-600

@@ -1,0 +1,19 @@
+@use '../../theme/mixins' as cms
+
+.AccountPage
+  flex: 1
+
+  &__Grid
+    display: grid
+    align-items: start
+    gap: 20px
+    @apply lg:grid-cols-2
+
+  &__Card
+    display: flex
+    flex-direction: column
+    gap: 16px
+    @include cms.card()
+
+  &__CardTitle
+    @apply cms-text-semibold-18 text-cms-ink-900

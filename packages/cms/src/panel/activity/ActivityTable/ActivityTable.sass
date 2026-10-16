@@ -1,0 +1,23 @@
+@use '../../theme/mixins' as cms
+
+.ActivityTable
+  display: flex
+  flex-direction: column
+  gap: 16px
+
+  &__Table
+    @include cms.table()
+
+  &__DateColumn
+    width: 160px
+
+  &__Action
+    display: flex
+    flex-direction: column
+    gap: 2px
+
+  &__Subject
+    @apply cms-text-semibold-14 text-cms-primary
+
+  &__Detail
+    @apply cms-text-regular-12 text-cms-ink-600

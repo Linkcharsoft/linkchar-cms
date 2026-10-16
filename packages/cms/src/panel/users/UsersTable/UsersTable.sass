@@ -1,0 +1,45 @@
+@use '../../theme/mixins' as cms
+
+.UsersTable
+  display: flex
+  flex-direction: column
+  gap: 16px
+
+  &__Table
+    @include cms.table()
+
+  &__User
+    display: flex
+    align-items: center
+    gap: 12px
+
+  &__Who
+    display: flex
+    flex-direction: column
+    min-width: 0
+
+  &__Name
+    @apply cms-text-semibold-16 text-cms-ink-900
+
+  &__Email
+    overflow-wrap: anywhere
+    @apply cms-text-regular-14 text-cms-ink-600
+
+  &__Actions
+    width: 64px
+    text-align: right
+
+  &__Dialog
+    @include cms.dialog-width(sm)
+
+  &__Form
+    display: flex
+    flex-direction: column
+    gap: 14px
+
+  &__Help
+    @apply cms-text-regular-14 text-cms-ink-600
+
+  &__Switch
+    cursor: pointer
+    @apply cms-text-regular-14 text-cms-ink-700
