@@ -1,0 +1,25 @@
+.FocalPointPicker
+  position: relative
+  display: block
+  width: 100%
+  padding: 0
+  overflow: hidden
+  border-radius: 12px
+  cursor: crosshair
+  @apply bg-cms-primary-50 focus-visible:ring-2 focus-visible:ring-cms-primary-ring
+
+  &__Image
+    display: block
+    width: 100%
+    height: auto
+    max-height: 420px
+    object-fit: contain
+
+  &__Marker
+    position: absolute
+    width: 28px
+    height: 28px
+    border-radius: 999px
+    transform: translate(-50%, -50%)
+    pointer-events: none
+    @apply border-4 border-cms-surface ring-2 ring-cms-primary-ring

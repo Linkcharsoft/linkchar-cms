@@ -1,0 +1,5 @@
+@use '../../theme/mixins' as cms
+
+.MediaPicker
+  @include cms.dialog-width(lg)
+  height: min(760px, calc(100dvh - 32px))

@@ -1,0 +1,89 @@
+.MediaUploader
+  display: flex
+  flex-direction: column
+  gap: 16px
+
+  &__Drop
+    display: flex
+    flex-direction: column
+    align-items: center
+    gap: 8px
+    padding: 24px 16px
+    border-radius: 12px
+    text-align: center
+    transition: background-color .2s, border-color .2s
+    @apply border-2 border-dashed border-cms-border-strong bg-cms-primary-50
+
+    &--Active
+      @apply border-cms-primary bg-cms-primary-100
+
+  &__DropIcon
+    font-size: 28px
+    @apply text-cms-primary
+
+  &__DropText
+    @apply cms-text-medium-16 text-cms-ink-900
+
+  &__Hint
+    @apply cms-text-regular-14 text-cms-ink-600
+
+  &__Queue
+    display: flex
+    flex-direction: column
+    gap: 12px
+
+  &__Item
+    display: flex
+    align-items: flex-start
+    gap: 12px
+    padding: 12px
+    border-radius: 12px
+    @apply border border-cms-border bg-cms-surface
+
+  &__Preview
+    position: relative
+    flex-shrink: 0
+    width: 72px
+    height: 72px
+    overflow: hidden
+    display: flex
+    align-items: center
+    justify-content: center
+    border-radius: 8px
+    @apply bg-cms-primary-50
+
+  &__Thumb
+    object-fit: cover
+
+  &__PdfIcon
+    font-size: 28px
+    @apply text-cms-danger-700
+
+  &__Body
+    flex: 1
+    min-width: 0
+    display: flex
+    flex-direction: column
+    gap: 10px
+
+  &__Name
+    overflow: hidden
+    text-overflow: ellipsis
+    white-space: nowrap
+    @apply cms-text-semibold-14 text-cms-ink-900
+
+  &__Progress
+    height: 6px
+
+  &__Error
+    @apply cms-text-medium-14 text-cms-danger-700
+
+  &__Footer
+    display: flex
+    flex-wrap: wrap
+    align-items: center
+    justify-content: flex-end
+    gap: 12px
+
+  &__Blocked
+    @apply cms-text-medium-14 text-cms-warning-700

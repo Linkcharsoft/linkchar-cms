@@ -1,0 +1,57 @@
+.MediaInput
+  display: flex
+  flex-wrap: wrap
+  gap: 16px
+  padding: 12px
+  border-radius: 12px
+  @apply border border-cms-border bg-cms-neutral-50
+
+  &__Preview
+    position: relative
+    flex-shrink: 0
+    width: 200px
+    aspect-ratio: 16 / 10
+    overflow: hidden
+    display: flex
+    align-items: center
+    justify-content: center
+    border-radius: 8px
+    @apply bg-cms-surface
+
+  &__Image
+    object-fit: cover
+
+  &__Pdf
+    font-size: 40px
+    @apply text-cms-danger-700
+
+  &__Info
+    flex: 1
+    min-width: 200px
+    display: flex
+    flex-direction: column
+    gap: 6px
+
+  &__Name
+    overflow: hidden
+    text-overflow: ellipsis
+    white-space: nowrap
+    @apply cms-text-semibold-14 text-cms-ink-900
+
+  &__Meta
+    @apply cms-text-regular-14 text-cms-ink-600
+
+  &__Warning
+    @apply cms-text-medium-14 text-cms-warning-700
+
+  &__Actions
+    display: flex
+    flex-wrap: wrap
+    gap: 8px
+    margin-top: auto
+
+  &__Empty
+    display: flex
+    flex-direction: column
+    align-items: flex-start
+    gap: 8px

@@ -1,0 +1,56 @@
+@use '../../theme/mixins' as cms
+
+.MediaDetails
+  @include cms.dialog-width(lg)
+
+  &__Layout
+    display: grid
+    gap: 24px
+    @apply md:grid-cols-2
+
+  &__Preview
+    display: flex
+    flex-direction: column
+    gap: 8px
+
+  &__Pdf
+    display: flex
+    flex-direction: column
+    align-items: center
+    justify-content: center
+    gap: 8px
+    min-height: 200px
+    border-radius: 12px
+    text-decoration: none
+    @apply cms-text-medium-16 bg-cms-primary-50 text-cms-danger-700
+
+  &__Meta
+    @apply cms-text-regular-14 text-cms-ink-600
+
+  &__Form
+    display: flex
+    flex-direction: column
+    gap: 16px
+
+  &__Url
+    flex: 1
+    min-width: 0
+
+  &__Usage
+    display: flex
+    flex-direction: column
+    gap: 8px
+
+  &__UsageTitle
+    @apply cms-text-semibold-14 text-cms-ink-900
+
+  &__UsageList
+    display: flex
+    flex-direction: column
+    gap: 4px
+    @apply cms-text-regular-14 text-cms-ink-700
+
+  &__UsageLink
+    text-decoration: underline
+    text-underline-offset: 2px
+    @apply cms-text-semibold-14 text-cms-primary hover:text-cms-ink-900

@@ -1,0 +1,113 @@
+const media = {
+  media: {
+    subtitle: 'Imágenes y PDFs que se pueden usar en todo el sitio.',
+    untitled: 'Sin nombre',
+    texts: {
+      alt: 'Texto alternativo',
+      altIn: 'Texto alternativo ({language})',
+      altHelp: 'Describí la imagen para quien no puede verla (lectores de pantalla) y para Google. Es obligatorio.',
+      altPlaceholder: 'Ej.: Equipo de trabajo reunido alrededor de una mesa',
+      description: 'Descripción',
+      descriptionIn: 'Descripción ({language})',
+      caption: 'Epígrafe (opcional)',
+      captionIn: 'Epígrafe ({language}, opcional)',
+      folder: 'Carpeta'
+    },
+    library: {
+      trash: 'Papelera',
+      backToLibrary: 'Volver a la librería',
+      upload: 'Subir',
+      searchPlaceholder: 'Buscar por nombre o descripción',
+      allFolders: 'Todas las carpetas',
+      fileType: 'Tipo de archivo',
+      types: {
+        any: 'Imágenes y PDF',
+        image: 'Imágenes',
+        document: 'PDF'
+      },
+      trashNote: 'Los archivos de la papelera se borran solos a los 30 días.',
+      trashEmpty: 'La papelera está vacía.',
+      noMatches: 'No hay archivos que coincidan.',
+      loadMore: 'Cargar más',
+      selected: { one: '{count} seleccionado', other: '{count} seleccionados' },
+      pickOne: 'Elegí un archivo',
+      useSelection: 'Usar selección',
+      useFile: 'Usar archivo'
+    },
+    uploader: {
+      dropHere: 'Arrastrá archivos acá o',
+      choose: 'Elegir archivos',
+      hint: 'Imágenes o PDF, hasta {max} MB. Las fotos se optimizan automáticamente.',
+      inputLabel: 'Elegir archivos para subir',
+      remove: 'Quitar {name}',
+      missingAlt: 'Para subir, completá el texto alternativo de cada imagen.',
+      submit: { one: 'Subir archivo', other: 'Subir {count} archivos' },
+      rejected: '{name}: {reason}',
+      errors: {
+        invalidType: 'Formato no permitido. Usá JPG, PNG, WebP, AVIF, GIF o PDF.',
+        onlyImages: 'Acá solo se pueden subir imágenes.',
+        onlyDocuments: 'Acá solo se pueden subir PDFs.',
+        tooLarge: 'El archivo supera los {max} MB.',
+        tooLargeCompressed: 'El archivo supera los {max} MB incluso comprimido.',
+        unreadable: 'No pudimos leer la imagen. Probá exportarla como JPG o PNG.',
+        sessionExpired: 'Tu sesión venció. Volvé a iniciar sesión.',
+        failed: 'No se pudo subir el archivo.',
+        network: 'No se pudo subir el archivo. Revisá tu conexión.',
+        storageTooLarge: 'El archivo supera el máximo permitido.'
+      }
+    },
+    details: {
+      fallbackTitle: 'Archivo',
+      save: 'Guardar',
+      saved: 'Cambios guardados',
+      restore: 'Restaurar',
+      restored: 'Archivo restaurado',
+      trashed: 'Enviado a la papelera',
+      purge: 'Borrar para siempre',
+      purgeHeader: 'Borrar definitivamente',
+      purgeMessage: 'El archivo se borra para siempre y no se puede recuperar.',
+      inUse: 'El archivo está en uso',
+      actionFailed: 'No se pudo completar la acción',
+      purgeFailed: 'No se pudo borrar el archivo',
+      openPdf: 'Abrir PDF',
+      dimensions: '{width}×{height}px',
+      uploadedOn: 'subido el {date}',
+      focalHelp: 'Hacé clic en la imagen para marcar el punto que siempre tiene que verse.',
+      usageTitle: 'Dónde se usa',
+      unused: 'No se usa en ningún contenido.',
+      usageTrashed: 'en la papelera',
+      usageOnlyPublished: 'en lo publicado, se va con la próxima publicación',
+      blockedPurge: 'No se puede borrar para siempre mientras se use: cambiala en estos lugares primero.',
+      blockedTrash: 'No se puede mandar a la papelera mientras se use: cambiala en estos lugares primero.',
+      url: 'Dirección del archivo',
+      copyUrl: 'Copiar dirección',
+      copied: 'Dirección copiada'
+    },
+    focalPoint: 'Punto focal: {x}% horizontal, {y}% vertical. Hacé clic o usá las flechas para moverlo.'
+  },
+  mediaInput: {
+    image: {
+      choose: 'Elegir imagen',
+      chooseFor: 'Elegir imagen para {label}',
+      changeOf: 'Cambiar imagen de {label}'
+    },
+    file: {
+      choose: 'Elegir PDF',
+      chooseFor: 'Elegir PDF para {label}',
+      changeOf: 'Cambiar PDF de {label}'
+    },
+    change: 'Cambiar',
+    edit: 'Editar',
+    editAltAndFocal: 'Texto alternativo y punto focal',
+    remove: 'Quitar',
+    altText: 'Texto alternativo: {alt}',
+    trashed: 'Está en la papelera: restauralo desde {media} o elegí otro.',
+    missing: 'El archivo elegido ya no existe. Elegí otro.'
+  },
+  gallery: {
+    add: 'Agregar imágenes',
+    removed: 'Imagen eliminada'
+  }
+} as const
+
+export default media
