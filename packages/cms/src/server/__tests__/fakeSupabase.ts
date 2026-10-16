@@ -17,6 +17,9 @@ export interface FakeDbType {
   user: { id: string, factors?: unknown[] } | null
   claims: Row
   storageRemoved: string[]
+  // Supabase Auth and Admin API calls a test needs, e.g. signInWithPassword or admin.inviteUserByEmail.
+  authApi: Record<string, (...args: never[]) => unknown>
+  adminApi: Record<string, (...args: never[]) => unknown>
 }
 
 const clone = <T>(value: T): T => structuredClone(value)
@@ -228,7 +231,9 @@ export const createFakeDb = (seed: Partial<Record<string, Row[]>> = {}): FakeDbT
   failNext: null,
   user: null,
   claims: {},
-  storageRemoved: []
+  storageRemoved: [],
+  authApi: {},
+  adminApi: {}
 })
 
 export const fakeClient = (db: FakeDbType): CmsClientType => ({
@@ -239,7 +244,10 @@ export const fakeClient = (db: FakeDbType): CmsClientType => ({
   },
   auth: {
     getUser: async () => ({ data: { user: db.user }, error: null }),
-    getClaims: async () => ({ data: { claims: db.claims }, error: null })
+    getClaims: async () => ({ data: { claims: db.claims }, error: null }),
+    signOut: async () => ({ error: null }),
+    ...db.authApi,
+    admin: { ...db.adminApi, mfa: { deleteFactor: db.adminApi.deleteFactor } }
   },
   storage: {
     from: () => ({ remove: async (paths: string[]) => { db.storageRemoved.push(...paths); return { data: null, error: null } } })

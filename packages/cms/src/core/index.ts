@@ -1,5 +1,6 @@
 export * from './activity'
 export * from './config'
+export * from './dates'
 export * from './defaults'
 export * from './define'
 export * from './diff'
