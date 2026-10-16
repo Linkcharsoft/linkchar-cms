@@ -20,6 +20,7 @@
   },
   "files": [
     "src",
+    "supabase",
     "!src/**/__tests__"
   ],
   "scripts": {
