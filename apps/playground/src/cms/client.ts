@@ -3,4 +3,8 @@ import { createCmsClient } from '@linkcharsoft/cms/panel/client'
 import cmsConfig from '../../cms.config'
 import * as actions from './actions'
 
-export const CmsClient = createCmsClient({ config: cmsConfig, actions, inputs: {} })
+export const CmsClient = createCmsClient({
+  config: cmsConfig,
+  actions,
+  inputs: { color: () => import('./fields/ColorInput') }
+})
