@@ -6,7 +6,7 @@ import { Dropdown } from 'primereact/dropdown'
 import { Tag } from 'primereact/tag'
 import { classNames } from 'primereact/utils'
 import { Fragment, useCallback, useEffect, useRef, useState } from 'react'
-import { getEntry } from '../../../core/entries'
+import { documentTitle, getEntry } from '../../../core/entries'
 import { languageName } from '../../../core/i18n/translator'
 import { changedKeys, pickKeys, rebase } from '../../../core/merge'
 import { pageSections } from '../../../core/pages'
@@ -263,6 +263,8 @@ const CmsForm = ({
     return multilingual && config.locales.includes(last) && last !== locale ? `${label(path)} (${languageName(last, config.panelLocale)})` : label(path)
   }
   const isPage = entry.kind === 'page'
+  // A collection item is named by its title field: the header follows it while typing.
+  const shownTitle = entry.kind === 'collection' ? documentTitle(entry, formik.values, textCtx) : title
   const missing = [...new Map(missingPaths.map(path => [missingLabel(path), path])).entries()]
   const issues = [...new Set([...missingPaths, ...errorPaths(formik.errors)])]
   const extra = missing.length - MAX_MISSING_LISTED
@@ -279,7 +281,7 @@ const CmsForm = ({
           <DashboardPageHeader
             size='editor'
             className='CmsForm__Header'
-            title={title}
+            title={shownTitle}
             meta={(
               <>
                 {shownStatus && <Tag value={t(`documentStatus.${shownStatus}`)} severity={DOCUMENT_SEVERITIES[shownStatus]} />}
