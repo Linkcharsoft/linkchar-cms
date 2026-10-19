@@ -49,3 +49,22 @@ test('an editor without permission sees the changes but cannot publish', async (
   await page.goto('/dashboard/publicar')
   await expect(page.locator('[data-tour=publish-button]')).toBeDisabled()
 })
+
+test('retries a failed build from the publish screen', async ({ page }) => {
+  const { data: failed } = await admin.from('publish_log')
+    .insert({ requested_by: QA.super.id, build_status: 'failed', error_code: 'build_failed', finished_at: new Date().toISOString() })
+    .select('id').single()
+
+  await signIn(page, QA.super.email)
+  await page.goto('/dashboard/publicar')
+  await page.waitForLoadState('networkidle')
+  await page.locator('[data-tour=publish-history]').getByRole('button', { name: 'Reintentar' }).click()
+  await toast(page, 'Reintentando la actualización del sitio')
+
+  const latest = page.locator('[data-tour=publish-history] li').first()
+  await expect(latest).toContainText('Reintento')
+  await expect(latest).toContainText('Listo', { timeout: 30_000 })
+  await expect(page.locator('[data-tour=publish-history]').getByRole('button', { name: 'Reintentar' })).toHaveCount(0)
+
+  await admin.from('publish_log').delete().or(`id.eq.${failed!.id},retry_of.eq.${failed!.id}`)
+})
