@@ -8,6 +8,11 @@ allowBuilds:
   sharp: true
   supabase: true
   unrs-resolver: true
+peerDependencyRules:
+  allowedVersions:
+    eslint-plugin-import>eslint: '10'
+    eslint-plugin-jsx-a11y>eslint: '10'
+    eslint-plugin-react>eslint: '10'
 minimumReleaseAgeExclude:
   - '@typescript-eslint/eslint-plugin@8.64.0'
   - '@typescript-eslint/parser@8.64.0'

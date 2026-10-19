@@ -1,3 +1,4 @@
+import { fixupPluginRules } from '@eslint/compat'
 import js from '@eslint/js'
 import nextPlugin from '@next/eslint-plugin-next'
 import stylistic from '@stylistic/eslint-plugin'
@@ -9,7 +10,7 @@ import nodeDeps from 'eslint-plugin-node-dependencies'
 import react from 'eslint-plugin-react'
 import reactHooks from 'eslint-plugin-react-hooks'
 import globals from 'globals'
-import jsoncParser from 'jsonc-eslint-parser'
+import * as jsoncParser from 'jsonc-eslint-parser'
 
 const ESLintConfig = [
   {
@@ -27,10 +28,11 @@ const ESLintConfig = [
     },
     plugins: {
       '@typescript-eslint': typescriptEslint,
-      'jsx-a11y': jsxA11y,
+      // These three still call context/SourceCode APIs that ESLint 10 removed; @eslint/compat shims them back.
+      'jsx-a11y': fixupPluginRules(jsxA11y),
       'react-hooks': reactHooks,
-      import: importPlugin,
-      react,
+      import: fixupPluginRules(importPlugin),
+      react: fixupPluginRules(react),
       stylistic
     },
     settings: {

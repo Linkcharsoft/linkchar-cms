@@ -55,7 +55,7 @@ const useAutosave = <T>({ values, save, delay = 2000, enabled = true }: Options<
   const saveSnapshot = async (snapshot: T, snapshotJson: string, run: Options<T>['save']): Promise<boolean> => {
     saving.current = true
     setStatus('saving')
-    let outcome: AutosaveOutcomeType = 'error'
+    let outcome: AutosaveOutcomeType
 
     try {
       outcome = await run(snapshot)
