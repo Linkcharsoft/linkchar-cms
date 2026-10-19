@@ -34,15 +34,17 @@ interface ToolType {
   name: ToolNameType
   icon?: string
   text?: string
+  // Marks show their letter in their own format; PrimeIcons has no bold, italic or underline icon.
+  glyph?: 'Bold' | 'Italic' | 'Underline' | 'Strike'
   isActive?: (editor: Editor) => boolean
   run: (editor: Editor) => void
 }
 
 const MARK_TOOLS: ToolType[] = [
-  { name: 'bold', icon: 'pi pi-bold', isActive: e => e.isActive('bold'), run: e => e.chain().focus().toggleBold().run() },
-  { name: 'italic', icon: 'pi pi-italic', isActive: e => e.isActive('italic'), run: e => e.chain().focus().toggleItalic().run() },
-  { name: 'underline', icon: 'pi pi-underline', isActive: e => e.isActive('underline'), run: e => e.chain().focus().toggleUnderline().run() },
-  { name: 'strike', text: 'S', isActive: e => e.isActive('strike'), run: e => e.chain().focus().toggleStrike().run() }
+  { name: 'bold', text: 'B', glyph: 'Bold', isActive: e => e.isActive('bold'), run: e => e.chain().focus().toggleBold().run() },
+  { name: 'italic', text: 'I', glyph: 'Italic', isActive: e => e.isActive('italic'), run: e => e.chain().focus().toggleItalic().run() },
+  { name: 'underline', text: 'U', glyph: 'Underline', isActive: e => e.isActive('underline'), run: e => e.chain().focus().toggleUnderline().run() },
+  { name: 'strike', text: 'S', glyph: 'Strike', isActive: e => e.isActive('strike'), run: e => e.chain().focus().toggleStrike().run() }
 ]
 
 const BLOCK_TOOLS: ToolType[] = [
@@ -142,7 +144,7 @@ const RichTextEditor = ({ id, label, value, headings = RICH_TEXT_HEADING_LEVELS,
       className={classNames('RichTextEditor__Tool', { 'RichTextEditor__Tool--Active': state?.active[index] })}
       onClick={() => tool.run(editor)}
     >
-      {tool.text}
+      {tool.glyph ? <span className={`RichTextEditor__Glyph RichTextEditor__Glyph--${tool.glyph}`}>{tool.text}</span> : tool.text}
     </CustomButton>
   )
 
