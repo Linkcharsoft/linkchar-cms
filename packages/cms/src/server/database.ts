@@ -306,6 +306,7 @@ export type Database = {
           removed_count: number;
           requested_at: string;
           requested_by: string | null;
+          retry_of: number | null;
         };
         ComputedFields: never;
         Insert: {
@@ -320,6 +321,7 @@ export type Database = {
           removed_count?: number;
           requested_at?: string;
           requested_by?: string | null;
+          retry_of?: number | null;
         };
         Update: {
           build_status?: string;
@@ -333,6 +335,7 @@ export type Database = {
           removed_count?: number;
           requested_at?: string;
           requested_by?: string | null;
+          retry_of?: number | null;
         };
         Relationships: [
           {
@@ -340,6 +343,13 @@ export type Database = {
             columns: ['requested_by'];
             isOneToOne: false;
             referencedRelation: 'profiles';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'publish_log_retry_of_fkey';
+            columns: ['retry_of'];
+            isOneToOne: false;
+            referencedRelation: 'publish_log';
             referencedColumns: ['id'];
           }
         ];
