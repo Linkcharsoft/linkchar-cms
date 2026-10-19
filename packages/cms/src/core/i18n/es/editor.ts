@@ -23,6 +23,7 @@ const editor = {
       saving: 'Guardando…',
       saved: 'Guardado',
       savedAt: 'Guardado a las {time}',
+      partial: 'Guardado, salvo la URL: ya la usa otro contenido',
       invalid: 'Hay campos para corregir',
       conflict: 'Otra persona guardó cambios',
       error: 'Error al guardar, reintentando al editar'

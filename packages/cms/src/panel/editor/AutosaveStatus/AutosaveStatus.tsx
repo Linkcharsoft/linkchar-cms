@@ -14,6 +14,7 @@ const LOOKS: Record<AutosaveStatusType, { icon: string, tone: 'Muted' | 'Ok' | '
   pending: { icon: 'pi-pencil', tone: 'Muted' },
   saving: { icon: 'pi-spin pi-spinner', tone: 'Muted' },
   saved: { icon: 'pi-check-circle', tone: 'Ok' },
+  partial: { icon: 'pi-exclamation-triangle', tone: 'Warn' },
   invalid: { icon: 'pi-exclamation-triangle', tone: 'Warn' },
   conflict: { icon: 'pi-users', tone: 'Warn' },
   error: { icon: 'pi-times-circle', tone: 'Error' }

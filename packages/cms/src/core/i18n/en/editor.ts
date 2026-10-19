@@ -26,6 +26,7 @@ const editor = {
       saving: 'Saving…',
       saved: 'Saved',
       savedAt: 'Saved at {time}',
+      partial: 'Saved, except the URL: another item already uses it',
       invalid: 'Some fields need fixing',
       conflict: 'Someone else saved changes',
       error: 'Saving failed, retrying when you edit'

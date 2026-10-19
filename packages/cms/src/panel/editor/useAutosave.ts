@@ -1,7 +1,8 @@
 'use client'
 import { useEffect, useRef, useState } from 'react'
 
-export type AutosaveOutcomeType = 'saved' | 'invalid' | 'conflict' | 'error'
+// 'partial': saved, except a part the server reported back (a URL another document has).
+export type AutosaveOutcomeType = 'saved' | 'partial' | 'invalid' | 'conflict' | 'error'
 
 export type AutosaveStatusType = 'idle' | 'pending' | 'saving' | AutosaveOutcomeType
 
@@ -66,7 +67,7 @@ const useAutosave = <T>({ values, save, delay = 2000, enabled = true }: Options<
     saving.current = false
     setStatus(outcome)
 
-    if (outcome === 'saved') {
+    if (outcome === 'saved' || outcome === 'partial') {
       baselineRef.current = snapshotJson
       setBaseline(snapshotJson)
       setSavedAt(new Date())

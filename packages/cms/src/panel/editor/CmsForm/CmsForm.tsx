@@ -1,6 +1,6 @@
 'use client'
 import './CmsForm.sass'
-import { FormikProvider, setIn, useFormik } from 'formik'
+import { FormikProvider, getIn, setIn, useFormik } from 'formik'
 import { usePathname, useRouter } from 'next/navigation'
 import { Dropdown } from 'primereact/dropdown'
 import { Tag } from 'primereact/tag'
@@ -8,7 +8,7 @@ import { classNames } from 'primereact/utils'
 import { Fragment, useCallback, useEffect, useRef, useState } from 'react'
 import { documentTitle, getEntry } from '../../../core/entries'
 import { languageName } from '../../../core/i18n/translator'
-import { changedKeys, pickKeys, rebase } from '../../../core/merge'
+import { changedKeys, pickKeys, rebase, sameContent } from '../../../core/merge'
 import { pageSections } from '../../../core/pages'
 import { visibleFields } from '../../../core/permissions'
 import { resolveEntryPath } from '../../../core/preview'
@@ -96,11 +96,17 @@ const CmsForm = ({
   const [edited, setEdited] = useState(false)
   const [previewOpen, setPreviewOpen] = useState(false)
   const [reveal, setReveal] = useState<RevealType | null>(null)
+  // What a save left unsaved (a taken URL): shown on its field until the editor changes that value.
+  const serverErrors = useRef<{ path: string, message: string, value: unknown }[]>([])
   const label = (path: string) => fieldLabel(fields, path, textCtx)
 
   const formik = useFormik<DataRecord>({
     initialValues: initialData,
-    validate: async values => toNested((await validateContent(config, fields, values, { mode: 'draft' })).errors ?? {}, message => message),
+    validate: async values => {
+      const { errors } = await validateContent(config, fields, values, { mode: 'draft' })
+      const standing = serverErrors.current.filter(error => sameContent(getIn(values, error.path), error.value))
+      return toNested({ ...Object.fromEntries(standing.map(error => [error.path, error.message])), ...errors }, message => message)
+    },
     validateOnChange: false,
     validateOnBlur: true,
     onSubmit: () => undefined
@@ -140,9 +146,13 @@ const CmsForm = ({
         document.current = { id: result.id, revision: result.revision }
         const rebased = rebase(latestValues.current, base.current, result.data, keys)
         base.current = rebased.base
-        if (rebased.adopted.length > 0) adopt(rebased.values, rebased.adopted)
+        // A slug the server replaced is taken unless the editor typed over it meanwhile.
+        const adjusted = (result.adjusted ?? []).filter(key => sameContent(latestValues.current[key], data[key]))
+        const adopted = [...rebased.adopted, ...adjusted]
+        if (adopted.length > 0) adopt({ ...rebased.values, ...pickKeys(result.data, adjusted) }, adopted)
+        showServerErrors(result.errors ?? {}, data)
         setEdited(true)
-        return 'saved'
+        return result.errors ? 'partial' : 'saved'
       }
       case 'invalid':
         formik.setErrors(toNested(result.errors, message => message) as FormikErrors<DataRecord>)
@@ -155,6 +165,13 @@ const CmsForm = ({
       default:
         return 'error'
     }
+  }
+
+  const showServerErrors = (errors: ContentErrorsType, sent: DataRecord) => {
+    if (serverErrors.current.length === 0 && Object.keys(errors).length === 0) return
+    serverErrors.current = Object.entries(errors).map(([path, message]) => ({ path, message, value: getIn(sent, path) }))
+    for (const { path } of serverErrors.current) void formik.setFieldTouched(path, true, false)
+    void formik.validateForm()
   }
 
   const autosave = useAutosave({ values: formik.values, save, enabled: !conflict })
