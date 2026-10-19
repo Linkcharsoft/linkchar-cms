@@ -5,7 +5,9 @@ import { RICH_TEXT_MARKS, RICH_TEXT_NODES } from '../../../../core/richText/node
 import { richTextExtensions } from '../extensions'
 import type { RichTextNodeType } from '../../../../core/richText/nodes'
 
-const SUPABASE_URL = 'http://127.0.0.1:54321'
+const MEDIA = '6f1c3b2a-3333-4c1d-9e0f-000000000001'
+const URL = 'http://127.0.0.1:54321/storage/v1/object/public/media/blog/2026/a.webp'
+const lookup = (id: string) => (id === MEDIA ? { url: URL, alt: 'Sala', width: 800, height: 600 } : undefined)
 
 let editor: Editor | null = null
 
@@ -19,7 +21,7 @@ const collect = (node: RichTextNodeType, nodes = new Set<string>(), marks = new 
 }
 
 const load = (html: string) => {
-  editor = new Editor({ extensions: richTextExtensions(SUPABASE_URL), content: html })
+  editor = new Editor({ extensions: richTextExtensions(lookup), content: html })
   return editor.getJSON() as RichTextNodeType
 }
 
@@ -54,27 +56,35 @@ describe('richTextExtensions', () => {
   })
 
   it('keeps only the heading levels the field allows', () => {
-    editor = new Editor({ extensions: richTextExtensions(SUPABASE_URL, [2]), content: '<h2>a</h2><h3>b</h3>' })
+    editor = new Editor({ extensions: richTextExtensions(lookup, [2]), content: '<h2>a</h2><h3>b</h3>' })
     expect(editor.getJSON().content?.map(node => `${node.type}${node.attrs?.level ?? ''}`)).toEqual(['heading2', 'paragraph'])
   })
 
-  it('keeps images from the media bucket and drops images from other sites', () => {
-    const own = `${SUPABASE_URL}/storage/v1/object/public/media/blog/2026/a.webp`
-    const json = load(`<img src="${own}" alt="Sala" width="800" height="600" data-media-id="m1"><img src="https://otro.com/x.jpg">`)
+  it('keeps images from Media by their id only and drops images from other sites', () => {
+    const json = load(`<img src="${URL}" alt="Copia" width="800" data-media-id="${MEDIA}"><img src="https://otro.com/x.jpg">`)
     const images = (json.content ?? []).filter(node => node.type === 'image')
 
-    expect(images).toHaveLength(1)
-    expect(images[0].attrs).toMatchObject({ src: own, alt: 'Sala', mediaId: 'm1' })
+    expect(images).toEqual([{ type: 'image', attrs: { mediaId: MEDIA, caption: null } }])
   })
 
-  it('drops images from another Supabase project', () => {
-    const json = load('<img src="http://127.0.0.1:9999/storage/v1/object/public/media/blog/2026/a.webp">')
-    expect((json.content ?? []).filter(node => node.type === 'image')).toHaveLength(0)
+  it('shows an image with the URL and alt text Media has for it', () => {
+    load(`<img data-media-id="${MEDIA}">`)
+    expect(editor?.getHTML()).toContain(`src="${URL}"`)
+    expect(editor?.getHTML()).toContain('alt="Sala"')
+  })
+
+  it('keeps which page or document a link points to', () => {
+    editor = new Editor({
+      extensions: richTextExtensions(lookup),
+      content: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'nota', marks: [{ type: 'link', attrs: { href: '/blog/', entry: 'posts', id: MEDIA, anchor: null } }] }] }] }
+    })
+    const json = editor.getJSON() as RichTextNodeType
+    expect(json.content?.[0].content?.[0].marks?.[0].attrs).toMatchObject({ href: '/blog/', entry: 'posts', id: MEDIA })
   })
 
   it('round-trips video nodes', () => {
     editor = new Editor({
-      extensions: richTextExtensions(SUPABASE_URL),
+      extensions: richTextExtensions(lookup),
       content: { type: 'doc', content: [{ type: 'video', attrs: { src: 'https://vimeo.com/76979871' } }] }
     })
     expect(editor.getJSON().content).toEqual([{ type: 'video', attrs: { src: 'https://vimeo.com/76979871', title: null, caption: null } }])
@@ -82,7 +92,7 @@ describe('richTextExtensions', () => {
 
   it('keeps the title and caption of migrated videos', () => {
     const attrs = { src: 'https://youtu.be/abcdefghijk', title: 'Entrevista', caption: 'Charla completa' }
-    editor = new Editor({ extensions: richTextExtensions(SUPABASE_URL), content: { type: 'doc', content: [{ type: 'video', attrs }] } })
+    editor = new Editor({ extensions: richTextExtensions(lookup), content: { type: 'doc', content: [{ type: 'video', attrs }] } })
     expect(editor.getJSON().content).toEqual([{ type: 'video', attrs }])
   })
 })

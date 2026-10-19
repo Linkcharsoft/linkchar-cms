@@ -2,16 +2,22 @@
 import './RichTextEditor.sass'
 import { EditorContent, useEditor, useEditorState } from '@tiptap/react'
 import { classNames } from 'primereact/utils'
-import { useEffect, useRef, useState } from 'react'
-import { RICH_TEXT_HEADING_LEVELS, sanitizeHref } from '../../../core/richText/nodes'
+import { use, useEffect, useRef, useState } from 'react'
+import { RICH_TEXT_HEADING_LEVELS } from '../../../core/richText/nodes'
+import { entryPath, slugPrefixFor } from '../../../core/urls'
 import parseVideoUrl from '../../../core/video'
 import { useCms, useT } from '../../client/context'
+import LinkDialog from '../../editor/LinkDialog/LinkDialog'
 import UrlDialog from '../../editor/UrlDialog/UrlDialog'
 import MediaPicker from '../../media/MediaPicker/MediaPicker'
 import CustomButton from '../../primitives/CustomButton/CustomButton'
 import { useStoredText } from '../fieldUtils'
+import { ReferencesContext } from '../referencesContext'
 import { richTextExtensions } from './extensions'
+import type { EditorImageType } from './extensions'
+import type { MediaItemType } from '../../../core/media'
 import type { RichTextDocType, RichTextHeadingLevelType } from '../../../core/richText/nodes'
+import type { EntryTargetType } from '../LinkInput/EntryPicker'
 import type { Editor } from '@tiptap/react'
 
 interface Props {
@@ -57,15 +63,24 @@ const BLOCK_TOOLS: ToolType[] = [
 // Loaded lazily by RichTextInput: Tiptap only reaches the browser when a rich text field is on screen.
 const RichTextEditor = ({ id, label, value, headings = RICH_TEXT_HEADING_LEVELS, invalid, describedBy, onChange, onBlur }: Props) => {
   const { t } = useT()
-  const { supabase } = useCms()
+  const { config } = useCms()
   const stored = useStoredText()
   const [dialog, setDialog] = useState<DialogType>(null)
+  const knownMedia = use(ReferencesContext).media
+  // Files picked while editing, next to the ones the document already had when it loaded.
+  const picked = useRef(new Map<string, MediaItemType>())
+  const lookup = (mediaId: string): EditorImageType | undefined => {
+    const item = picked.current.get(mediaId) ?? knownMedia[mediaId]
+    return item && { url: item.url, alt: stored(item.alt), width: item.width, height: item.height }
+  }
+  const lookupRef = useRef(lookup)
 
   const callbacks = useRef({ onChange, onBlur })
   const pendingFrame = useRef<number | null>(null)
 
   useEffect(() => {
     callbacks.current = { onChange, onBlur }
+    lookupRef.current = lookup
   })
 
   // Form state is updated on the next frame, never inside ProseMirror's dispatch (IME input looped there).
@@ -80,7 +95,7 @@ const RichTextEditor = ({ id, label, value, headings = RICH_TEXT_HEADING_LEVELS,
   // Created once: re-applying options on each render loops onUpdate → setValue. Remount to load new content.
   const editor = useEditor({
     immediatelyRender: false,
-    extensions: richTextExtensions(supabase.url, headings),
+    extensions: richTextExtensions(mediaId => lookupRef.current(mediaId), headings),
     content: value ?? undefined,
     editorProps: {
       attributes: {
@@ -107,7 +122,7 @@ const RichTextEditor = ({ id, label, value, headings = RICH_TEXT_HEADING_LEVELS,
     selector: ({ editor: current }) => ({
       active: current ? [...MARK_TOOLS, ...BLOCK_TOOLS].map(tool => tool.isActive?.(current) ?? false) : [],
       heading: current ? headings.find(level => current.isActive('heading', { level })) ?? null : null,
-      link: current?.getAttributes('link') as { href?: string, target?: string } | undefined,
+      link: current?.getAttributes('link') as { href?: string, target?: string, entry?: string, id?: string, anchor?: string } | undefined,
       canUndo: current?.can().undo() ?? false,
       canRedo: current?.can().redo() ?? false
     })
@@ -115,9 +130,12 @@ const RichTextEditor = ({ id, label, value, headings = RICH_TEXT_HEADING_LEVELS,
 
   if (!editor) return <div className='RichTextEditor RichTextEditor--Loading'>{t('richTextEditor.loading')}</div>
 
-  const validateLink = (url: string) => {
-    if (!url) return t('richTextEditor.linkRequired')
-    return sanitizeHref(url) ? null : t('richTextEditor.linkInvalid')
+  // The site resolves the target per language; href is what a reader that doesn't know it falls back to.
+  const fallbackHref = ({ entry, anchor }: EntryTargetType) => {
+    const target = entry ? config.schema[entry] : undefined
+    if (!target) return '/'
+    const path = target.kind === 'collection' ? slugPrefixFor(config, target, config.defaultLocale) : entryPath(config, target)
+    return `${path ?? '/'}${anchor ? `#${anchor}` : ''}`
   }
 
   const validateVideo = (url: string) => (parseVideoUrl(url) ? null : t('richTextEditor.videoInvalid'))
@@ -236,21 +254,23 @@ const RichTextEditor = ({ id, label, value, headings = RICH_TEXT_HEADING_LEVELS,
       <EditorContent editor={editor} />
 
       {dialog?.kind === 'link' && (
-        <UrlDialog
-          header={t('richTextEditor.link')}
-          label={t('richTextEditor.linkLabel')}
-          placeholder={t('richTextEditor.linkPlaceholder')}
-          withNewTab
-          initialValue={{ url: state?.link?.href ?? '', newTab: state?.link?.target === '_blank' }}
-          validate={validateLink}
+        <LinkDialog
+          initialValue={{
+            url: state?.link?.entry ? '' : state?.link?.href ?? '',
+            newTab: state?.link?.target === '_blank',
+            target: state?.link?.entry ? { entry: state.link.entry, id: state.link.id ?? undefined, anchor: state.link.anchor ?? undefined } : null
+          }}
           onHide={closeDialog}
           onRemove={state?.link?.href ? () => {
             editor.chain().focus().setTextSelection(dialog).extendMarkRange('link').unsetLink().run()
             closeDialog()
           } : undefined}
-          onSubmit={({ url, newTab }) => {
+          onSubmit={({ url, newTab, target }) => {
+            const attributes = target
+              ? { href: fallbackHref(target), entry: target.entry ?? null, id: target.id ?? null, anchor: target.anchor ?? null }
+              : { href: url, entry: null, id: null, anchor: null }
             editor.chain().focus().setTextSelection(dialog).extendMarkRange('link')
-              .setLink({ href: url, target: newTab ? '_blank' : null }).run()
+              .setLink({ ...attributes, target: newTab ? '_blank' : null }).run()
             editor.commands.setTextSelection(editor.state.selection.to)
             closeDialog()
           }}
@@ -263,10 +283,8 @@ const RichTextEditor = ({ id, label, value, headings = RICH_TEXT_HEADING_LEVELS,
           accept='image'
           onHide={closeDialog}
           onPick={([item]) => {
-            editor.chain().focus().insertContentAt(dialog.to, {
-              type: 'image',
-              attrs: { src: item.url, alt: stored(item.alt), width: item.width, height: item.height, mediaId: item.id }
-            }).run()
+            picked.current.set(item.id, item)
+            editor.chain().focus().insertContentAt(dialog.to, { type: 'image', attrs: { mediaId: item.id } }).run()
             closeDialog()
           }}
         />

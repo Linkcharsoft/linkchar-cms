@@ -9,7 +9,7 @@ import { useT } from '../../client/context'
 import InputError from '../../primitives/InputError/InputError'
 import { fieldId, useFieldError } from '../fieldUtils'
 import EntryPicker from './EntryPicker'
-import type { LinkKindType } from '../../../core/kinds/link'
+import type { LinkKindType, LinkValueType } from '../../../core/kinds/link'
 
 interface Props {
   name: string
@@ -20,6 +20,7 @@ interface Props {
 // Groups type + destination + "new tab" under one fieldset; errors point at the destination.
 const LinkInput = ({ name, label, allow }: Props) => {
   const { t } = useT()
+  const [{ value: link }, , linkHelpers] = useField<LinkValueType>(name)
   const [{ value: type }, , typeHelpers] = useField<LinkKindType>(`${name}.type`)
   const [{ value: href, onBlur }, , hrefHelpers] = useField<string>(`${name}.href`)
   const [{ value: newTab }, , newTabHelpers] = useField<boolean>(`${name}.newTab`)
@@ -45,7 +46,15 @@ const LinkInput = ({ name, label, allow }: Props) => {
           onChange={event => typeHelpers.setValue(event.value)}
         />
         {type === 'entry'
-          ? <EntryPicker name={name} label={label} />
+          ? (
+            <EntryPicker
+              value={link ?? {}}
+              label={label}
+              inputId={id}
+              invalid={!!error}
+              onChange={target => linkHelpers.setValue({ ...link, entry: target.entry, id: target.id, anchor: target.anchor })}
+            />
+          )
           : (
             <InputText
               id={`${id}-href`}

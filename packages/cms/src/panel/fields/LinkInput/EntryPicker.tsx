@@ -1,102 +1,101 @@
 'use client'
-import { useField } from 'formik'
 import { AutoComplete } from 'primereact/autocomplete'
 import { Dropdown } from 'primereact/dropdown'
 import { use, useState } from 'react'
 import { pageSections } from '../../../core/pages'
 import { useCms, useT } from '../../client/context'
-import { fieldId, useText } from '../fieldUtils'
+import { useText } from '../fieldUtils'
 import { ReferencesContext } from '../referencesContext'
-import type { RelationOptionType } from '../../../server/documents'
+
+export interface EntryTargetType {
+  entry?: string
+  id?: string
+  anchor?: string
+}
 
 interface Props {
-  // Path of the link value: the picker fills its entry, id and anchor.
-  name: string
+  value: EntryTargetType
+  onChange: (value: EntryTargetType) => void
+  // Name of what links there, for the inputs' accessible names.
   label: string
+  inputId: string
+  invalid?: boolean
 }
 
 type DocumentOptionType = { id: string, label: string }
 
 // A page or document of the site, and for pages an optional section to land on.
-const EntryPicker = ({ name, label }: Props) => {
+const EntryPicker = ({ value, onChange, label, inputId, invalid = false }: Props) => {
   const { t } = useT()
   const { config, actions } = useCms()
   const text = useText()
   const references = use(ReferencesContext).relations
-  const [{ value: entryId }, , entryHelpers] = useField<string | undefined>(`${name}.entry`)
-  const [{ value: documentId }, , idHelpers] = useField<string | undefined>(`${name}.id`)
-  const [{ value: anchor }, , anchorHelpers] = useField<string | undefined>(`${name}.anchor`)
   const [found, setFound] = useState<Record<string, string>>({})
   const [suggestions, setSuggestions] = useState<DocumentOptionType[]>([])
-  const id = fieldId(name)
 
   const entries = Object.entries(config.schema)
     .filter(([, entry]) => entry.path)
-    .map(([value, entry]) => ({ value, label: text(entry.label) }))
-  const entry = entryId && Object.hasOwn(config.schema, entryId) ? config.schema[entryId] : undefined
+    .map(([key, entry]) => ({ value: key, label: text(entry.label) }))
+  const entry = value.entry && Object.hasOwn(config.schema, value.entry) ? config.schema[value.entry] : undefined
   const anchors = entry?.kind === 'page'
     ? pageSections(entry.fields).flatMap(section => (section.mark?.anchor ? [{ value: section.mark.anchor, label: text(section.label) }] : []))
     : []
-  const documentLabel = documentId ? found[documentId] ?? references[documentId]?.label ?? t('relationInput.gone') : null
+  const documentLabel = value.id ? found[value.id] ?? references[value.id]?.label ?? t('relationInput.gone') : null
 
   const search = async (query: string) => {
-    if (!entryId) return
-    const results: RelationOptionType[] = await actions.searchRelation(entryId, query)
+    if (!value.entry) return
+    const results = await actions.searchRelation(value.entry, query)
     setFound(current => ({ ...current, ...Object.fromEntries(results.map(result => [result.id, result.label])) }))
     setSuggestions(results.map(result => ({ id: result.id, label: result.label })))
-  }
-
-  const pickEntry = (next: string) => {
-    entryHelpers.setValue(next)
-    idHelpers.setValue(undefined)
-    anchorHelpers.setValue(undefined)
   }
 
   return (
     <div className='LinkInput__Entry'>
       <Dropdown
-        inputId={`${id}-entry`}
+        inputId={`${inputId}-entry`}
         aria-label={t('fields.link.targetOf', { label })}
-        value={entryId ?? null}
+        value={value.entry ?? null}
         options={entries}
         optionLabel='label'
         optionValue='value'
         placeholder={t('fields.link.pickEntry')}
         filter={entries.length > 8}
+        invalid={invalid && !value.entry}
         className='LinkInput__Href'
-        onChange={event => pickEntry(event.value)}
+        onChange={event => onChange({ entry: event.value })}
       />
       {entry?.kind === 'collection' && (
         <AutoComplete
-          inputId={`${id}-document`}
+          inputId={`${inputId}-document`}
           aria-label={t('fields.link.documentOf', { label })}
           dropdown
           forceSelection
           field='label'
-          value={documentId ? { id: documentId, label: documentLabel } : null}
+          value={value.id ? { id: value.id, label: documentLabel } : null}
           suggestions={suggestions}
           completeMethod={event => void search(event.query)}
           placeholder={t('relationInput.search', { name: text(entry.label).toLocaleLowerCase(config.panelLocale) })}
+          invalid={invalid && !value.id}
           className='LinkInput__Href'
           inputClassName='w-full'
           onChange={event => {
             if (typeof event.value === 'string') return
-            idHelpers.setValue((event.value as DocumentOptionType | null)?.id)
+            onChange({ entry: value.entry, id: (event.value as DocumentOptionType | null)?.id })
           }}
         />
       )}
       {anchors.length > 0 && (
         <Dropdown
-          inputId={`${id}-anchor`}
+          inputId={`${inputId}-anchor`}
           aria-label={t('fields.link.sectionOf', { label })}
-          value={anchor ?? null}
+          value={value.anchor ?? null}
           options={anchors}
           optionLabel='label'
           optionValue='value'
           placeholder={t('fields.link.wholePage')}
           showClear
           className='LinkInput__Href'
-          onChange={event => anchorHelpers.setValue(event.value ?? undefined)}
+          onChange={event => onChange({ entry: value.entry, anchor: event.value ?? undefined })}
         />
       )}
     </div>

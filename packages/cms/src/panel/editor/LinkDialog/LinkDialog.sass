@@ -1,0 +1,18 @@
+@use '../../theme/mixins' as cms
+
+.LinkDialog
+  @include cms.dialog-width(sm)
+
+  &__Form
+    display: flex
+    flex-direction: column
+    gap: 16px
+
+  &__Entry
+    display: flex
+    flex-direction: column
+    gap: 6px
+
+  &__NewTab
+    cursor: pointer
+    @apply cms-text-regular-14 text-cms-ink-700
