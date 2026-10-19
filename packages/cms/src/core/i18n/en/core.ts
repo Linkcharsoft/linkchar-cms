@@ -163,7 +163,8 @@ const core = {
     missing: '{name} {reason}: it will not appear on the site.',
     notice: '{name} {reason}.',
     deleted: 'A chosen item no longer exists: it will not appear on the site.',
-    incomplete: '{name} is not published until its fields are complete: it will not appear on the site.'
+    incomplete: '{name} is not published until its fields are complete: it will not appear on the site.',
+    usedLive: '{name} uses it and stays on the site: it will be left without this item.'
   },
   collection: {
     new: 'New {name}',

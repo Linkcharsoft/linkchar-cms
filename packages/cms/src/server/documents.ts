@@ -7,6 +7,7 @@ import { resolveText } from '../core/text'
 import { dataFields } from '../core/walk'
 import type { CmsContextType } from './context'
 import type { Database } from './database'
+import type { UsageRowType } from './media'
 import type { CollectionEntry, SchemaEntry } from '../core/define'
 import type { LeafField } from '../core/kinds/registry'
 import type { RelationRefType } from '../core/relations'
@@ -179,6 +180,15 @@ export const searchRelation = async (ctx: CmsContextType, collectionId: string, 
     status: isDocumentStatus(row.status) ? row.status : 'hidden',
     trashed: false
   }))
+}
+
+// One row of document_usage(): a draft or a published copy whose content holds `target_id`.
+export type DocumentUsageRowType = UsageRowType & { target_id: string }
+
+export const getDocumentUsageRows = async (ctx: CmsContextType, ids: string[]): Promise<DocumentUsageRowType[]> => {
+  if (ids.length === 0) return []
+  const { data } = await ctx.db.rpc('document_usage', { ids })
+  return data ?? []
 }
 
 export const getRelationLabels = async (ctx: CmsContextType, ids: string[]): Promise<Record<string, RelationRefType>> => {

@@ -160,7 +160,8 @@ const core = {
     missing: '{name} {reason}: no va a aparecer en el sitio.',
     notice: '{name} {reason}.',
     deleted: 'Un contenido elegido ya no existe: no va a aparecer en el sitio.',
-    incomplete: '{name} no se publica hasta completar sus campos: no va a aparecer en el sitio.'
+    incomplete: '{name} no se publica hasta completar sus campos: no va a aparecer en el sitio.',
+    usedLive: '{name} lo usa y sigue en el sitio: va a quedar sin este contenido.'
   },
   collection: {
     new: 'Nuevo {name}',

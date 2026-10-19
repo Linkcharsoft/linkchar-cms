@@ -81,6 +81,44 @@ describe('getPendingChanges', () => {
     const [change] = (await getPendingChanges(ctx)).filter(item => item.id === ID(1))
     expect(change.warnings).toEqual(['"Bruno" (integrante) está oculto: no va a aparecer en el sitio.'])
   })
+
+  describe('when an item leaves the site', () => {
+    const holds = (row: DataRecord, id: string) => row.id !== id && JSON.stringify(row.data).includes(id)
+    const live = (n: number, data: DataRecord) => ({ id: ID(n), type: 'posts', key: null, slug: null, data, sort_order: 0 })
+    const removal = async () => (await getPendingChanges(ctx)).find(change => change.id === ID(5))!
+
+    beforeEach(() => {
+      db.rpc.document_usage = ({ ids }) => ({
+        data: (ids as string[]).flatMap(id => [
+          ...db.tables.documents.filter(row => holds(row, id))
+            .map(row => ({ target_id: id, document_id: row.id, type: row.type, data: row.data, keys: [], published: false, trashed: row.deleted_at !== null })),
+          ...db.tables.published_documents.filter(row => holds(row, id))
+            .map(row => ({ target_id: id, document_id: row.id, type: row.type, data: row.data, keys: [], published: true, trashed: false }))
+        ]),
+        error: null
+      })
+      const bruno = { name: 'Bruno' }
+      db.tables.documents.push(document(5, 'team', bruno, { key: null, deleted_at: at(1) }))
+      db.tables.published_documents.push({ id: ID(5), type: 'team', key: null, slug: null, data: bruno, sort_order: 0 })
+    })
+
+    it('names the live pages that still pick it', async () => {
+      const post = { ...completePost('Casa', 'casa'), author: ID(5) }
+      db.tables.documents.push(document(1, 'posts', post))
+      db.tables.published_documents.push(live(1, post))
+      expect((await removal()).warnings).toEqual(['Blog › Casa lo usa y sigue en el sitio: va a quedar sin este contenido.'])
+    })
+
+    it('says nothing when those pages leave too or go out without it', async () => {
+      const post = { ...completePost('Casa', 'casa'), author: ID(5) }
+      db.tables.documents.push(
+        document(1, 'posts', post, { deleted_at: at(2) }),
+        document(2, 'posts', completePost('Otra', 'otra'))
+      )
+      db.tables.published_documents.push(live(1, post), live(2, { ...completePost('Otra', 'otra'), author: ID(5) }))
+      expect((await removal()).warnings).toEqual([])
+    })
+  })
 })
 
 describe('publishChanges', () => {

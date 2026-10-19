@@ -45,6 +45,10 @@ const ACTIONS = {
     await requireRole(ctx, 'editor')
     return documents.searchRelation(ctx, collectionId, search)
   },
+  getDocumentUsage: async (ctx: CmsContextType, id: string) => {
+    await requireRole(ctx, 'editor')
+    return media.describeUsage(ctx, await documents.getDocumentUsageRows(ctx, [id]))
+  },
   registerMedia: media.registerMedia, updateMedia: media.updateMedia, getMediaUsage: media.getUsageOf, trashMedia: media.trashMedia,
   restoreMedia: media.restoreMedia, purgeMedia: media.purgeMedia, searchMedia: media.searchMedia,
   publishChanges, retryPublish, getPublishStatus,

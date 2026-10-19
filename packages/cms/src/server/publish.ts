@@ -14,7 +14,8 @@ import { fieldLabel } from '../core/walk'
 import { logActivity } from './activity'
 import { requireRole } from './auth'
 import { authorNames } from './authors'
-import { getRelationLabels, titleOf } from './documents'
+import { getDocumentUsageRows, getRelationLabels, titleOf } from './documents'
+import { describeUsage } from './media'
 import type { CmsContextType } from './context'
 import type { FieldsRecord } from '../core/fields'
 import type { MessageKeyType } from '../core/i18n/types'
@@ -126,6 +127,7 @@ export const getPendingChanges = async (ctx: CmsContextType): Promise<PendingCha
 
   const pending = changes.filter(change => change !== null)
   await addReferenceWarnings(ctx, pending, rows)
+  await addUsageWarnings(ctx, pending)
   return pending
 }
 
@@ -140,6 +142,25 @@ const addReferenceWarnings = async (ctx: CmsContextType, changes: PendingChangeT
   const { t } = translatorFor(ctx.config)
 
   for (const change of changes) change.warnings = referenceWarnings(references.get(change.id) ?? [], refs, comesOut, t)
+}
+
+// Live pages that still pick an item being removed lose it, unless they go out without it in the same publish.
+const addUsageWarnings = async (ctx: CmsContextType, changes: PendingChangeType[]) => {
+  const removals = changes.filter(change => change.action === 'unpublish')
+  const rows = await getDocumentUsageRows(ctx, removals.map(change => change.id))
+  if (rows.length === 0) return
+
+  const { t } = translatorFor(ctx.config)
+  const leaving = new Set(removals.map(change => change.id))
+  const goesOutWithout = (documentId: string, targetId: string) =>
+    changes.some(change => change.id === documentId && change.action === 'publish' && change.problems.length === 0)
+    && !rows.some(row => row.document_id === documentId && row.target_id === targetId && !row.published)
+
+  for (const removal of removals) {
+    const live = rows.filter(row => row.target_id === removal.id && row.published && !leaving.has(row.document_id)
+      && !goesOutWithout(row.document_id, removal.id))
+    removal.warnings.push(...describeUsage(ctx, live).map(place => t('relations.usedLive', { name: place.label })))
+  }
 }
 
 export const getPendingCount = async (ctx: CmsContextType) => {

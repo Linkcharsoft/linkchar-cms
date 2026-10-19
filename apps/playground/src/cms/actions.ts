@@ -16,6 +16,7 @@ export const discardChanges = cms.actions.discardChanges
 export const restoreDocument = cms.actions.restoreDocument
 export const purgeDocument = cms.actions.purgeDocument
 export const searchRelation = cms.actions.searchRelation
+export const getDocumentUsage = cms.actions.getDocumentUsage
 export const registerMedia = cms.actions.registerMedia
 export const updateMedia = cms.actions.updateMedia
 export const getMediaUsage = cms.actions.getMediaUsage
