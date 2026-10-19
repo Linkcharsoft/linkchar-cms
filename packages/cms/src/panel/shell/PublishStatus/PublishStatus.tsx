@@ -2,7 +2,7 @@
 import './PublishStatus.sass'
 import { usePathname } from 'next/navigation'
 import { Tag } from 'primereact/tag'
-import { useEffect, useState } from 'react'
+import { useEffect, useEffectEvent, useState } from 'react'
 import { headerPublishStatus } from '../../../core/publish'
 import { useCms, usePaths, useT } from '../../client/context'
 import CustomButton from '../../primitives/CustomButton/CustomButton'
@@ -21,6 +21,8 @@ interface Props {
   pendingCount: number
 }
 
+type SnapshotType = { latest: PublishRecordType | null, pendingCount: number }
+
 const POLL_INTERVAL_MS = 10_000
 
 // The panel layout doesn't re-render on client navigation, so the counter refreshes itself.
@@ -29,16 +31,12 @@ const PublishStatus = ({ latest: initialLatest, pendingCount: initialCount }: Pr
   const { actions } = useCms()
   const paths = usePaths()
   const pathname = usePathname()
-  const [latest, setLatest] = useState(initialLatest)
-  const [pendingCount, setPendingCount] = useState(initialCount)
-  const [props, setProps] = useState({ initialLatest, initialCount })
+  const [polled, setPolled] = useState<{ over: SnapshotType, snapshot: SnapshotType } | null>(null)
 
-  // router.refresh() (after publishing) re-renders the layout with fresh props: adopt them.
-  if (props.initialLatest !== initialLatest || props.initialCount !== initialCount) {
-    setProps({ initialLatest, initialCount })
-    setLatest(initialLatest)
-    setPendingCount(initialCount)
-  }
+  // A poll only stands until the layout brings newer props, e.g. router.refresh() after publishing.
+  const { latest, pendingCount } = polled && polled.over.latest === initialLatest && polled.over.pendingCount === initialCount
+    ? polled.snapshot
+    : { latest: initialLatest, pendingCount: initialCount }
 
   const shown = latest ? headerPublishStatus(latest.buildStatus, latest.requestedAt) : null
   const status = shown?.status ?? null
@@ -49,11 +47,10 @@ const PublishStatus = ({ latest: initialLatest, pendingCount: initialCount }: Pr
     return shown.minutes < 1 ? t('publishStatus.buildingStarted') : t('publishStatus.buildingFor', { minutes: shown.minutes })
   }
 
-  const refresh = async () => {
-    const next = await actions.getPublishStatus()
-    setLatest(next.latest)
-    setPendingCount(next.pendingCount)
-  }
+  const refresh = useEffectEvent(async () => {
+    const over = { latest: initialLatest, pendingCount: initialCount }
+    setPolled({ over, snapshot: await actions.getPublishStatus() })
+  })
 
   useEffect(() => {
     void refresh()
