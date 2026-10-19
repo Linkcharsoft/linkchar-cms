@@ -1,6 +1,7 @@
 import { createTranslator } from './i18n/translator'
 import { BUILTIN_FIELDS } from './kinds/builtins'
 import { AUTH_SEGMENT, DEFAULT_PANEL_SEGMENTS } from './paths'
+import { pathProblems } from './urls'
 import { dataFields } from './walk'
 import type { ContentSchema, EntryValues, StoredEntryValues } from './define'
 import type { DataField, FieldsRecord } from './fields'
@@ -132,6 +133,8 @@ interface CheckContextType {
   schema: ContentSchema
   types: FieldTypesMap
   folders: readonly MediaFolderType[]
+  locales: readonly string[]
+  defaultLocale: string
 }
 
 const checkFields = (ctx: CheckContextType, fields: FieldsRecord, where: string) => {
@@ -158,8 +161,11 @@ const checkFields = (ctx: CheckContextType, fields: FieldsRecord, where: string)
 
 const checkSchema = (ctx: CheckContextType) => {
   const { schema } = ctx
+  const urls = new Map<string, string>()
   for (const [id, entry] of Object.entries(schema)) {
     checkFields(ctx, entry.fields, id)
+    const [problem] = pathProblems(id, entry, ctx.locales, ctx.defaultLocale, urls)
+    if (problem) throw new CmsConfigError(problem)
     if (entry.kind !== 'collection') continue
     const keys = dataFields(entry.fields).map(([key]) => key)
     if (!keys.includes(entry.titleField)) throw new CmsConfigError(`${id}.titleField "${entry.titleField}" is not one of its fields.`)
@@ -186,7 +192,7 @@ export const defineCmsConfig = <const S extends ContentSchema, const L extends s
     if (fieldTypes.has(definition.kind) || isStructuralKind(definition.kind)) throw new CmsConfigError(`The field kind "${definition.kind}" is defined twice.`)
     fieldTypes.set(definition.kind, definition)
   }
-  checkSchema({ schema: input.schema, types: fieldTypes, folders: input.mediaFolders ?? [] })
+  checkSchema({ schema: input.schema, types: fieldTypes, folders: input.mediaFolders ?? [], locales, defaultLocale })
   const paths = panelSegments(input.paths)
   checkExtensions(input.extensions ?? [], paths)
   const titleTemplate = input.site?.titleTemplate ?? '%s'

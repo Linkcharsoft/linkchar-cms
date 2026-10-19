@@ -87,7 +87,7 @@ describe('page', () => {
 
   it('adds a trailing SEO section only to pages with a path', () => {
     expect(Object.keys(schema.home.fields)).toEqual(['hero', 'obras', 'extra', 'seo'])
-    expect(schema.home.fields.seo).toMatchObject({ kind: 'group', seo: { path: '/' }, section: { hideable: false } })
+    expect(schema.home.fields.seo).toMatchObject({ kind: 'group', seo: {}, section: { hideable: false } })
     expect(buildDefaults(config, schema.home.fields).seo.title).toEqual({ es: 'Inicio' })
     expect(Object.keys(schema.notFound.fields)).toEqual(['content'])
   })

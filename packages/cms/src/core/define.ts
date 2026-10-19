@@ -2,11 +2,13 @@ import { seo } from './fields'
 import type { FieldsRecord } from './fields'
 import type { ValuesOf } from './infer'
 import type { LocalizedTextType, TextType } from './text'
+import type { EntryPathType } from './urls'
 
 interface EntryOptions {
   icon?: string
-  // Public URL of the entry (preview, canonical, sitemap, redirects); collections use ":slug".
-  path?: string
+  // Public URL of the entry (preview, canonical, sitemap, redirects), one for all locales or one per locale;
+  // collections end in ":slug". Locales other than the default one get their prefix ("/en").
+  path?: EntryPathType
   // id of the element the preview scrolls to (header, footer…).
   anchor?: string
 }
@@ -28,7 +30,7 @@ export interface PageSitemapType {
   changeFrequency: ChangeFrequencyType
 }
 
-interface PageOptions<P extends string | undefined> extends Omit<EntryOptions, 'path' | 'anchor'> {
+interface PageOptions<P extends EntryPathType | undefined> extends Omit<EntryOptions, 'path' | 'anchor'> {
   path?: P
   // Defaults of the page's SEO group, added when the page has a path.
   seo?: { title?: string | LocalizedTextType, description?: string | LocalizedTextType }
@@ -79,10 +81,10 @@ export const singleton = <const F extends FieldsRecord>(label: TextType, fields:
 
 type SeoGroup = ReturnType<typeof seo>
 
-type PageFields<F extends FieldsRecord, P extends string | undefined> = P extends string ? F & { seo: SeoGroup } : F
+type PageFields<F extends FieldsRecord, P extends EntryPathType | undefined> = P extends EntryPathType ? F & { seo: SeoGroup } : F
 
 // Pages with a URL get a trailing SEO section; system pages (404) don't.
-export const page = <const F extends FieldsRecord, const P extends string | undefined = undefined>(
+export const page = <const F extends FieldsRecord, const P extends EntryPathType | undefined = undefined>(
   label: TextType,
   sections: F,
   { seo: seoDefaults, ...options }: PageOptions<P> = {}
@@ -94,7 +96,7 @@ export const page = <const F extends FieldsRecord, const P extends string | unde
     ? {
       ...sections,
       seo: {
-        ...seo({ path: options.path, ...seoDefaults }),
+        ...seo(seoDefaults),
         section: { icon: 'pi-google', hideable: false }
       }
     }
