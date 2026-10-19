@@ -57,6 +57,8 @@ export interface CollectionOptions<F extends FieldsRecord> extends EntryOptions 
   tabLabel?: TextType
   // Only exists to be referenced (authors, categories): always visible, so a picked item never vanishes from the site.
   referenceOnly?: boolean
+  // How its documents are listed in the sitemap; false leaves them out.
+  sitemap?: PageSitemapType | false
 }
 
 // Repeatable content with its own listing, like blog posts.
@@ -70,6 +72,7 @@ export interface CollectionEntry<F extends FieldsRecord = FieldsRecord> extends 
   under?: string
   tabLabel?: TextType
   referenceOnly: boolean
+  sitemap?: PageSitemapType | false
 }
 
 export type SchemaEntry = SingletonEntry | PageEntry | CollectionEntry

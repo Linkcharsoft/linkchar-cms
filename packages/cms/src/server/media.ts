@@ -31,10 +31,10 @@ const TEXT_MAX = 300
 const texts = (value: unknown): LocalizedTextType =>
   Object.fromEntries(Object.entries(asRecord(value)).filter((entry): entry is [string, string] => typeof entry[1] === 'string'))
 
-export const toMediaItem = (ctx: CmsContextType, row: MediaRowType): MediaItemType => ({
+export const mediaItemFrom = (supabaseUrl: string, row: MediaRowType): MediaItemType => ({
   id: row.id,
   path: row.path,
-  url: mediaPublicUrl(ctx.supabaseUrl, row.path),
+  url: mediaPublicUrl(supabaseUrl, row.path),
   filename: row.filename,
   folder: row.folder,
   alt: texts(row.alt),
@@ -49,6 +49,8 @@ export const toMediaItem = (ctx: CmsContextType, row: MediaRowType): MediaItemTy
   createdAt: row.created_at,
   deletedAt: row.deleted_at
 })
+
+export const toMediaItem = (ctx: CmsContextType, row: MediaRowType) => mediaItemFrom(ctx.supabaseUrl, row)
 
 // How a file is named in summaries: its alt text in the default locale, else its filename.
 export const mediaName = (ctx: CmsContextType, item: MediaItemType) => item.alt[ctx.config.defaultLocale] || item.filename
