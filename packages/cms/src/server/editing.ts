@@ -4,6 +4,7 @@ import { getCollection, getEntry } from '../core/entries'
 import { fieldLocalize } from '../core/locales'
 import { mergePatch } from '../core/merge'
 import { keepSuperadminFields } from '../core/permissions'
+import slugify from '../core/slugify'
 import { validateContent } from '../core/validation'
 import { dataFields } from '../core/walk'
 import { requireRole } from './auth'
@@ -24,7 +25,8 @@ export interface SaveDocumentInputType {
 }
 
 export type SaveDocumentResultType =
-  | { status: 'saved', id: string, revision: number, updatedAt: string, data: DataRecord }
+  // adjusted: keys the server changed (a taken automatic slug); errors: what it left unsaved (a taken typed slug).
+  | { status: 'saved', id: string, revision: number, updatedAt: string, data: DataRecord, adjusted?: string[], errors?: ContentErrorsType }
   | { status: 'invalid', errors: ContentErrorsType }
   | { status: 'conflict', id: string, keys: string[], data: DataRecord, revision: number, updatedAt: string }
   | { status: 'error', error: MessageKeyType }
@@ -48,6 +50,35 @@ export const slugOf = (ctx: CmsContextType, entryId: string, data: DataRecord) =
   return typeof value === 'string' && value ? value : null
 }
 
+// Shortest free slug in the collection: "base", then "base-2", "base-3"…
+export const freeSlug = async (ctx: CmsContextType, entryId: string, base: string, exceptId?: string) => {
+  for (let attempt = 1; attempt <= 20; attempt++) {
+    const candidate = attempt === 1 ? base : `${base}-${attempt}`
+    let query = ctx.db.from('documents').select('id', { count: 'exact', head: true })
+      .eq('type', entryId).eq('slug', candidate).is('deleted_at', null)
+    if (exceptId) query = query.neq('id', exceptId)
+    const { count } = await query
+    if (!count) return candidate
+  }
+  return `${base}-${crypto.randomUUID().slice(0, 8)}`
+}
+
+// Sets the value of a field in the default locale, or the whole value when the field is not localized.
+export const atDefaultLocale = (ctx: CmsContextType, current: unknown, value: string) =>
+  (typeof current === 'string' ? value : { ...asRecord(current), [ctx.config.defaultLocale]: value })
+
+const defaultLocaleText = (ctx: CmsContextType, value: unknown) => {
+  const text = typeof value === 'string' ? value : asRecord(value)[ctx.config.defaultLocale]
+  return typeof text === 'string' ? text : ''
+}
+
+// The slug still follows its source field (the panel generated it), so the server may pick a free variant.
+const isAutomaticSlug = (ctx: CmsContextType, entryId: string, data: DataRecord, slug: string) => {
+  const entry = getCollection(ctx.config, entryId)
+  const field = entry?.slugField ? dataFields(entry.fields).find(([name]) => name === entry.slugField)?.[1] : undefined
+  return field?.kind === 'slug' && slugify(defaultLocaleText(ctx, data[field.from])) === slug
+}
+
 // Where the form shows "this URL is taken": the field, or its default locale when the slug is translated.
 export const slugErrorPath = (ctx: CmsContextType, entryId: string) => {
   const entry = getCollection(ctx.config, entryId)
@@ -61,10 +92,14 @@ export const guardFields = (ctx: CmsContextType, profile: ProfileType, fields: F
 
 // Autosave target: merges the changed keys over the stored content, so editors working on different
 // sections never overwrite each other. Only a key someone else changed meanwhile is a conflict.
-export const saveDocument = async (ctx: CmsContextType, { entryId, id, patch, base }: SaveDocumentInputType): Promise<SaveDocumentResultType> => {
+export const saveDocument = async (ctx: CmsContextType, input: SaveDocumentInputType): Promise<SaveDocumentResultType> => {
+  const { entryId, id, base } = input
   const { profile } = await requireRole(ctx, 'editor')
   const entry = getEntry(ctx.config, entryId)
   if (!entry) return { status: 'error', error: 'errors.unknownEntry' }
+
+  let patch = input.patch
+  let slugIssue: Pick<Extract<SaveDocumentResultType, { status: 'saved' }>, 'adjusted' | 'errors'> | null = null
 
   for (let attempt = 0; attempt < SAVE_ATTEMPTS; attempt++) {
     const query = ctx.db.from('documents').select('id, data, revision, updated_at').eq('type', entryId).is('deleted_at', null)
@@ -103,13 +138,26 @@ export const saveDocument = async (ctx: CmsContextType, { entryId, id, patch, ba
         console.error('[documents] save failed:', result.error.code ?? result.error.message)
         return { status: 'error', error: 'errors.documents.saveFailed' }
       }
+      const slugField = getCollection(ctx.config, entryId)?.slugField
+      if (slug && slugField && slugField in patch && !slugIssue) {
+        // The rest of the edit is saved anyway: a taken URL never costs the title or the body.
+        if (isAutomaticSlug(ctx, entryId, toSave, slug)) {
+          patch = { ...patch, [slugField]: atDefaultLocale(ctx, patch[slugField], await freeSlug(ctx, entryId, slug, row?.id)) }
+          slugIssue = { adjusted: [slugField] }
+        } else {
+          patch = { ...patch, [slugField]: atDefaultLocale(ctx, patch[slugField], defaultLocaleText(ctx, current[slugField])) }
+          slugIssue = { errors: { [slugErrorPath(ctx, entryId)]: translatorFor(ctx.config).t('validation.slugTaken') } }
+        }
+        attempt--
+        continue
+      }
       if (slug) return { status: 'invalid', errors: { [slugErrorPath(ctx, entryId)]: translatorFor(ctx.config).t('validation.slugTaken') } }
       // Someone created this singleton or page first: merge over theirs.
       continue
     }
 
     if (result.data) {
-      return { status: 'saved', id: result.data.id, revision: result.data.revision, updatedAt: result.data.updated_at, data: toSave }
+      return { status: 'saved', id: result.data.id, revision: result.data.revision, updatedAt: result.data.updated_at, data: toSave, ...slugIssue }
     }
   }
 

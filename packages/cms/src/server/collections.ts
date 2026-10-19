@@ -8,7 +8,7 @@ import { logActivity } from './activity'
 import { requireRole } from './auth'
 import { asRecord, CmsRedirect } from './context'
 import { titleOf } from './documents'
-import { slugOf, toJson } from './editing'
+import { atDefaultLocale, freeSlug, slugOf, toJson } from './editing'
 import type { CmsContextType, DataRecord } from './context'
 import type { RelationOptionType } from './documents'
 import type { CollectionEntry } from '../core/define'
@@ -25,21 +25,6 @@ const nextSortOrder = async (ctx: CmsContextType, entryId: string, orderable: bo
     .order('sort_order', { ascending: false }).limit(1).maybeSingle()
   return (last?.sort_order ?? -1) + 1
 }
-
-// Shortest free slug in the collection: "base", then "base-2", "base-3"…
-const freeSlug = async (ctx: CmsContextType, entryId: string, base: string) => {
-  for (let attempt = 1; attempt <= 20; attempt++) {
-    const candidate = attempt === 1 ? base : `${base}-${attempt}`
-    const { count } = await ctx.db.from('documents').select('id', { count: 'exact', head: true })
-      .eq('type', entryId).eq('slug', candidate).is('deleted_at', null)
-    if (!count) return candidate
-  }
-  return `${base}-${crypto.randomUUID().slice(0, 8)}`
-}
-
-// Sets the value of a field in the default locale, or the whole value when the field is not localized.
-const atDefaultLocale = (ctx: CmsContextType, current: unknown, value: string) =>
-  (typeof current === 'string' ? value : { ...asRecord(current), [ctx.config.defaultLocale]: value })
 
 const insertDocument = async (ctx: CmsContextType, entryId: string, entry: CollectionEntry, data: DataRecord, sortOrder: number) =>
   ctx.db.from('documents')

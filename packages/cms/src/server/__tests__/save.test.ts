@@ -122,23 +122,53 @@ describe('saveDocument', () => {
     expect((stored().hero as DataRecord).eyebrow).toEqual({ es: 'Segundo', en: '' })
   })
 
-  it('stores the default locale slug and says when another document has it', async () => {
-    db.tables.documents.push({
-      id: ID(2), type: 'posts', key: null, slug: 'casa', data: {}, revision: 1, sort_order: 0, visible: false,
-      created_at: '2026-10-16T00:00:00Z', updated_at: '2026-10-16T00:00:00Z', deleted_at: null
-    }, {
-      id: ID(3), type: 'posts', key: null, slug: null, data: {}, revision: 1, sort_order: 1, visible: false,
+  describe('when another document has the slug', () => {
+    const post = (n: number, slug: string | null) => ({
+      id: ID(n), type: 'posts', key: null, slug, data: {}, revision: 1, sort_order: n, visible: false,
       created_at: '2026-10-16T00:00:00Z', updated_at: '2026-10-16T00:00:00Z', deleted_at: null
     })
-    const ctx = fakeContext(db, cmsConfig)
-    const base = withDefaults(cmsConfig, cmsConfig.schema.posts.fields, {}) as DataRecord
+    const postBase = () => withDefaults(cmsConfig, cmsConfig.schema.posts.fields, {}) as DataRecord
+    const postRow = () => db.tables.documents.find(row => row.id === ID(3))!
+    const body = { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Cuerpo' }] }] }
 
-    const taken = await saveDocument(ctx, { entryId: 'posts', id: ID(3), patch: { slug: { es: 'casa', en: 'house' } }, base })
-    expect(taken).toEqual({ status: 'invalid', errors: { 'slug.es': 'Ya hay otro contenido con esta URL' } })
+    beforeEach(() => {
+      db.tables.documents.push(post(2, 'casa'), post(3, null))
+    })
 
-    const saved = await saveDocument(ctx, { entryId: 'posts', id: ID(3), patch: { slug: { es: 'casa-2', en: 'house' } }, base })
-    expect(saved.status).toBe('saved')
-    expect(db.tables.documents.find(row => row.id === ID(3))?.slug).toBe('casa-2')
+    it('saves the rest and keeps the stored slug when it was typed by hand', async () => {
+      const result = await saveDocument(fakeContext(db, cmsConfig), {
+        entryId: 'posts',
+        id: ID(3),
+        patch: { title: { es: 'Otra casa', en: '' }, slug: { es: 'casa', en: 'house' }, body: { es: body, en: null } },
+        base: postBase()
+      })
+
+      expect(result).toMatchObject({ status: 'saved', errors: { 'slug.es': 'Ya hay otro contenido con esta URL' } })
+      expect(result).not.toHaveProperty('adjusted')
+      expect(postRow().slug).toBeNull()
+      expect(postRow().data).toMatchObject({ title: { es: 'Otra casa' }, slug: { es: '', en: 'house' }, body: { es: body } })
+    })
+
+    it('saves a free variant of a slug that follows the title', async () => {
+      db.tables.documents.push(post(4, 'casa-2'))
+      const result = await saveDocument(fakeContext(db, cmsConfig), {
+        entryId: 'posts',
+        id: ID(3),
+        patch: { title: { es: 'Casa', en: 'House' }, slug: { es: 'casa', en: 'house' } },
+        base: postBase()
+      })
+
+      expect(result).toMatchObject({ status: 'saved', adjusted: ['slug'], data: { slug: { es: 'casa-3', en: 'house' } } })
+      expect(result).not.toHaveProperty('errors')
+      expect(postRow().slug).toBe('casa-3')
+    })
+
+    it('stores a free slug as the default locale slug', async () => {
+      const result = await saveDocument(fakeContext(db, cmsConfig), { entryId: 'posts', id: ID(3), patch: { slug: { es: 'casa-2', en: 'house' } }, base: postBase() })
+      expect(result).toMatchObject({ status: 'saved' })
+      expect(result).not.toHaveProperty('errors')
+      expect(postRow().slug).toBe('casa-2')
+    })
   })
 
   it('rejects malformed content with the path of each problem', async () => {
