@@ -56,7 +56,7 @@ const UNIQUE: Record<string, (a: Row, b: Row) => boolean> = {
 
 const DEFAULTS: Record<string, (db: FakeDbType) => Row> = {
   documents: db => ({
-    id: crypto.randomUUID(), key: null, slug: null, data: {}, revision: 1, sort_order: 0, visible: true,
+    id: crypto.randomUUID(), key: null, slug: null, slugs: {}, data: {}, revision: 1, sort_order: 0, visible: true,
     created_at: new Date().toISOString(), created_by: db.user?.id ?? null, updated_at: new Date().toISOString(),
     updated_by: db.user?.id ?? null, deleted_at: null
   }),
@@ -115,6 +115,14 @@ class Query implements PromiseLike<Result> {
   neq (column: string, value: unknown) { this.filters.push(row => !same(read(row, column), value)); return this }
   is (column: string, value: null) { this.filters.push(row => read(row, column) === value); return this }
   not (column: string, operator: 'is', value: null) { this.filters.push(row => read(row, column) !== value); return this }
+  contains (column: string, value: Record<string, unknown>) {
+    this.filters.push(row => {
+      const current = read(row, column) as Record<string, unknown> | null
+      return !!current && Object.entries(value).every(([key, item]) => same(current[key], item))
+    })
+    return this
+  }
+
   in (column: string, values: unknown[]) { this.filters.push(row => values.some(value => same(read(row, column), value))); return this }
   lt (column: string, value: string) { this.filters.push(row => String(read(row, column)) < value); return this }
   gte (column: string, value: string) { this.filters.push(row => String(read(row, column)) >= value); return this }

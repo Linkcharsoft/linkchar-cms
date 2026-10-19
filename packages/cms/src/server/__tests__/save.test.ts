@@ -123,8 +123,8 @@ describe('saveDocument', () => {
   })
 
   describe('when another document has the slug', () => {
-    const post = (n: number, slug: string | null) => ({
-      id: ID(n), type: 'posts', key: null, slug, data: {}, revision: 1, sort_order: n, visible: false,
+    const post = (n: number, slug: string | null, en?: string) => ({
+      id: ID(n), type: 'posts', key: null, slug, slugs: slug ? { es: slug, ...(en ? { en } : {}) } : {}, data: {}, revision: 1, sort_order: n, visible: false,
       created_at: '2026-10-16T00:00:00Z', updated_at: '2026-10-16T00:00:00Z', deleted_at: null
     })
     const postBase = () => withDefaults(cmsConfig, cmsConfig.schema.posts.fields, {}) as DataRecord
@@ -167,7 +167,25 @@ describe('saveDocument', () => {
       const result = await saveDocument(fakeContext(db, cmsConfig), { entryId: 'posts', id: ID(3), patch: { slug: { es: 'casa-2', en: 'house' } }, base: postBase() })
       expect(result).toMatchObject({ status: 'saved' })
       expect(result).not.toHaveProperty('errors')
-      expect(postRow().slug).toBe('casa-2')
+      expect(postRow()).toMatchObject({ slug: 'casa-2', slugs: { es: 'casa-2', en: 'house' } })
+    })
+
+    it('checks each locale: a taken English slug that follows the title gets a free variant', async () => {
+      db.tables.documents.push(post(4, 'hogar', 'house'))
+      const result = await saveDocument(fakeContext(db, cmsConfig), {
+        entryId: 'posts', id: ID(3), patch: { title: { es: 'Otra', en: 'House' }, slug: { es: 'otra', en: 'house' } }, base: postBase()
+      })
+      expect(result).toMatchObject({ status: 'saved', adjusted: ['slug'] })
+      expect(postRow()).toMatchObject({ slug: 'otra', slugs: { es: 'otra', en: 'house-2' } })
+    })
+
+    it('checks each locale: a taken English slug typed by hand is reported on its locale', async () => {
+      db.tables.documents.push(post(4, 'hogar', 'house'))
+      const result = await saveDocument(fakeContext(db, cmsConfig), {
+        entryId: 'posts', id: ID(3), patch: { title: { es: 'Otra', en: 'Other' }, slug: { es: 'otra', en: 'house' } }, base: postBase()
+      })
+      expect(result).toMatchObject({ status: 'saved', errors: { 'slug.en': 'Ya hay otro contenido con esta URL' } })
+      expect(postRow()).toMatchObject({ slug: 'otra', slugs: { es: 'otra' } })
     })
   })
 

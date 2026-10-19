@@ -7,7 +7,7 @@ import { requireRole } from './auth'
 import { authorNames } from './authors'
 import { asRecord, UNIQUE_VIOLATION } from './context'
 import { getRelationLabels } from './documents'
-import { guardFields, slugOf, toJson } from './editing'
+import { guardFields, slugColumns, toJson } from './editing'
 import { getMediaByIds, mediaName } from './media'
 import type { CmsContextType, DataRecord, ProfileType } from './context'
 import type { FieldDiffType } from '../core/diff'
@@ -72,7 +72,7 @@ const replaceDraft = async (
   await ctx.db.from('document_versions').insert({ document_id: documentId, data: current.data, reason })
 
   const { data: updated, error } = await ctx.db.from('documents')
-    .update({ data: toJson(data), slug: slugOf(ctx, entryId, data) })
+    .update({ data: toJson(data), ...slugColumns(ctx, entryId, data) })
     .eq('id', documentId).eq('revision', current.revision).select('revision').maybeSingle()
 
   if (error?.code === UNIQUE_VIOLATION) return { status: 'error', error: 'errors.versions.slugTaken' }

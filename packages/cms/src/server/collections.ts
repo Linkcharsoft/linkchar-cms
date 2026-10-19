@@ -8,7 +8,7 @@ import { logActivity } from './activity'
 import { requireRole } from './auth'
 import { asRecord, CmsRedirect } from './context'
 import { titleOf } from './documents'
-import { atDefaultLocale, freeSlug, slugOf, toJson } from './editing'
+import { atLocale, freeSlug, slugColumns, toJson } from './editing'
 import type { CmsContextType, DataRecord } from './context'
 import type { RelationOptionType } from './documents'
 import type { CollectionEntry } from '../core/define'
@@ -28,7 +28,7 @@ const nextSortOrder = async (ctx: CmsContextType, entryId: string, orderable: bo
 
 const insertDocument = async (ctx: CmsContextType, entryId: string, entry: CollectionEntry, data: DataRecord, sortOrder: number) =>
   ctx.db.from('documents')
-    .insert({ type: entryId, data: toJson(data), slug: slugOf(ctx, entryId, data), sort_order: sortOrder, visible: entry.referenceOnly })
+    .insert({ type: entryId, data: toJson(data), ...slugColumns(ctx, entryId, data), sort_order: sortOrder, visible: entry.referenceOnly })
     .select('id').single()
 
 export const createDocument = async (ctx: CmsContextType, entryId: string): Promise<ActionResultType> => {
@@ -55,8 +55,9 @@ export const createRelated = async (ctx: CmsContextType, entryId: string, title:
   if (!entry || !name) return null
 
   const data = buildDefaults(ctx.config, entry.fields) as DataRecord
-  data[entry.titleField] = atDefaultLocale(ctx, data[entry.titleField], name)
-  if (entry.slugField) data[entry.slugField] = atDefaultLocale(ctx, data[entry.slugField], await freeSlug(ctx, entryId, slugify(name) || 'item'))
+  const { defaultLocale } = ctx.config
+  data[entry.titleField] = atLocale(data[entry.titleField], defaultLocale, name)
+  if (entry.slugField) data[entry.slugField] = atLocale(data[entry.slugField], defaultLocale, await freeSlug(ctx, entryId, slugify(name) || 'item'))
 
   const { data: created, error } = await insertDocument(ctx, entryId, entry, data, await nextSortOrder(ctx, entryId, entry.orderable))
   if (error) {
@@ -81,16 +82,13 @@ const copyTitle = (ctx: CmsContextType, title: unknown) => {
   return Object.fromEntries(Object.entries(asRecord(title)).map(([locale, text]) => [locale, typeof text === 'string' ? copy(text, locale) : text]))
 }
 
+// "casa" → "casa-copia" (or the next free one) in each locale.
 const copySlug = async (ctx: CmsContextType, entryId: string, slug: unknown) => {
-  const suffix = (locale: string) => translatorFor(ctx.config, locale).t('collection.copySlug')
-  const { defaultLocale } = ctx.config
-  const original = typeof slug === 'string' ? slug : asRecord(slug)[defaultLocale]
-  const main = typeof original === 'string' && original ? await freeSlug(ctx, entryId, `${original}-${suffix(defaultLocale)}`) : ''
-  if (typeof slug === 'string') return main
-  return Object.fromEntries(Object.entries(asRecord(slug)).map(([locale, text]) => [
-    locale,
-    locale === defaultLocale ? main : typeof text === 'string' && text ? `${text}-${suffix(locale)}` : text
-  ]))
+  const copyOf = async (text: unknown, locale: string) => (typeof text === 'string' && text
+    ? freeSlug(ctx, entryId, `${text}-${translatorFor(ctx.config, locale).t('collection.copySlug')}`, { locale })
+    : text)
+  if (typeof slug === 'string') return copyOf(slug, ctx.config.defaultLocale)
+  return Object.fromEntries(await Promise.all(Object.entries(asRecord(slug)).map(async ([locale, text]) => [locale, await copyOf(text, locale)])))
 }
 
 export const duplicateDocument = async (ctx: CmsContextType, entryId: string, id: string): Promise<ActionResultType> => {

@@ -52,12 +52,12 @@ describe('createDocument', () => {
 
 describe('createRelated', () => {
   it('creates an item from its title, with a free slug in the default locale', async () => {
-    db.tables.documents.push(doc(1, 'categories', { name: { es: 'Obras' } }, { slug: 'obras' }))
+    db.tables.documents.push(doc(1, 'categories', { name: { es: 'Obras' } }, { slug: 'obras', slugs: { es: 'obras' } }))
     const option = await createRelated(ctx, 'categories', '  Obras ')
     const created = db.tables.documents[1]
     expect(option).toEqual({ id: created.id, label: 'Obras', kind: 'Categoría', status: 'new', trashed: false })
     expect(created.data).toMatchObject({ name: { es: 'Obras', en: '' }, slug: { es: 'obras-2', en: '' } })
-    expect(created.slug).toBe('obras-2')
+    expect(created).toMatchObject({ slug: 'obras-2', slugs: { es: 'obras-2' } })
     expect(ctx.revalidate).toHaveBeenCalledWith('/dashboard/colecciones/categories')
   })
 
@@ -73,13 +73,13 @@ describe('createRelated', () => {
 
 describe('duplicateDocument', () => {
   it('copies the content with a copy title and a free slug in every locale', async () => {
-    db.tables.documents.push(doc(1, 'posts', { title: { es: 'Casa', en: 'House' }, slug: { es: 'casa', en: 'house' } }, { slug: 'casa' }))
-    db.tables.documents.push(doc(2, 'posts', { title: { es: 'Otra' } }, { slug: 'casa-copia' }))
+    db.tables.documents.push(doc(1, 'posts', { title: { es: 'Casa', en: 'House' }, slug: { es: 'casa', en: 'house' } }, { slug: 'casa', slugs: { es: 'casa', en: 'house' } }))
+    db.tables.documents.push(doc(2, 'posts', { title: { es: 'Otra' } }, { slug: 'casa-copia', slugs: { es: 'casa-copia', en: 'house-copy' } }))
     const to = await redirectOf(duplicateDocument(ctx, 'posts', ID(1)))
     const copy = db.tables.documents[2]
     expect(to).toBe(`/dashboard/colecciones/posts/${copy.id}`)
-    expect(copy.data).toMatchObject({ title: { es: 'Casa (copia)', en: 'House (copy)' }, slug: { es: 'casa-copia-2', en: 'house-copy' } })
-    expect(copy).toMatchObject({ slug: 'casa-copia-2', sort_order: 2, visible: false })
+    expect(copy.data).toMatchObject({ title: { es: 'Casa (copia)', en: 'House (copy)' }, slug: { es: 'casa-copia-2', en: 'house-copy-2' } })
+    expect(copy).toMatchObject({ slug: 'casa-copia-2', slugs: { es: 'casa-copia-2', en: 'house-copy-2' }, sort_order: 2, visible: false })
     expect(db.tables.activity_log[0]).toMatchObject({ action: 'document.duplicate', details: { type: 'posts', from: ID(1) } })
   })
 
