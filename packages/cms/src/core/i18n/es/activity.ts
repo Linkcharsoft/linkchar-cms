@@ -20,7 +20,8 @@ const activity = {
         hide: 'Marcó para ocultar del sitio'
       },
       site: {
-        publish: 'Publicó cambios en el sitio'
+        publish: 'Publicó cambios en el sitio',
+        retry: 'Reintentó la actualización del sitio'
       },
       media: {
         upload: 'Subió un archivo',

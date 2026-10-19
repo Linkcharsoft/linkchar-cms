@@ -24,6 +24,7 @@ export const restoreMedia = cms.actions.restoreMedia
 export const purgeMedia = cms.actions.purgeMedia
 export const searchMedia = cms.actions.searchMedia
 export const publishChanges = cms.actions.publishChanges
+export const retryPublish = cms.actions.retryPublish
 export const getPublishStatus = cms.actions.getPublishStatus
 export const inviteUser = cms.actions.inviteUser
 export const updateUserAccess = cms.actions.updateUserAccess

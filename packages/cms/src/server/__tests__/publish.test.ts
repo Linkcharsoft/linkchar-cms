@@ -2,7 +2,7 @@ import cmsConfig from '@playground/cms.config'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { withDefaults } from '../../core/defaults'
 import { mockBuild } from '../../publish/mock'
-import { applyBuildEvent, getPendingChanges, getPublishHistory, publishChanges, triggerBuild } from '../publish'
+import { applyBuildEvent, getPendingChanges, getPublishHistory, publishChanges, retryPublish, triggerBuild } from '../publish'
 import { createFakeDb, fakeContext, signIn } from './fakeSupabase'
 import type { PublishTargetType } from '../../publish/types'
 import type { CmsContextType, DataRecord } from '../context'
@@ -19,7 +19,7 @@ const at = (minutesAgo: number) => new Date(NOW - minutesAgo * MINUTE).toISOStri
 
 const logRow = (id: number, values: DataRecord = {}) => ({
   id, requested_by: null, requested_at: at(1), documents_count: 1, removed_count: 0, items: [], build_status: 'pending',
-  job_id: null, finished_at: null, error_code: null, error_detail: null, ...values
+  job_id: null, finished_at: null, error_code: null, error_detail: null, retry_of: null, ...values
 })
 
 const target = (trigger: PublishTargetType['trigger']): PublishTargetType => ({ name: 'test', trigger })
@@ -122,6 +122,41 @@ describe('publishChanges', () => {
     expect(await publishChanges(ctx, { publish: [{ id: ID(1), revision: 2 }], remove: [] })).toEqual({ ok: false, error: 'errors.publish.slugTaken' })
     db.rpc.publish_site = () => ({ data: null, error: { code: 'XX000', message: 'boom' } })
     expect(await publishChanges(ctx, { publish: [{ id: ID(1), revision: 2 }], remove: [] })).toEqual({ ok: false, error: 'errors.publish.failed' })
+  })
+})
+
+describe('retryPublish', () => {
+  const items = [{ id: ID(1), type: 'posts', action: 'publish' }]
+
+  beforeEach(() => {
+    db.tables.publish_log.push(
+      logRow(3, { requested_at: at(30), build_status: 'success' }),
+      logRow(4, { requested_at: at(5), build_status: 'failed', error_code: 'build_failed', items, documents_count: 1 })
+    )
+  })
+
+  it('builds the latest failed publish again in a row of its own', async () => {
+    ctx.publishTarget = target(async () => ({ ok: true, jobId: 'job-2' }))
+
+    expect(await retryPublish(ctx, 4)).toEqual({ ok: true, published: 0, removed: 0, buildStatus: 'building' })
+    expect(db.tables.publish_log.find(row => row.id === 5)).toMatchObject({
+      retry_of: 4, requested_by: ID(90), documents_count: 1, items, build_status: 'building', job_id: 'job-2'
+    })
+    expect(db.tables.publish_log.find(row => row.id === 4)).toMatchObject({ build_status: 'failed' })
+    expect(db.tables.activity_log).toEqual([expect.objectContaining({ action: 'site.retry', details: { publishId: 5, retryOf: 4 } })])
+  })
+
+  it('only retries the latest publish, and only when it failed', async () => {
+    expect(await retryPublish(ctx, 3)).toEqual({ ok: false, error: 'errors.publish.stale' })
+    db.tables.publish_log.find(row => row.id === 4)!.build_status = 'building'
+    expect(await retryPublish(ctx, 4)).toEqual({ ok: false, error: 'errors.publish.stale' })
+    expect(db.tables.publish_log).toHaveLength(2)
+  })
+
+  it('refuses editors without permission', async () => {
+    signIn(db, { id: ID(91), can_publish: false })
+    expect(await retryPublish(fakeContext(db, cmsConfig), 4)).toEqual({ ok: false, error: 'errors.publish.forbidden' })
+    expect(db.tables.publish_log).toHaveLength(2)
   })
 })
 

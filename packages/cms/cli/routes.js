@@ -11,7 +11,7 @@ export const ACTION_NAMES = [
   'saveDocument', 'createDocument', 'createRelated', 'duplicateDocument', 'trashDocument', 'setDocumentVisibility', 'reorderCollection',
   'listVersions', 'getVersionDiff', 'restoreVersion', 'discardChanges', 'restoreDocument', 'purgeDocument', 'searchRelation',
   'registerMedia', 'updateMedia', 'getMediaUsage', 'trashMedia', 'restoreMedia', 'purgeMedia', 'searchMedia',
-  'publishChanges', 'getPublishStatus',
+  'publishChanges', 'retryPublish', 'getPublishStatus',
   'inviteUser', 'updateUserAccess', 'setUserActive', 'resendInvite', 'deleteInvite', 'resetUserMfa',
   'updateProfile', 'updateAvatar', 'changePassword', 'recordMfaChange', 'markTourSeen', 'resetTours',
   'login', 'requestPasswordReset', 'updatePassword', 'acceptInvite', 'completeSecondFactor', 'logout'

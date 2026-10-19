@@ -11,6 +11,7 @@ import { canPublish } from '../core/roles'
 import { resolveText } from '../core/text'
 import { validateContent } from '../core/validation'
 import { fieldLabel } from '../core/walk'
+import { logActivity } from './activity'
 import { requireRole } from './auth'
 import { authorNames } from './authors'
 import { getRelationLabels, titleOf } from './documents'
@@ -51,6 +52,8 @@ export interface PublishRecordType {
   finishedAt: string | null
   errorCode: BuildErrorCodeType | null
   errorDetail: string | null
+  // The failed publish this one builds again; a retry publishes nothing new.
+  retryOf: number | null
   items: { id: string, title: string | null, action: 'publish' | 'unpublish' }[]
 }
 
@@ -170,6 +173,7 @@ export const getPublishHistory = async (ctx: CmsContextType, limit = 10): Promis
     finishedAt: row.finished_at,
     errorCode: row.error_code as BuildErrorCodeType | null,
     errorDetail: row.error_detail,
+    retryOf: row.retry_of,
     // A purged document has no title left: the panel names it as deleted.
     items: itemsOf(row.items).map(item => ({ id: item.id, action: item.action, title: titles[item.id] ?? null }))
   }))
@@ -282,6 +286,32 @@ export const publishChanges = async (ctx: CmsContextType, selection: PublishSele
   const buildStatus = await triggerBuild(ctx, result.publishId)
 
   return { ok: true, published: result.published, removed: result.removed, buildStatus }
+}
+
+// Only the latest publish, and only after its build failed: a newer one already rebuilt the site.
+export const retryPublish = async (ctx: CmsContextType, publishId: number): Promise<PublishResultType> => {
+  const { profile } = await requireRole(ctx, 'editor')
+  if (!canPublish(profile)) return { ok: false, error: 'errors.publish.forbidden' }
+
+  const { data: failed } = await ctx.db.from('publish_log').select('id, build_status, documents_count, removed_count, items')
+    .order('requested_at', { ascending: false }).limit(1).maybeSingle()
+  if (!failed || failed.id !== publishId || failed.build_status !== 'failed') return { ok: false, error: 'errors.publish.stale' }
+
+  const { data: retry, error } = await ctx.admin().from('publish_log').insert({
+    requested_by: profile.id,
+    documents_count: failed.documents_count,
+    removed_count: failed.removed_count,
+    items: failed.items,
+    retry_of: failed.id
+  }).select('id').single()
+  if (error) {
+    console.error('[publish] retry failed:', error.code ?? error.message)
+    return { ok: false, error: 'errors.publish.failed' }
+  }
+
+  await logActivity(ctx.db, 'site.retry', null, { publishId: retry.id, retryOf: failed.id })
+  const buildStatus = await triggerBuild(ctx, retry.id)
+  return { ok: true, published: 0, removed: 0, buildStatus }
 }
 
 export const getPublishStatus = async (ctx: CmsContextType) => {

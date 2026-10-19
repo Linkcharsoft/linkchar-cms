@@ -16,6 +16,7 @@ export const ACTIVITY_ACTIONS = {
   'document.show': 'publishing',
   'document.hide': 'publishing',
   'site.publish': 'publishing',
+  'site.retry': 'publishing',
   'media.upload': 'media',
   'media.trash': 'media',
   'media.purge': 'media',

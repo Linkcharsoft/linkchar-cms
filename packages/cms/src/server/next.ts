@@ -16,7 +16,7 @@ import { saveDocument } from './editing'
 import { confirmEmailLink, disableDraft, enableDraft, signOutTo } from './handlers'
 import * as media from './media'
 import { listPages } from './pages'
-import { applyBuildEvent, getLatestPublish, getPendingChanges, getPendingCount, getPublishHistory, getPublishStatus, publishChanges } from './publish'
+import { applyBuildEvent, getLatestPublish, getPendingChanges, getPendingCount, getPublishHistory, getPublishStatus, publishChanges, retryPublish } from './publish'
 import { acceptInvite, completeSecondFactor, login, logout, requestPasswordReset, updatePassword } from './session'
 import { purgeDocument, restoreDocument } from './trash'
 import { deleteInvite, inviteUser, listPanelUsers, resendInvite, resetUserMfa, setUserActive, updateUserAccess } from './users'
@@ -47,7 +47,7 @@ const ACTIONS = {
   },
   registerMedia: media.registerMedia, updateMedia: media.updateMedia, getMediaUsage: media.getUsageOf, trashMedia: media.trashMedia,
   restoreMedia: media.restoreMedia, purgeMedia: media.purgeMedia, searchMedia: media.searchMedia,
-  publishChanges, getPublishStatus,
+  publishChanges, retryPublish, getPublishStatus,
   inviteUser, updateUserAccess, setUserActive, resendInvite, deleteInvite, resetUserMfa,
   updateProfile, updateAvatar, changePassword, recordMfaChange, markTourSeen, resetTours,
   login, requestPasswordReset, updatePassword, acceptInvite, completeSecondFactor, logout

@@ -23,7 +23,8 @@ const activity = {
         hide: 'Marked to hide from the site'
       },
       site: {
-        publish: 'Published changes to the site'
+        publish: 'Published changes to the site',
+        retry: 'Retried the site update'
       },
       media: {
         upload: 'Uploaded a file',
