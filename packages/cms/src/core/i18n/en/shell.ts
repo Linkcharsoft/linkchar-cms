@@ -24,7 +24,6 @@ const shell = {
     viewSite: 'View site',
     viewSiteNewTab: 'View site (opens in a new tab)',
     account: 'My account',
-    accountOf: 'Account of {name}',
     signOut: 'Sign out',
     signingOut: 'Signing out…',
     someone: 'User',

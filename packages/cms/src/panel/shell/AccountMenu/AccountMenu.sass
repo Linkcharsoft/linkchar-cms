@@ -14,10 +14,11 @@
   cursor: pointer
   @apply hover:bg-cms-neutral-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cms-primary-ring
 
+  // Hidden on phones only visually: the name and role are still the button's name.
   &__Who
     flex-direction: column
     min-width: 0
-    @apply hidden sm:flex
+    @apply sr-only sm:not-sr-only sm:flex
 
   &__Name
     overflow: hidden

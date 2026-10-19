@@ -21,7 +21,6 @@ const shell = {
     viewSite: 'Ver sitio',
     viewSiteNewTab: 'Ver sitio (se abre en otra pestaña)',
     account: 'Mi cuenta',
-    accountOf: 'Cuenta de {name}',
     signOut: 'Cerrar sesión',
     signingOut: 'Cerrando sesión…',
     someone: 'Usuario',

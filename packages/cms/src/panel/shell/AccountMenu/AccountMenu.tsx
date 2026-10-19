@@ -40,7 +40,6 @@ const AccountMenu = ({ name, role, avatar }: Props) => {
       <button
         type='button'
         className='AccountMenu'
-        aria-label={t('shell.accountOf', { name })}
         aria-haspopup='menu'
         aria-expanded={open}
         aria-controls='cms-account-menu'
