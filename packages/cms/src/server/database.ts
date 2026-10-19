@@ -495,6 +495,18 @@ export type Database = {
           name: string;
         }[];
       };
+      document_usage: {
+        Args: { ids: string[] };
+        Returns: {
+          data: Json;
+          document_id: string;
+          keys: string[];
+          published: boolean;
+          target_id: string;
+          trashed: boolean;
+          type: string;
+        }[];
+      };
       media_usage: {
         Args: { ids: string[] };
         Returns: {
