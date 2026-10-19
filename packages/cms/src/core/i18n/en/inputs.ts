@@ -34,6 +34,7 @@ const inputs = {
     search: 'Search {name}…',
     searchAny: 'Search content…',
     empty: 'No results',
+    create: 'Create "{name}"',
     gone: 'Deleted content',
     goneNotice: 'The chosen content no longer exists: it won\'t appear on the site.'
   },

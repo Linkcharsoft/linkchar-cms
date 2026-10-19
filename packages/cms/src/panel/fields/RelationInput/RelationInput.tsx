@@ -26,6 +26,8 @@ interface OptionType extends RelationRefType {
   id: string
   // Deleted for good: only its id is left in the data.
   gone?: boolean
+  // Last suggestion: creates a new item named after the search instead of picking one.
+  create?: boolean
 }
 
 const RelationInput = ({ name, field }: Props) => {
@@ -56,6 +58,14 @@ const RelationInput = ({ name, field }: Props) => {
 
   const optionTemplate = (option: OptionType | null) => {
     if (!option) return null
+    if (option.create) {
+      return (
+        <span className='RelationInput__Option RelationInput__Option--Create'>
+          <i className='pi pi-plus' aria-hidden='true' />
+          <span className='RelationInput__OptionLabel'>{option.label}</span>
+        </span>
+      )
+    }
     const issue = relationIssue(option, t)
     return (
       <span className='RelationInput__Option'>
@@ -69,7 +79,12 @@ const RelationInput = ({ name, field }: Props) => {
     setLastQuery(query)
     const results = await actions.searchRelation(field.to, query)
     setLabels(current => ({ ...current, ...Object.fromEntries(results.map(({ id: resultId, ...ref }) => [resultId, ref])) }))
-    setSuggestions(field.multiple ? results.filter(result => !ids.includes(result.id)) : results)
+    const options: OptionType[] = field.multiple ? results.filter(result => !ids.includes(result.id)) : results
+    const name = query.trim()
+    const createOption = target && {
+      id: '', label: name ? t('relationInput.create', { name }) : collectionNewLabel(target, textCtx), kind: '', status: 'new' as const, trashed: false, create: true
+    }
+    setSuggestions(createOption ? [...options, createOption] : options)
   }
 
   const commit = (next: string[]) => {
@@ -104,7 +119,12 @@ const RelationInput = ({ name, field }: Props) => {
         onChange={event => {
           const selected = event.value as OptionType | OptionType[] | string | null
           if (typeof selected === 'string') return
-          commit((Array.isArray(selected) ? selected : selected ? [selected] : []).map(option => option.id))
+          const picked = Array.isArray(selected) ? selected : selected ? [selected] : []
+          if (picked.some(option => option.create)) {
+            setCreating(true)
+            return
+          }
+          commit(picked.map(option => option.id))
         }}
       />
       {notices.map(notice => (

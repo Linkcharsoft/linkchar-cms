@@ -31,6 +31,7 @@ const inputs = {
     search: 'Buscar en {name}…',
     searchAny: 'Buscar contenidos…',
     empty: 'No hay resultados',
+    create: 'Crear "{name}"',
     gone: 'Contenido eliminado',
     goneNotice: 'El contenido elegido ya no existe: no va a aparecer en el sitio.'
   },

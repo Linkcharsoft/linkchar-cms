@@ -94,3 +94,19 @@ test('a repeated title saves the post with a free URL, and a URL typed by hand k
 
   await admin.from('documents').delete().in('id', [first, other, second])
 })
+
+test('the relation search ends with an option that creates what was typed', async ({ page }) => {
+  await signIn(page, QA.super.email)
+  await page.goto('/dashboard/colecciones/posts')
+  await page.waitForLoadState('networkidle')
+  await page.getByRole('button', { name: 'Nuevo artículo' }).click()
+  await page.waitForURL(/\/dashboard\/colecciones\/posts\/[0-9a-f-]{36}$/)
+  await page.waitForLoadState('networkidle')
+  const id = page.url().split('/').pop()!
+
+  await page.locator('#cms-category').pressSequentially('E2E Hormigón', { delay: 50 })
+  await page.getByRole('option', { name: 'Crear "E2E Hormigón"' }).click()
+  await expect(page.locator('#create-related-title')).toHaveValue('E2E Hormigón')
+
+  await admin.from('documents').delete().eq('id', id)
+})
