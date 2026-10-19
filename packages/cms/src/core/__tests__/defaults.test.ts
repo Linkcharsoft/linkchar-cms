@@ -24,7 +24,7 @@ describe('buildDefaults', () => {
       title: { es: 'Hola' },
       visible: true,
       subtitle: { es: '' },
-      cta: { label: { es: '' }, link: { type: 'internal', href: '', newTab: false }, variant: 'primary' },
+      cta: { label: { es: '' }, link: { type: 'entry', href: '', newTab: false }, variant: 'primary' },
       meta: { badge: { es: '' } },
       author: null,
       tags: [],
@@ -56,7 +56,7 @@ describe('withDefaults', () => {
     expect(value.items[0].name).toEqual({ es: 'Sin key' })
     expect(value.items[0]._key).toMatch(/^[0-9a-f-]{36}$/)
     expect(value.content).toEqual([{ _key: 'b1', _type: 'cita', quote: { es: 'Hola' } }])
-    expect(value.cta).toEqual({ label: { es: 'Contacto' }, link: { type: 'internal', href: '', newTab: false }, variant: 'primary' })
+    expect(value.cta).toEqual({ label: { es: 'Contacto' }, link: { type: 'entry', href: '', newTab: false }, variant: 'primary' })
   })
 
   it('returns full defaults for non-object input', () => {

@@ -1,5 +1,5 @@
-import { emptyLink, LINK_KINDS, linkIssues, normalizeLink } from './link'
-import { defineField, issue, noReferences } from './registry'
+import { emptyLink, LINK_KINDS, linkIssues, linkReferences, normalizeLink, summarizeLink } from './link'
+import { defineField, issue } from './registry'
 import { isRecord, shorten } from './shared'
 import type { BaseOptions, OptionType } from '../fields'
 import type { LinkValueType } from './link'
@@ -44,16 +44,12 @@ export const button = defineField({
     if (typeof label !== 'string') issues.push(issue('invalid', undefined, 'label'))
     else if (label.length > MAX_LABEL) issues.push(issue('maxLength', { max: MAX_LABEL }, 'label'))
     else if (ctx.required && !label.trim()) issues.push(issue('required', undefined, 'label'))
-    issues.push(...linkIssues(value.link, LINK_KINDS, ctx.required).map(found => ({ ...found, path: found.path ? `link.${found.path}` : 'link' })))
+    issues.push(...linkIssues(ctx.config, value.link, LINK_KINDS, ctx.required).map(found => ({ ...found, path: found.path ? `link.${found.path}` : 'link' })))
     if (value.variant !== undefined && !field.variants.some(variant => variant.value === value.variant)) {
       issues.push(issue('variant', undefined, 'variant'))
     }
     return issues
   },
-  references: noReferences,
-  summarize: value => {
-    if (!isRecord(value)) return ''
-    const href = isRecord(value.link) ? value.link.href ?? '' : ''
-    return shorten(`${value.label ?? ''} → ${href}`)
-  }
+  references: value => (isRecord(value) ? linkReferences(value.link) : {}),
+  summarize: (value, _field, ctx) => (isRecord(value) ? shorten(`${value.label ?? ''} → ${summarizeLink(value.link, ctx)}`) : '')
 })

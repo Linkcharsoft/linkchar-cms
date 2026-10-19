@@ -26,6 +26,7 @@ const core = {
     option: 'Choose a valid option',
     maxOptions: 'Choose up to {max}',
     minOptions: 'Choose at least {min}',
+    linkEntry: 'Choose a page or an item of the site',
     linkType: 'Invalid link type',
     linkInternal: 'Internal links start with /',
     linkExternal: 'Enter a URL starting with https://',

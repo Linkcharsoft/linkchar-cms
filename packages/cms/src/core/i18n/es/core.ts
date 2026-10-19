@@ -23,6 +23,7 @@ const core = {
     option: 'Elegí una opción válida',
     maxOptions: 'Elegí hasta {max}',
     minOptions: 'Elegí al menos {min}',
+    linkEntry: 'Elegí una página o un contenido del sitio',
     linkType: 'Tipo de link inválido',
     linkInternal: 'Los links internos empiezan con /',
     linkExternal: 'Ingresá una URL que empiece con https://',
