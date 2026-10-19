@@ -8,6 +8,7 @@ import { LINK_KINDS } from '../../../core/kinds/link'
 import { useT } from '../../client/context'
 import InputError from '../../primitives/InputError/InputError'
 import { fieldId, useFieldError } from '../fieldUtils'
+import EntryPicker from './EntryPicker'
 import type { LinkKindType } from '../../../core/kinds/link'
 
 interface Props {
@@ -16,13 +17,13 @@ interface Props {
   allow?: readonly LinkKindType[]
 }
 
-// Groups type + destination + "new tab" under one fieldset; errors point at the destination input.
+// Groups type + destination + "new tab" under one fieldset; errors point at the destination.
 const LinkInput = ({ name, label, allow }: Props) => {
   const { t } = useT()
   const [{ value: type }, , typeHelpers] = useField<LinkKindType>(`${name}.type`)
   const [{ value: href, onBlur }, , hrefHelpers] = useField<string>(`${name}.href`)
   const [{ value: newTab }, , newTabHelpers] = useField<boolean>(`${name}.newTab`)
-  const error = useFieldError(`${name}.href`)
+  const error = [useFieldError(`${name}.href`), useFieldError(`${name}.entry`), useFieldError(`${name}.id`), useFieldError(`${name}.anchor`)].find(Boolean)
   const id = fieldId(name)
   const kinds = LINK_KINDS
     .filter(kind => !allow || allow.includes(kind))
@@ -43,18 +44,22 @@ const LinkInput = ({ name, label, allow }: Props) => {
           className='LinkInput__Type'
           onChange={event => typeHelpers.setValue(event.value)}
         />
-        <InputText
-          id={`${id}-href`}
-          name={`${name}.href`}
-          aria-label={t('fields.link.targetOf', { label })}
-          value={href ?? ''}
-          placeholder={type ? t(`fields.link.placeholders.${type}`) : undefined}
-          autoComplete='off'
-          invalid={!!error}
-          className='LinkInput__Href'
-          onBlur={onBlur}
-          onChange={event => hrefHelpers.setValue(event.target.value)}
-        />
+        {type === 'entry'
+          ? <EntryPicker name={name} label={label} />
+          : (
+            <InputText
+              id={`${id}-href`}
+              name={`${name}.href`}
+              aria-label={t('fields.link.targetOf', { label })}
+              value={href ?? ''}
+              placeholder={type ? t(`fields.link.placeholders.${type}`) : undefined}
+              autoComplete='off'
+              invalid={!!error}
+              className='LinkInput__Href'
+              onBlur={onBlur}
+              onChange={event => hrefHelpers.setValue(event.target.value)}
+            />
+          )}
       </div>
 
       <div className='flex items-center gap-3'>

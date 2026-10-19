@@ -136,7 +136,8 @@ const editor = {
     },
     link: {
       kinds: {
-        internal: 'Página del sitio',
+        entry: 'Página del sitio',
+        internal: 'Otra dirección',
         external: 'Sitio externo',
         email: 'Email',
         tel: 'Teléfono',
@@ -151,6 +152,10 @@ const editor = {
       },
       typeOf: 'Tipo de link de {label}',
       targetOf: 'Destino de {label}',
+      documentOf: 'Contenido de {label}',
+      sectionOf: 'Sección de {label}',
+      pickEntry: 'Elegí una página o un contenido',
+      wholePage: 'Toda la página',
       newTab: 'Abrir en una pestaña nueva'
     },
     list: {
