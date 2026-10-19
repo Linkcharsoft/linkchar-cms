@@ -52,22 +52,38 @@ const DocumentActions = ({ entryId, documentId, title, visible = true, canHide =
     router.refresh()
   }
 
-  const askTrash = () => confirm({
-    header: t('editor.document.trashHeader'),
-    message: t('editor.document.trashMessage', { name }),
-    acceptLabel: t('editor.document.trashHeader'),
-    tone: 'danger',
-    accept: async () => {
-      const result = await actions.trashDocument(entryId, documentId)
-      if (!result.ok) {
-        notify({ severity: 'error', summary: t('editor.document.trashFailed') })
-        return
+  const askTrash = async () => {
+    // Without the usage list the trash still works: the publish screen repeats the warning.
+    const usage = (await actions.getDocumentUsage(documentId).catch(() => [])).filter(place => !place.trashed)
+    confirm({
+      header: t('editor.document.trashHeader'),
+      message: (
+        <div className='DocumentActions__Confirm'>
+          <p>{t('editor.document.trashMessage', { name })}</p>
+          {usage.length > 0 && (
+            <>
+              <p>{t('editor.document.usedBy')}</p>
+              <ul className='DocumentActions__Usage'>
+                {usage.map(place => <li key={place.documentId}>{place.label}</li>)}
+              </ul>
+            </>
+          )}
+        </div>
+      ),
+      acceptLabel: t('editor.document.trashHeader'),
+      tone: 'danger',
+      accept: async () => {
+        const result = await actions.trashDocument(entryId, documentId)
+        if (!result.ok) {
+          notify({ severity: 'error', summary: t('editor.document.trashFailed') })
+          return
+        }
+        notify({ severity: 'success', summary: t('editor.document.trashed') })
+        if (compact) router.refresh()
+        else router.push(paths.collection(entryId) as Route)
       }
-      notify({ severity: 'success', summary: t('editor.document.trashed') })
-      if (compact) router.refresh()
-      else router.push(paths.collection(entryId) as Route)
-    }
-  })
+    })
+  }
 
   if (compact) {
     return (

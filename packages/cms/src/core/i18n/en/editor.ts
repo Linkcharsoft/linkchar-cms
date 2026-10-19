@@ -47,6 +47,7 @@ const editor = {
       nextPublish: 'The change applies with the next publish.',
       trashHeader: 'Move to the trash',
       trashMessage: '{name} goes to the trash. You can restore it from there for 30 days. If it is published, it leaves the site with the next publish.',
+      usedBy: 'These items use it and will be left without it when you publish:',
       trashFailed: 'It could not be moved to the trash',
       trashed: 'Moved to the trash',
       duplicate: 'Duplicate',

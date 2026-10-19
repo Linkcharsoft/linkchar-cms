@@ -44,6 +44,7 @@ const editor = {
       nextPublish: 'El cambio se aplica en la próxima publicación.',
       trashHeader: 'Mandar a la papelera',
       trashMessage: '{name} se va a la papelera. Podés restaurarlo desde ahí durante 30 días. Si está publicado, se quita del sitio en la próxima publicación.',
+      usedBy: 'Lo usan estos contenidos, que al publicar van a quedar sin él:',
       trashFailed: 'No se pudo mandar a la papelera',
       trashed: 'Enviado a la papelera',
       duplicate: 'Duplicar',
