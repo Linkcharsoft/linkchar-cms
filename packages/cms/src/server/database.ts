@@ -133,6 +133,7 @@ export type Database = {
           key: string | null;
           revision: number;
           slug: string | null;
+          slugs: NonNullable<Json>;
           sort_order: number;
           type: string;
           updated_at: string;
@@ -149,6 +150,7 @@ export type Database = {
           key?: string | null;
           revision?: number;
           slug?: string | null;
+          slugs?: NonNullable<Json>;
           sort_order?: number;
           type: string;
           updated_at?: string;
@@ -164,6 +166,7 @@ export type Database = {
           key?: string | null;
           revision?: number;
           slug?: string | null;
+          slugs?: NonNullable<Json>;
           sort_order?: number;
           type?: string;
           updated_at?: string;
@@ -359,9 +362,11 @@ export type Database = {
           data: NonNullable<Json>;
           id: string;
           key: string | null;
+          paths: NonNullable<Json>;
           published_at: string;
           published_by: string | null;
           slug: string | null;
+          slugs: NonNullable<Json>;
           sort_order: number;
           type: string;
         };
@@ -370,9 +375,11 @@ export type Database = {
           data: NonNullable<Json>;
           id: string;
           key?: string | null;
+          paths?: NonNullable<Json>;
           published_at?: string;
           published_by?: string | null;
           slug?: string | null;
+          slugs?: NonNullable<Json>;
           sort_order?: number;
           type: string;
         };
@@ -380,9 +387,11 @@ export type Database = {
           data?: NonNullable<Json>;
           id?: string;
           key?: string | null;
+          paths?: NonNullable<Json>;
           published_at?: string;
           published_by?: string | null;
           slug?: string | null;
+          slugs?: NonNullable<Json>;
           sort_order?: number;
           type?: string;
         };
@@ -458,9 +467,12 @@ export type Database = {
           pending: boolean | null;
           published_at: string | null;
           published_by: string | null;
+          published_paths: Json | null;
           published_slug: string | null;
+          published_slugs: Json | null;
           revision: number | null;
           slug: string | null;
+          slugs: Json | null;
           sort_order: number | null;
           status: string | null;
           type: string | null;

@@ -9,17 +9,21 @@ insert into auth.users (id, email) values
 
 update public.profiles set can_publish = true where id = '30000000-0000-0000-0000-00000000000c';
 
-insert into public.documents (id, type, slug, data) values
-  ('30000000-0000-0000-0000-0000000000d1', 'red.posts', 'a', '{"title": "A"}'),
-  ('30000000-0000-0000-0000-0000000000d2', 'red.posts', 'nuevo', '{"title": "Nuevo"}');
+insert into public.documents (id, type, slug, slugs, data) values
+  ('30000000-0000-0000-0000-0000000000d1', 'red.posts', 'a', '{"es": "a"}', '{"title": "A"}'),
+  ('30000000-0000-0000-0000-0000000000d2', 'red.posts', 'nuevo', '{"es": "nuevo"}', '{"title": "Nuevo"}');
 
+-- Published before slugs per locale: only the single slug, no paths.
 insert into public.published_documents (id, type, slug, data) values
   ('30000000-0000-0000-0000-0000000000d1', 'red.posts', 'a', '{"title": "A"}');
 
 create function pg_temp.publish (doc uuid, prefix text default '/red/')
 returns jsonb language sql as $$
   select public.publish_site(
-    jsonb_build_array(jsonb_strip_nulls(jsonb_build_object('id', d.id, 'revision', d.revision, 'redirectPrefix', prefix))),
+    jsonb_build_array(jsonb_build_object('id', d.id, 'revision', d.revision, 'urls', case
+      when prefix is null then '{}'::jsonb
+      else jsonb_build_object('es', jsonb_build_object('prefix', prefix, 'primary', true))
+    end)),
     '{}'
   )
   from public.documents d where d.id = doc
@@ -39,7 +43,7 @@ select lives_ok($$ select pg_temp.publish('30000000-0000-0000-0000-0000000000d2'
 select is_empty($$ select * from pg_temp.redirects() $$, 'a first publication creates no redirect');
 
 reset role;
-update public.documents set slug = 'b' where id = '30000000-0000-0000-0000-0000000000d1';
+update public.documents set slug = 'b', slugs = '{"es": "b"}' where id = '30000000-0000-0000-0000-0000000000d1';
 set local role authenticated;
 
 select is(
@@ -50,7 +54,7 @@ select is(
 select is(
   (select (pg_temp.publish('30000000-0000-0000-0000-0000000000d1') ->> 'redirects')::int),
   1,
-  'publishing a new slug reports one redirect'
+  'publishing a new slug reports one redirect, from the URL published before slugs per locale'
 );
 select results_eq(
   $$ select * from pg_temp.redirects() $$,
@@ -59,7 +63,7 @@ select results_eq(
 );
 
 reset role;
-update public.documents set slug = 'c' where id = '30000000-0000-0000-0000-0000000000d1';
+update public.documents set slug = 'c', slugs = '{"es": "c"}' where id = '30000000-0000-0000-0000-0000000000d1';
 set local role authenticated;
 select pg_temp.publish('30000000-0000-0000-0000-0000000000d1');
 
@@ -70,7 +74,7 @@ select results_eq(
 );
 
 reset role;
-update public.documents set slug = 'a' where id = '30000000-0000-0000-0000-0000000000d1';
+update public.documents set slug = 'a', slugs = '{"es": "a"}' where id = '30000000-0000-0000-0000-0000000000d1';
 set local role authenticated;
 select pg_temp.publish('30000000-0000-0000-0000-0000000000d1');
 
@@ -81,7 +85,7 @@ select results_eq(
 );
 
 reset role;
-update public.documents set slug = 'd' where id = '30000000-0000-0000-0000-0000000000d1';
+update public.documents set slug = 'd', slugs = '{"es": "d"}' where id = '30000000-0000-0000-0000-0000000000d1';
 set local role authenticated;
 
 select throws_ok(
@@ -99,7 +103,7 @@ select is(
 );
 
 reset role;
-update public.documents set slug = 'x/../y' where id = '30000000-0000-0000-0000-0000000000d1';
+update public.documents set slug = 'x/../y', slugs = '{"es": "x/../y"}' where id = '30000000-0000-0000-0000-0000000000d1';
 set local role authenticated;
 
 select throws_ok(
@@ -108,7 +112,7 @@ select throws_ok(
 );
 
 reset role;
-update public.documents set slug = 'e' where id = '30000000-0000-0000-0000-0000000000d1';
+update public.documents set slug = 'e', slugs = '{"es": "e"}' where id = '30000000-0000-0000-0000-0000000000d1';
 set local role authenticated;
 
 select lives_ok(
@@ -122,8 +126,8 @@ select is(
 );
 
 reset role;
-insert into public.documents (id, type, slug, data)
-values ('30000000-0000-0000-0000-0000000000d3', 'red.posts', 'c', '{"title": "Otro con el slug viejo"}');
+insert into public.documents (id, type, slug, slugs, data)
+values ('30000000-0000-0000-0000-0000000000d3', 'red.posts', 'c', '{"es": "c"}', '{"title": "Otro con el slug viejo"}');
 set local role authenticated;
 
 select lives_ok(
