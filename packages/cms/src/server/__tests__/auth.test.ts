@@ -41,7 +41,7 @@ describe('requireRole', () => {
 
   it('sends a user without the role to the panel home', async () => {
     signIn(db, { id: USER, role: 'editor' })
-    expect(await redirectOf(requireRole(fakeContext(db), 'admin'))).toBe('/dashboard')
+    expect(await redirectOf(requireRole(fakeContext(db), 'admin'))).toBe('/dashboard?error=sin-permiso')
   })
 
   it('reads the profile once per context', async () => {

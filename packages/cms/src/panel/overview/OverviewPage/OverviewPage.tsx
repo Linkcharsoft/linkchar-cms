@@ -32,6 +32,8 @@ interface Props {
   latest: PublishRecordType | null
   pages: PageListItemType[]
   alerts: OverviewAlertType[]
+  // Sent here from a screen the user's role can't open.
+  forbidden?: boolean
 }
 
 const STATUS_SEVERITIES: Record<DocumentStatusType, 'secondary' | 'info' | 'success' | 'warning' | 'danger'> = {
@@ -42,7 +44,7 @@ const STATUS_SEVERITIES: Record<DocumentStatusType, 'secondary' | 'info' | 'succ
   unpublishing: 'danger'
 }
 
-const OverviewPage = ({ drafts, pendingCount, latest, pages, alerts }: Props) => {
+const OverviewPage = ({ drafts, pendingCount, latest, pages, alerts, forbidden = false }: Props) => {
   const { t, translate } = useT()
   const { config, actions } = useCms()
   const ctx = useTextContext()
@@ -72,6 +74,7 @@ const OverviewPage = ({ drafts, pendingCount, latest, pages, alerts }: Props) =>
     <main id='main' className='OverviewPage'>
       <section className='CmsContainer py-6'>
         <DashboardPageHeader title={items.overview.label} />
+        {forbidden && <Notice tone='warning' className='OverviewPage__Forbidden'>{t('overview.forbidden')}</Notice>}
 
         <div className='OverviewPage__Grid'>
           <div className='OverviewPage__Card' data-tour='overview-tasks'>

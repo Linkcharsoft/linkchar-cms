@@ -37,7 +37,7 @@ export const requireRole = async (ctx: CmsContextType, minRole: RoleType = 'edit
   if (!user) throw new CmsRedirect(`${paths.signout}?error=sesion`)
   if (!profile?.active) throw new CmsRedirect(paths.signout)
   if (mfaPending) throw new CmsRedirect(paths.mfaVerify)
-  if (!hasRole(profile.role, minRole)) throw new CmsRedirect(paths.home)
+  if (!hasRole(profile.role, minRole)) throw new CmsRedirect(`${paths.home}?error=sin-permiso`)
 
   return { user, profile }
 }

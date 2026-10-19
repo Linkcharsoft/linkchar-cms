@@ -28,8 +28,9 @@ test.describe('administration', () => {
     await expect(nav).not.toContainText('Estadísticas')
 
     await page.goto('/dashboard/usuarios')
-    await expect(page).toHaveURL(/\/dashboard$/)
+    await expect(page).toHaveURL(/\/dashboard\?error=sin-permiso$/)
+    await expect(page.getByText('No tenés acceso a esa pantalla. Si la necesitás, pedíselo a un administrador.')).toBeVisible()
     await page.goto('/dashboard/estadisticas')
-    await expect(page).toHaveURL(/\/dashboard$/)
+    await expect(page).toHaveURL(/\/dashboard\?error=sin-permiso$/)
   })
 })

@@ -7,6 +7,7 @@ const admin = {
     editPage: 'Edit a page',
     uploadImages: 'Upload images',
     alerts: 'Alerts',
+    forbidden: 'You don\'t have access to that screen. If you need it, ask an administrator.',
     allGood: 'All good.',
     view: 'View',
     incomplete: '"{title}" won\'t be published until you fill in: {fields}.',

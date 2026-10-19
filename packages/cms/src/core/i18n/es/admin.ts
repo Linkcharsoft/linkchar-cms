@@ -4,6 +4,7 @@ const admin = {
     editPage: 'Editar una página',
     uploadImages: 'Subir imágenes',
     alerts: 'Avisos',
+    forbidden: 'No tenés acceso a esa pantalla. Si la necesitás, pedíselo a un administrador.',
     allGood: 'Todo en orden.',
     view: 'Ver',
     incomplete: '"{title}" no se publica hasta completar: {fields}.',
