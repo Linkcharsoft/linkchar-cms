@@ -7,7 +7,10 @@ const inputswitch: InputSwitchPassThroughOptions = {
     className: classNames(
       'relative inline-block shrink-0 w-11 h-6 rounded-full has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-cms-primary-ring has-[:focus-visible]:ring-offset-2',
       { [DISABLED]: props.disabled }
-    )
+    ),
+    // The inner input is the switch; a checkbox role on its wrapper nests one control in another.
+    role: undefined,
+    'aria-checked': undefined
   }),
   input: { className: 'absolute inset-0 w-full h-full p-0 m-0 opacity-0 z-10 appearance-none cursor-pointer' },
   slider: ({ props }: InputSwitchPassThroughMethodOptions) => ({

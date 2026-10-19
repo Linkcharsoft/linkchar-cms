@@ -13,7 +13,9 @@ const dropdown: DropdownPassThroughOptions = {
       { 'pr-8': props.showClear }
     )
   }),
-  trigger: { className: 'flex items-center justify-center shrink-0 w-10 text-cms-ink-600' },
+  // Keyboard and screen readers use the hidden input; the trigger and the native select only repeat it.
+  trigger: { className: 'flex items-center justify-center shrink-0 w-10 text-cms-ink-600', 'aria-hidden': true },
+  select: { 'aria-hidden': true },
   clearIcon: { className: 'absolute top-1/2 right-11 -translate-y-1/2 text-cms-ink-500 cursor-pointer' },
   panel: { className: OVERLAY },
   header: { className: 'p-2 border-b border-cms-border' },
