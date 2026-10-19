@@ -1,3 +1,5 @@
+import { isUuid } from '../kinds/shared'
+
 // Tiptap/ProseMirror JSON. The editor and the renderer share this allowlist: anything else is dropped.
 
 export interface RichTextMarkType {
@@ -55,3 +57,33 @@ const hasContent = (node: RichTextNodeType): boolean =>
 
 export const isEmptyRichText = (doc: RichTextDocType | null | undefined): boolean =>
   !doc?.content?.some(hasContent)
+
+const cleanNodes = (nodes: RichTextNodeType[]): RichTextNodeType[] => nodes.flatMap(node => {
+  if (node.type === 'image') {
+    const { mediaId, caption } = node.attrs ?? {}
+    if (!isUuid(mediaId)) return []
+    return [{ type: 'image', attrs: typeof caption === 'string' && caption ? { mediaId, caption } : { mediaId } }]
+  }
+  return [node.content ? { ...node, content: cleanNodes(node.content) } : node]
+})
+
+// Images keep only their media id and caption: URL, size and alt text come from Media, in each language.
+export const normalizeRichText = (doc: RichTextDocType): RichTextDocType =>
+  (doc.content ? { ...doc, content: cleanNodes(doc.content) } : doc)
+
+// The files and documents a text points to: its images and the links to documents of the site.
+export const richTextReferences = (doc: RichTextDocType) => {
+  const media = new Set<string>()
+  const relations = new Set<string>()
+  const visit = (node: RichTextNodeType) => {
+    const mediaId = node.type === 'image' ? node.attrs?.mediaId : undefined
+    if (isUuid(mediaId)) media.add(mediaId)
+    for (const mark of node.marks ?? []) {
+      const id = mark.type === 'link' ? mark.attrs?.id : undefined
+      if (isUuid(id)) relations.add(id)
+    }
+    node.content?.forEach(visit)
+  }
+  doc.content?.forEach(visit)
+  return { media: [...media], relations: [...relations] }
+}

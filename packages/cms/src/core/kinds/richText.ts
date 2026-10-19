@@ -1,5 +1,5 @@
-import { isEmptyRichText } from '../richText/nodes'
-import { defineField, issue, noReferences } from './registry'
+import { isEmptyRichText, normalizeRichText, richTextReferences } from '../richText/nodes'
+import { defineField, issue } from './registry'
 import { isRecord, shorten } from './shared'
 import type { BaseOptions } from '../fields'
 import type { RichTextDocType } from '../richText/nodes'
@@ -27,12 +27,12 @@ export const richText = defineField({
   kind: 'richText',
   localize: 'translate',
   defaultValue: () => null,
-  normalize: value => (isDoc(value) ? value : null),
+  normalize: value => (isDoc(value) ? normalizeRichText(value) : null),
   isEmpty: value => !isDoc(value) || isEmptyRichText(value),
   validate: (value, _field, ctx) => {
     if (value !== null && value !== undefined && !isDoc(value)) return [issue('richText')]
     return ctx.required && isEmptyRichText(value as RichTextDocType | null) ? [issue('required')] : []
   },
-  references: noReferences,
+  references: value => (isDoc(value) ? richTextReferences(value) : {}),
   summarize: value => shorten(plainText(value))
 })
