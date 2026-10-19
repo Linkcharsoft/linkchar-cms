@@ -1,11 +1,13 @@
 import { createServerClient } from '@supabase/ssr'
 import { createClient } from '@supabase/supabase-js'
 import { revalidatePath } from 'next/cache'
-import { cookies } from 'next/headers'
+import { cookies, draftMode } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { NextResponse } from 'next/server'
 import { cache } from 'react'
 import { panelPaths } from '../core/paths'
+import { createSiteReaders } from '../site/readers'
+import { documentJsonLd, documentMetadata } from '../site/seo'
 import { changePassword, markTourSeen, recordMfaChange, resetTours, updateAvatar, updateProfile } from './account'
 import { listActivity, purgeExpiredActivity } from './activity'
 import { getCurrentProfile, requireRole } from './auth'
@@ -25,6 +27,7 @@ import type { CmsClientType, CmsContextType } from './context'
 import type { Database } from './database'
 import type { CmsConfigType } from '../core/config'
 import type { PublishTargetType } from '../publish/types'
+import type { SiteDocumentType } from '../site/types'
 import type { NextRequest } from 'next/server'
 
 export interface CmsServerOptionsType {
@@ -173,6 +176,28 @@ export const createCmsServer = ({ config, supabase, publishTarget = null }: CmsS
   const handler = (fn: (ctx: CmsContextType, request: Request) => Promise<Response>) =>
     async (request: Request) => fn(await context(), request)
 
+  let publicClient: CmsClientType | null = null
+  const published = () => {
+    publicClient ??= detached(credentials().publishableKey)
+    return publicClient
+  }
+
+  // Drafts only in Draft Mode with a panel session; cookies are read only then, so built pages stay static.
+  const siteSource = async () => {
+    if ((await draftMode()).isEnabled) {
+      const ctx = await context()
+      const { data } = await ctx.db.auth.getClaims()
+      if (data?.claims) return { db: ctx.db, draft: true }
+    }
+    return { db: published(), draft: false }
+  }
+
+  const site = {
+    ...createSiteReaders({ config, supabaseUrl: () => credentials().url, source: siteSource, published }),
+    metadata: (document: SiteDocumentType) => documentMetadata(config, document),
+    jsonLd: (document: SiteDocumentType, type?: string) => documentJsonLd(config, document, type)
+  }
+
   return {
     config,
     context,
@@ -185,6 +210,7 @@ export const createCmsServer = ({ config, supabase, publishTarget = null }: CmsS
       draft: handler(enableDraft),
       disableDraft: handler(disableDraft)
     },
+    site,
     updateSession,
     proxy,
     // What the browser needs to talk to Supabase itself (uploads, MFA): public values only.

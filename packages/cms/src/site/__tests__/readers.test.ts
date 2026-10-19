@@ -33,7 +33,7 @@ const post = (n: number, es: string, en: string, publishedAt: string) => ({
 let db: FakeDbType
 let source: SiteSourceType
 
-const readers = () => createSiteReaders({ config, supabaseUrl: 'https://db.test', source: async () => source, published: () => fakeClient(db) })
+const readers = () => createSiteReaders({ config, supabaseUrl: () => 'https://db.test', source: async () => source, published: () => fakeClient(db) })
 
 beforeEach(() => {
   db = createFakeDb()

@@ -26,6 +26,7 @@
     "./panel/client": "./src/panel/client/createCmsClient.tsx",
     "./panel/routes/*": "./src/panel/routes/*.tsx",
     "./panel/styles.css": "./src/panel/theme/styles.css",
+    "./site": "./src/site/index.ts",
     "./tailwind": "./tailwind/preset.js",
     "./package.json": "./package.json"
   },

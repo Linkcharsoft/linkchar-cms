@@ -20,7 +20,8 @@ export interface SiteSourceType {
 
 export interface SiteReadersOptionsType {
   config: CmsConfigType
-  supabaseUrl: string
+  // Read on first use, so a site builds before the environment is complete.
+  supabaseUrl: () => string
   // Where each read goes: the published copy, or the drafts while previewing.
   source: () => Promise<SiteSourceType>
   // Published content only, for what is built ahead (static params, sitemap).
@@ -84,7 +85,7 @@ export const createSiteReaders = ({ config, supabaseUrl, source, published }: Si
           : db.from('published_documents').select('id, type, slugs').in('id', documentIds).then(({ data }) => data ?? [])
     ])
     return {
-      media: new Map<string, MediaItemType>(media.map(row => [row.id, mediaItemFrom(supabaseUrl, row)])),
+      media: new Map<string, MediaItemType>(media.map(row => [row.id, mediaItemFrom(supabaseUrl(), row)])),
       documents: new Map<string, LinkTargetType>(documents.map(row => [row.id, { type: row.type, slugs: strings(row.slugs) }]))
     }
   }
