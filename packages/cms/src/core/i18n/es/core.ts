@@ -42,6 +42,7 @@ const core = {
     maxBlocks: 'Podés cargar hasta {max} bloques',
     minBlocks: { one: 'Cargá al menos {count} bloque', other: 'Cargá al menos {count} bloques' },
     translationMissing: 'Falta en {language}',
+    altOf: 'Texto alternativo de {field}',
     altMissing: 'Falta el texto alternativo en {language}',
     slugTaken: 'Ya hay otro contenido con esta URL'
   },

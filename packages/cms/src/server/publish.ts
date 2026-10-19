@@ -1,6 +1,7 @@
 import { textContext, translatorFor } from '../core/config'
 import { withDefaults } from '../core/defaults'
 import { entryIds, getEntry } from '../core/entries'
+import { languageName } from '../core/i18n/translator'
 import { changedSections } from '../core/pages'
 import { panelPaths } from '../core/paths'
 import { BUILD_CONFIRMATION_TIMEOUT_MS } from '../core/publish'
@@ -8,7 +9,8 @@ import { documentReferences } from '../core/references'
 import { referenceWarnings } from '../core/relations'
 import { canPublish } from '../core/roles'
 import { resolveText } from '../core/text'
-import { slugPrefixFor } from '../core/urls'
+import { missingTranslations } from '../core/translations'
+import { entryPath, entryUrls, publishUrls } from '../core/urls'
 import { validateContent } from '../core/validation'
 import { fieldLabel } from '../core/walk'
 import { logActivity } from './activity'
@@ -21,9 +23,20 @@ import type { FieldsRecord } from '../core/fields'
 import type { MessageKeyType } from '../core/i18n/types'
 import type { BuildErrorCodeType, BuildEventType, BuildStatusType } from '../core/publish'
 import type { DocumentStatusType } from '../core/status'
+import type { LocalizedTextType } from '../core/text'
+
+// One thing that keeps a document out of the publication, with the data path the editor opens.
+export interface MissingItemType {
+  path: string
+  // The language it is missing in; null for values shared by every language.
+  locale: string | null
+  kind: 'field' | 'alt'
+  label: string
+}
 
 export interface PendingChangeType {
   id: string
+  entryId: string
   entryLabel: string
   title: string
   href: string
@@ -32,11 +45,14 @@ export interface PendingChangeType {
   revision: number
   updatedAt: string
   updatedBy: string | null
-  // Required fields still empty: the document stays out of the publication until they're filled.
+  // Required fields, translations and alt texts still empty: the document stays out of the publication until they're filled.
+  missing: MissingItemType[]
+  // The same, as the labels the publish list shows.
   problems: string[]
-  // Collections with a public URL: publishing a new slug creates the 301 from the old one.
-  redirectPrefix: string | null
-  urlChange: { from: string, to: string } | null
+  // Its URL in each locale once published.
+  urls: Record<string, string>
+  // Live URLs that change with this publish; each one leaves a 301 to the new one.
+  urlChanges: { locale: string, from: string, to: string }[]
   // Pages with changes: which sections, each linking to its place in the editor.
   sections: { label: string, href: string }[]
   // Picked items (author, category…) that won't be on the site after this publish. They don't block it.
@@ -75,26 +91,65 @@ export const describeDocument = (ctx: CmsContextType, row: StatusRowType) => {
   }
 }
 
-const missingFields = async (ctx: CmsContextType, fields: FieldsRecord, data: unknown) => {
-  const { errors } = await validateContent(ctx.config, fields, withDefaults(ctx.config, fields, data), { mode: 'publish' })
-  const texts = textContext(ctx.config)
-  return errors ? [...new Set(Object.keys(errors).map(path => fieldLabel(fields, path, texts)))] : []
+type MediaAltType = (id: string) => LocalizedTextType | undefined
+
+const missingItems = async (ctx: CmsContextType, fields: FieldsRecord, data: unknown, mediaAlt: MediaAltType): Promise<MissingItemType[]> => {
+  const { config } = ctx
+  const stored = withDefaults(config, fields, data)
+  const { errors } = await validateContent(config, fields, stored, { mode: 'publish' })
+  const texts = textContext(config)
+  const { t } = translatorFor(config)
+  const named = (label: string, locale: string | null) =>
+    (locale && locale !== config.defaultLocale ? `${label} (${languageName(locale, config.panelLocale)})` : label)
+
+  const fieldsMissing = Object.keys(errors ?? {}).map((path): MissingItemType => {
+    const last = path.split('.').pop() ?? ''
+    const locale = config.locales.includes(last) ? last : null
+    return { path, locale, kind: 'field', label: named(fieldLabel(fields, path, texts), locale) }
+  })
+  const altsMissing = missingTranslations(config, fields, stored, { mediaAlt })
+    .filter(item => item.kind === 'alt')
+    .map((item): MissingItemType => ({
+      path: item.path,
+      locale: item.locale,
+      kind: 'alt',
+      label: named(t('validation.altOf', { field: fieldLabel(fields, item.path, texts) }), item.locale)
+    }))
+  return [...fieldsMissing, ...altsMissing]
 }
+
+// Alt texts of every file the pending documents use, for the missing translations check.
+const mediaAltOf = async (ctx: CmsContextType, documents: { type: string | null, data: unknown }[]): Promise<MediaAltType> => {
+  const ids = [...new Set(documents.flatMap(({ type, data }) => {
+    const entry = type ? getEntry(ctx.config, type) : null
+    return entry ? documentReferences(ctx.config, entry.fields, withDefaults(ctx.config, entry.fields, data)).media : []
+  }))]
+  if (ids.length === 0 || ctx.config.locales.length < 2) return () => undefined
+  const { data } = await ctx.db.from('media').select('id, alt').in('id', ids)
+  const alts = new Map((data ?? []).map(row => [row.id, row.alt as LocalizedTextType]))
+  return id => alts.get(id)
+}
+
+const asPaths = (value: unknown): Record<string, string> =>
+  (value && typeof value === 'object' && !Array.isArray(value)
+    ? Object.fromEntries(Object.entries(value).filter((pair): pair is [string, string] => typeof pair[1] === 'string'))
+    : {})
 
 export const getPendingChanges = async (ctx: CmsContextType): Promise<PendingChangeType[]> => {
   const { data } = await ctx.db.from('document_status')
-    .select('id, type, data, slug, published_slug, revision, status, updated_at, updated_by, deleted_at')
+    .select('id, type, data, slugs, published_slug, published_paths, revision, status, updated_at, updated_by, deleted_at')
     .eq('pending', true).in('type', entryIds(ctx.config)).order('updated_at', { ascending: false })
 
   const rows = data ?? []
   const paths = panelPaths(ctx.config)
   const texts = textContext(ctx.config)
   const changedPages = rows.filter(row => row.id && row.status === 'changed' && row.type && getEntry(ctx.config, row.type)?.kind === 'page').map(row => row.id!)
-  const [names, published] = await Promise.all([
+  const [names, published, mediaAlt] = await Promise.all([
     authorNames(ctx, rows.map(row => row.updated_by)),
     changedPages.length > 0
       ? ctx.db.from('published_documents').select('id, data').in('id', changedPages).then(({ data: live }) => live ?? [])
-      : []
+      : [],
+    mediaAltOf(ctx, rows.filter(row => row.status !== 'unpublishing'))
   ])
 
   const changes = await Promise.all(rows.map(async (row): Promise<PendingChangeType | null> => {
@@ -102,10 +157,15 @@ export const getPendingChanges = async (ctx: CmsContextType): Promise<PendingCha
     if (!described || !row.status || row.revision === null || !row.updated_at) return null
 
     const action = row.status === 'unpublishing' ? 'unpublish' : 'publish'
-    const redirectPrefix = described.entry.kind === 'collection' ? slugPrefixFor(ctx.config, described.entry, ctx.config.defaultLocale) : null
-    const urlChanged = action === 'publish' && redirectPrefix && row.published_slug && row.slug && row.published_slug !== row.slug
+    const urls = entryUrls(ctx.config, described.entry, asPaths(row.slugs))
+    const live = asPaths(row.published_paths)
+    // Published before URLs were kept per locale: the default locale's comes from the single slug.
+    const defaultLive = live[ctx.config.defaultLocale] ?? entryPath(ctx.config, described.entry, { slug: row.published_slug })
+    if (defaultLive && row.status !== 'new') live[ctx.config.defaultLocale] = defaultLive
+    const missing = action === 'publish' ? await missingItems(ctx, described.entry.fields, row.data, mediaAlt) : []
     return {
       id: described.id,
+      entryId: row.type!,
       entryLabel: described.entryLabel,
       title: described.title,
       href: described.href,
@@ -114,9 +174,12 @@ export const getPendingChanges = async (ctx: CmsContextType): Promise<PendingCha
       revision: row.revision,
       updatedAt: row.updated_at,
       updatedBy: row.updated_by ? names[row.updated_by] ?? null : null,
-      problems: action === 'publish' ? await missingFields(ctx, described.entry.fields, row.data) : [],
-      redirectPrefix,
-      urlChange: urlChanged ? { from: `${redirectPrefix}${row.published_slug}`, to: `${redirectPrefix}${row.slug}` } : null,
+      missing,
+      problems: [...new Set(missing.map(item => item.label))],
+      urls,
+      urlChanges: action === 'publish'
+        ? Object.entries(urls).flatMap(([locale, to]) => (live[locale] && live[locale] !== to ? [{ locale, from: live[locale], to }] : []))
+        : [],
       sections: changedPages.includes(described.id)
         ? changedSections(ctx.config, described.entry.fields, row.data, published.find(live => live.id === described.id)?.data)
           .map(({ key, label }) => ({ label: resolveText(label, texts), href: paths.page(row.type!, key) }))
@@ -294,7 +357,10 @@ export const publishChanges = async (ctx: CmsContextType, selection: PublishSele
 
   // The prefix comes from the schema on the server, never from the client.
   const { data, error } = await ctx.db.rpc('publish_site', {
-    p_publish: selection.publish.map(({ id, revision }) => ({ id, revision, redirectPrefix: pending.get(id)?.redirectPrefix ?? null })),
+    p_publish: selection.publish.map(({ id, revision }) => {
+      const entry = getEntry(ctx.config, pending.get(id)!.entryId)
+      return { id, revision, urls: entry ? publishUrls(ctx.config, entry) : {} }
+    }),
     p_remove: selection.remove
   })
 

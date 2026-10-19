@@ -50,7 +50,7 @@ describe('getPendingChanges', () => {
     const home = withDefaults(cmsConfig, cmsConfig.schema.home.fields, {}) as DataRecord
     const edited = { ...home, services: { ...(home.services as DataRecord), title: { es: 'Nuevo', en: 'New' } } }
     db.tables.documents.push(
-      document(1, 'posts', completePost('Casa', 'casa-nueva'), { slug: 'casa-nueva' }),
+      document(1, 'posts', completePost('Casa', 'casa-nueva'), { slug: 'casa-nueva', slugs: { es: 'casa-nueva', en: 'casa-nueva' } }),
       document(2, 'posts', withDefaults(cmsConfig, cmsConfig.schema.posts.fields, {}) as DataRecord),
       document(3, 'home', edited),
       document(4, 'posts', completePost('Vieja', 'vieja'), { slug: 'vieja', deleted_at: at(5) })
@@ -65,12 +65,27 @@ describe('getPendingChanges', () => {
     const byId = Object.fromEntries(changes.map(change => [change.id, change]))
 
     expect(byId[ID(1)]).toMatchObject({
-      action: 'publish', status: 'changed', title: 'Casa', updatedBy: 'Ana', problems: [], redirectPrefix: '/blog/',
-      urlChange: { from: '/blog/casa', to: '/blog/casa-nueva' }, href: `/dashboard/colecciones/posts/${ID(1)}`
+      entryId: 'posts', action: 'publish', status: 'changed', title: 'Casa', updatedBy: 'Ana', problems: [], missing: [],
+      urls: { es: '/blog/casa-nueva', en: '/en/blog/casa-nueva' },
+      urlChanges: [{ locale: 'es', from: '/blog/casa', to: '/blog/casa-nueva' }],
+      href: `/dashboard/colecciones/posts/${ID(1)}`
     })
     expect(byId[ID(2)]).toMatchObject({ action: 'publish', status: 'new', problems: expect.arrayContaining(['Título', 'Dirección', 'Texto']) })
     expect(byId[ID(3)]).toMatchObject({ entryLabel: 'Inicio', sections: [{ label: 'Servicios', href: '/dashboard/paginas/home#services' }] })
     expect(byId[ID(4)]).toMatchObject({ action: 'unpublish', href: '/dashboard/papelera' })
+  })
+
+  it('names what is missing in another language, alt texts of the files in use included', async () => {
+    const post = { ...completePost('Casa', 'casa'), title: { es: 'Casa', en: '' }, cover: { es: ID(7) } }
+    db.tables.documents.push(document(1, 'posts', post))
+    db.tables.media.push({ id: ID(7), alt: { es: 'Fachada' }, caption: {} })
+
+    const [change] = await getPendingChanges(ctx)
+    expect(change.missing).toEqual([
+      { path: 'title.en', locale: 'en', kind: 'field', label: 'Título (Inglés)' },
+      { path: 'cover', locale: 'en', kind: 'alt', label: 'Texto alternativo de Imagen (Inglés)' }
+    ])
+    expect(change.problems).toEqual(['Título (Inglés)', 'Texto alternativo de Imagen (Inglés)'])
   })
 
   it('warns about picked items that will not be on the site', async () => {
@@ -145,13 +160,16 @@ describe('publishChanges', () => {
     expect(await publishChanges(ctx, { publish: [], remove: [] })).toEqual({ ok: false, error: 'errors.publish.nothing' })
   })
 
-  it('takes the redirect prefix from the schema and starts the build', async () => {
+  it('takes the URLs of each locale from the schema and starts the build', async () => {
     const rpc = vi.fn(db.rpc.publish_site)
     db.rpc.publish_site = rpc
     ctx.publishTarget = target(async () => ({ ok: true, jobId: 'job-1' }))
 
     expect(await publishChanges(ctx, { publish: [{ id: ID(1), revision: 2 }], remove: [] })).toEqual({ ok: true, published: 1, removed: 0, buildStatus: 'building' })
-    expect(rpc).toHaveBeenCalledWith({ p_publish: [{ id: ID(1), revision: 2, redirectPrefix: '/blog/' }], p_remove: [] })
+    expect(rpc).toHaveBeenCalledWith({
+      p_publish: [{ id: ID(1), revision: 2, urls: { es: { prefix: '/blog/', primary: true }, en: { prefix: '/en/blog/', primary: false } } }],
+      p_remove: []
+    })
     expect(db.tables.publish_log[0]).toMatchObject({ build_status: 'building', job_id: 'job-1' })
   })
 

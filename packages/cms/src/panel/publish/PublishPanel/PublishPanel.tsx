@@ -58,12 +58,12 @@ const ChangeItem = ({ change, highlighted }: { change: PendingChangeType, highli
           ))}
         </p>
       )}
-      {change.urlChange && (
-        <p className='PublishPanel__Note'>
+      {change.urlChanges.map(urlChange => (
+        <p key={urlChange.locale} className='PublishPanel__Note'>
           <i className='pi pi-directions' aria-hidden='true' />
-          {t('publishPanel.urlChange', change.urlChange)}
+          {t('publishPanel.urlChange', urlChange)}
         </p>
-      )}
+      ))}
       {change.problems.length > 0 && (
         <p className='PublishPanel__Problem'>
           <i className='pi pi-exclamation-triangle' aria-hidden='true' />

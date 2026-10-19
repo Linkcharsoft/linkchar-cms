@@ -8,6 +8,7 @@ vi.mock('next/navigation', () => ({ useRouter: () => ({ refresh: vi.fn(), push: 
 
 const change = (overrides: Partial<PendingChangeType>): PendingChangeType => ({
   id: 'a',
+  entryId: 'posts',
   entryLabel: 'Posts',
   title: 'Hola',
   href: '/dashboard/colecciones/posts/a',
@@ -16,9 +17,10 @@ const change = (overrides: Partial<PendingChangeType>): PendingChangeType => ({
   revision: 1,
   updatedAt: '2026-10-01T12:00:00Z',
   updatedBy: null,
+  missing: [],
   problems: [],
-  redirectPrefix: null,
-  urlChange: null,
+  urls: {},
+  urlChanges: [],
   sections: [],
   warnings: [],
   ...overrides

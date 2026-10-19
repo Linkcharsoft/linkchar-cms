@@ -45,6 +45,7 @@ const core = {
     maxBlocks: 'You can add up to {max} blocks',
     minBlocks: { one: 'Add at least {count} block', other: 'Add at least {count} blocks' },
     translationMissing: 'Missing in {language}',
+    altOf: 'Alt text of {field}',
     altMissing: 'Missing alt text in {language}',
     slugTaken: 'Another item already uses this URL'
   },

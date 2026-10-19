@@ -76,12 +76,17 @@ const documentStatus = (db: FakeDbType): Row[] => db.tables.documents.map(doc =>
     ? (doc.visible && doc.deleted_at === null ? 'new' : 'hidden')
     : doc.deleted_at !== null || !doc.visible
       ? 'unpublishing'
-      : !same(doc.data, live.data) || doc.slug !== live.slug || doc.key !== live.key || doc.sort_order !== live.sort_order ? 'changed' : 'published'
+      : !same(doc.data, live.data) || doc.slug !== live.slug || !same(doc.slugs ?? {}, live.slugs ?? {}) || doc.key !== live.key || doc.sort_order !== live.sort_order
+        ? 'changed'
+        : 'published'
   return {
     ...doc,
     published_at: live?.published_at ?? null,
     published_by: live?.published_by ?? null,
     published_slug: live?.slug ?? null,
+    slugs: doc.slugs ?? {},
+    published_slugs: live?.slugs ?? null,
+    published_paths: live?.paths ?? null,
     status,
     pending: ['new', 'changed', 'unpublishing'].includes(status)
   }
