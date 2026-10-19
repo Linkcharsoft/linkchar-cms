@@ -68,3 +68,38 @@ test('retries a failed build from the publish screen', async ({ page }) => {
 
   await admin.from('publish_log').delete().or(`id.eq.${failed!.id},retry_of.eq.${failed!.id}`)
 })
+
+test('warns where an item is used before it leaves the site', async ({ page }) => {
+  const doc = (text: string) => ({ type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text }] }] })
+  const { data: member } = await admin.from('documents').insert({ type: 'team', data: { name: 'E2E Autora' }, visible: true }).select('id, data').single()
+  const post = {
+    title: { es: 'E2E Post con autora', en: 'E2E Post with author' },
+    slug: { es: 'e2e-post-con-autora', en: 'e2e-post-with-author' },
+    body: { es: doc('Hola'), en: doc('Hi') },
+    author: member!.id
+  }
+  const { data: live } = await admin.from('documents').insert({ type: 'posts', slug: 'e2e-post-con-autora', data: post, visible: true }).select('id').single()
+  await admin.from('published_documents').insert([
+    { id: member!.id, type: 'team', data: member!.data },
+    { id: live!.id, type: 'posts', slug: 'e2e-post-con-autora', data: post }
+  ])
+
+  await signIn(page, QA.super.email)
+  await page.goto(`/dashboard/colecciones/team/${member!.id}`)
+  await page.waitForLoadState('networkidle')
+  await page.getByRole('button', { name: 'Papelera' }).click()
+  const dialog = page.locator('.ConfirmAction')
+  await expect(dialog).toContainText('Lo usan estos contenidos, que al publicar van a quedar sin él:')
+  await expect(dialog).toContainText('Blog › E2E Post con autora')
+  await dialog.getByRole('button', { name: 'Mandar a la papelera' }).click()
+  await toast(page, 'Enviado a la papelera')
+
+  await page.goto('/dashboard/publicar')
+  await page.waitForLoadState('networkidle')
+  await expect(page.locator('[data-tour=publish-pending]'))
+    .toContainText('Blog › E2E Post con autora lo usa y sigue en el sitio: va a quedar sin este contenido.')
+
+  const ids = [member!.id, live!.id]
+  await admin.from('published_documents').delete().in('id', ids)
+  await admin.from('documents').delete().in('id', ids)
+})
