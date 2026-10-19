@@ -11,12 +11,12 @@ import { languageName } from '../../../core/i18n/translator'
 import { changedKeys, pickKeys, rebase, sameContent } from '../../../core/merge'
 import { pageSections } from '../../../core/pages'
 import { visibleFields } from '../../../core/permissions'
-import { resolveEntryPath } from '../../../core/preview'
+import { entryPath, slugsOf } from '../../../core/urls'
 import { validateContent } from '../../../core/validation'
 import { fieldLabel } from '../../../core/walk'
 import { useCms, usePaths, useT, useTextContext } from '../../client/context'
 import { EntryContext } from '../../fields/entryContext'
-import { fieldId, useStoredText } from '../../fields/fieldUtils'
+import { fieldId } from '../../fields/fieldUtils'
 import { errorPaths, FormFocusContext } from '../../fields/formFocusContext'
 import { ReferencesContext } from '../../fields/referencesContext'
 import { RemountContext } from '../../fields/remountContext'
@@ -78,7 +78,6 @@ const CmsForm = ({
   const { config, actions } = useCms()
   const paths = usePaths()
   const textCtx = useTextContext()
-  const stored = useStoredText()
   const router = useRouter()
   const pathname = usePathname()
   const notify = useNotify()
@@ -286,8 +285,7 @@ const CmsForm = ({
   const issues = [...new Set([...missingPaths, ...errorPaths(formik.errors)])]
   const extra = missing.length - MAX_MISSING_LISTED
   const shownStatus = status === 'published' && edited ? 'changed' : status
-  const slug = entry.kind === 'collection' && entry.slugField ? stored(formik.values[entry.slugField]) : undefined
-  const previewPath = resolveEntryPath(entry.path, slug)
+  const previewPath = entryPath(config, entry, { locale, slug: slugsOf(config, entry, formik.values)[locale] })
   const showActions = toolbar || documentId || entry.path
   const showPreview = previewOpen && !!previewPath
 

@@ -4,7 +4,7 @@ import { getIn, useFormikContext } from 'formik'
 import { classNames } from 'primereact/utils'
 import { use, useEffect, useState } from 'react'
 import { getEntry } from '../../../core/entries'
-import { resolveEntryPath } from '../../../core/preview'
+import { entryPath, slugsOf } from '../../../core/urls'
 import { useCms, useT } from '../../client/context'
 import { EntryContext } from '../../fields/entryContext'
 import { useStoredText } from '../../fields/fieldUtils'
@@ -26,7 +26,7 @@ const SeoPreview = ({ name, mark }: Props) => {
   const { config } = useCms()
   const stored = useStoredText()
   const { values } = useFormikContext<Record<string, unknown>>()
-  const { entryId } = use(EntryContext)
+  const { entryId, locale } = use(EntryContext)
   const entry = entryId ? getEntry(config, entryId) : null
   const text = (path: string) => stored(getIn(values, path)).trim()
 
@@ -35,8 +35,7 @@ const SeoPreview = ({ name, mark }: Props) => {
   const fallbackTitle = mark.titleFrom ? text(mark.titleFrom) : ''
   const fallbackDescription = mark.descriptionFrom ? text(mark.descriptionFrom) : ''
 
-  const slugField = entry?.kind === 'collection' ? entry.slugField : undefined
-  const path = mark.path ?? resolveEntryPath(entry?.path, slugField ? stored(getIn(values, slugField)) : undefined) ?? '/'
+  const path = (entry?.path ? entryPath(config, entry, { locale, slug: slugsOf(config, entry, values)[locale] }) : mark.path) ?? '/'
   const [host, setHost] = useState(config.site.url ? new URL(config.site.url).host : '')
   // Without site.url the panel's own host stands in; read after hydration so server and client agree.
   useEffect(() => {

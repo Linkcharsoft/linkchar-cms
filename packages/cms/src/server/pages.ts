@@ -3,6 +3,7 @@ import { entryIds, getPage } from '../core/entries'
 import { pageSections, usedEntries } from '../core/pages'
 import { panelPaths } from '../core/paths'
 import { resolveText } from '../core/text'
+import { entryPath } from '../core/urls'
 import { authorNames } from './authors'
 import type { CmsContextType } from './context'
 import type { DocumentStatusType } from '../core/status'
@@ -53,7 +54,7 @@ export const listPages = async (ctx: CmsContextType): Promise<PageListItemType[]
       id,
       label: resolveText(page.label, texts),
       icon: page.icon ?? 'pi-file',
-      path: page.path ?? null,
+      path: entryPath(ctx.config, page),
       href: paths.page(id),
       status: (row?.status as DocumentStatusType | undefined) ?? null,
       updatedAt: row?.updated_at ?? null,

@@ -44,7 +44,7 @@ export interface SeoMarkType {
   // Data keys used when the SEO title or description is left empty.
   titleFrom?: string
   descriptionFrom?: string
-  // Fixed page URL; otherwise the entry path with the document slug.
+  // Fixed URL for content without a path of its own; entries with a path use it, in the locale being edited.
   path?: string
 }
 

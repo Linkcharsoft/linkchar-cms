@@ -3,7 +3,6 @@ import { describe, expect, it } from 'vitest'
 import { actionsInGroup, ACTIVITY_ACTIONS, ACTIVITY_GROUPS, isActivityGroup } from '../activity'
 import { defineCmsConfig } from '../config'
 import { panelPaths } from '../paths'
-import { resolveEntryPath, slugPrefix } from '../preview'
 
 describe('panelPaths', () => {
   it('builds every panel URL under basePath', () => {
@@ -29,26 +28,6 @@ describe('panelPaths', () => {
 
   it('is built once per config', () => {
     expect(panelPaths(cmsConfig)).toBe(panelPaths(cmsConfig))
-  })
-})
-
-describe('entry paths', () => {
-  it('returns fixed pages as they are', () => {
-    expect(resolveEntryPath('/')).toBe('/')
-    expect(resolveEntryPath(undefined)).toBeNull()
-  })
-
-  it('fills the slug of collection documents', () => {
-    expect(resolveEntryPath('/blog/:slug', 'mi-post')).toBe('/blog/mi-post')
-    expect(resolveEntryPath('/blog/:slug', 'año nuevo')).toBe('/blog/a%C3%B1o%20nuevo')
-    expect(resolveEntryPath('/blog/:slug', '  ')).toBeNull()
-    expect(resolveEntryPath('/blog/:slug', null)).toBeNull()
-  })
-
-  it('derives the slug prefix of collection paths', () => {
-    expect(slugPrefix('/blog/:slug')).toBe('/blog/')
-    expect(slugPrefix('/')).toBeNull()
-    expect(slugPrefix(undefined)).toBeNull()
   })
 })
 

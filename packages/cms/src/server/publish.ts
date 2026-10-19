@@ -3,12 +3,12 @@ import { withDefaults } from '../core/defaults'
 import { entryIds, getEntry } from '../core/entries'
 import { changedSections } from '../core/pages'
 import { panelPaths } from '../core/paths'
-import { slugPrefix } from '../core/preview'
 import { BUILD_CONFIRMATION_TIMEOUT_MS } from '../core/publish'
 import { documentReferences } from '../core/references'
 import { referenceWarnings } from '../core/relations'
 import { canPublish } from '../core/roles'
 import { resolveText } from '../core/text'
+import { slugPrefixFor } from '../core/urls'
 import { validateContent } from '../core/validation'
 import { fieldLabel } from '../core/walk'
 import { logActivity } from './activity'
@@ -102,7 +102,7 @@ export const getPendingChanges = async (ctx: CmsContextType): Promise<PendingCha
     if (!described || !row.status || row.revision === null || !row.updated_at) return null
 
     const action = row.status === 'unpublishing' ? 'unpublish' : 'publish'
-    const redirectPrefix = described.entry.kind === 'collection' ? slugPrefix(described.entry.path) : null
+    const redirectPrefix = described.entry.kind === 'collection' ? slugPrefixFor(ctx.config, described.entry, ctx.config.defaultLocale) : null
     const urlChanged = action === 'publish' && redirectPrefix && row.published_slug && row.slug && row.published_slug !== row.slug
     return {
       id: described.id,
