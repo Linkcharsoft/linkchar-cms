@@ -17,7 +17,7 @@ const status = {
   publishStatusHelp: {
     building: 'El sitio se está actualizando. Suele tardar unos 5 minutos.',
     success: 'El sitio ya muestra estos cambios.',
-    failed: 'No se pudo actualizar el sitio, que sigue mostrando la versión anterior. Probá publicar de nuevo; si vuelve a fallar, avisá a soporte.',
+    failed: 'No se pudo actualizar el sitio, que sigue mostrando la versión anterior. Reintentá desde Publicar; si vuelve a fallar, avisá a soporte.',
     unconfirmed: 'No recibimos la confirmación de que el sitio se actualizó. Revisá el sitio: si no ves los cambios, avisá a soporte.'
   },
   roles: {

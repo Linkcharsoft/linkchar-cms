@@ -99,8 +99,9 @@ const ConfirmList = ({ items, title }: { items: PendingChangeType[], title: stri
   )
 }
 
-const HistoryItem = ({ record }: { record: PublishRecordType }) => {
+const HistoryItem = ({ record, onRetry }: { record: PublishRecordType, onRetry?: () => Promise<void> }) => {
   const { t } = useT()
+  const [retrying, setRetrying] = useState(false)
   const formatDate = useFormatDate()
   const displayed = publishDisplayStatus(record.buildStatus, record.requestedAt)
 
@@ -110,7 +111,10 @@ const HistoryItem = ({ record }: { record: PublishRecordType }) => {
         <span className='PublishPanel__ItemTitle'>
           {[formatDate(record.requestedAt), record.requestedBy].filter(Boolean).join(' · ')}
         </span>
-        <Tag value={t(`publishStatus.${displayed}`)} severity={PUBLISH_SEVERITIES[displayed]} />
+        <span className='PublishPanel__ItemTags'>
+          {record.retryOf !== null && <Tag value={t('publishPanel.retryOf')} severity='secondary' />}
+          <Tag value={t(`publishStatus.${displayed}`)} severity={PUBLISH_SEVERITIES[displayed]} />
+        </span>
       </div>
       <details className='PublishPanel__Details'>
         <summary className='PublishPanel__Meta'>
@@ -134,6 +138,23 @@ const HistoryItem = ({ record }: { record: PublishRecordType }) => {
       )}
       {record.errorCode && <p className='PublishPanel__Note'>{t('publishPanel.errorReason', { reason: t(`errors.build.${record.errorCode}`) })}</p>}
       {record.errorDetail && <p className='PublishPanel__Note'>{t('publishPanel.errorDetail', { detail: record.errorDetail })}</p>}
+      {onRetry && (
+        <CustomButton
+          type='button'
+          size='sm'
+          variant='secondary'
+          className='PublishPanel__Retry'
+          loading={retrying}
+          onClick={async () => {
+            setRetrying(true)
+            await onRetry()
+            setRetrying(false)
+          }}
+        >
+          <i className='pi pi-refresh' aria-hidden='true' />
+          {t('publishPanel.retry')}
+        </CustomButton>
+      )}
     </li>
   )
 }
@@ -179,6 +200,18 @@ const PublishPanel = ({ changes, history, canPublish, highlight }: Props) => {
     notify(result.buildStatus === 'failed'
       ? { severity: 'warn', summary: t('publishPanel.done'), detail: t('publishPanel.buildNotStarted'), life: 8000 }
       : { severity: 'success', summary: t('publishPanel.done'), detail: t('publishPanel.eta') })
+    router.refresh()
+  }
+
+  const retry = async (publishId: number) => {
+    const result = await actions.retryPublish(publishId)
+    if (!result.ok) {
+      notify({ severity: 'error', summary: t('publishPanel.retryFailed'), detail: translate(result.error), life: 6000 })
+    } else {
+      notify(result.buildStatus === 'failed'
+        ? { severity: 'warn', summary: t('publishPanel.retryFailed'), detail: t('publishPanel.buildNotStarted'), life: 8000 }
+        : { severity: 'success', summary: t('publishPanel.retrying'), detail: t('publishPanel.eta') })
+    }
     router.refresh()
   }
 
@@ -236,7 +269,13 @@ const PublishPanel = ({ changes, history, canPublish, highlight }: Props) => {
           ? <EmptyState compact icon='pi pi-send' title={t('publishPanel.historyEmpty')} />
           : (
             <ul className='PublishPanel__List'>
-              {history.map(record => <HistoryItem key={record.id} record={record} />)}
+              {history.map((record, index) => (
+                <HistoryItem
+                  key={record.id}
+                  record={record}
+                  onRetry={index === 0 && canPublish && record.buildStatus === 'failed' ? () => retry(record.id) : undefined}
+                />
+              ))}
             </ul>
           )}
       </section>

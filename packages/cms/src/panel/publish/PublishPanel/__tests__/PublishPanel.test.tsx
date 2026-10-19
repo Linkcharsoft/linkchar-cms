@@ -1,4 +1,4 @@
-import { cleanup, screen } from '@testing-library/react'
+import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { renderPanel } from '../../../__tests__/render'
 import PublishPanel from '../PublishPanel'
@@ -34,6 +34,7 @@ const record: PublishRecordType = {
   finishedAt: '2026-10-01T12:05:00Z',
   errorCode: 'hook_refused',
   errorDetail: 'HTTP 403',
+  retryOf: null,
   items: [{ id: 'a', title: null, action: 'publish' }]
 }
 
@@ -63,5 +64,22 @@ describe('PublishPanel', () => {
     expect(screen.getByText('Motivo: El servicio que actualiza el sitio rechazó el pedido.')).toBeTruthy()
     expect(screen.getByText('Detalle técnico: HTTP 403')).toBeTruthy()
     expect(screen.getByText('Contenido eliminado')).toBeTruthy()
+  })
+
+  it('retries the latest failed publish', async () => {
+    const retryPublish = vi.fn(async () => ({ ok: true as const, published: 0, removed: 0, buildStatus: 'building' as const }))
+    const older = { ...record, id: 0, requestedAt: '2026-09-30T12:00:00Z' }
+    renderPanel(<PublishPanel changes={[]} history={[record, older]} canPublish />, { actions: { retryPublish } as never })
+
+    const buttons = screen.getAllByRole('button', { name: 'Reintentar' })
+    expect(buttons).toHaveLength(1)
+    fireEvent.click(buttons[0])
+    await waitFor(() => expect(retryPublish).toHaveBeenCalledWith(1))
+  })
+
+  it('offers no retry without permission, and marks a retry in the history', () => {
+    renderPanel(<PublishPanel changes={[]} history={[{ ...record, id: 2, retryOf: 1 }]} canPublish={false} />)
+    expect(screen.queryByRole('button', { name: 'Reintentar' })).toBeNull()
+    expect(screen.getByText('Reintento')).toBeTruthy()
   })
 })

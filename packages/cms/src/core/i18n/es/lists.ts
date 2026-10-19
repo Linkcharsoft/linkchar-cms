@@ -73,7 +73,11 @@ const lists = {
     removed: { one: '{count} quitado', other: '{count} quitados' },
     removedItem: 'Quitado: {title}',
     errorReason: 'Motivo: {reason}',
-    errorDetail: 'Detalle técnico: {detail}'
+    errorDetail: 'Detalle técnico: {detail}',
+    retry: 'Reintentar',
+    retryOf: 'Reintento',
+    retrying: 'Reintentando la actualización del sitio',
+    retryFailed: 'No se pudo reintentar'
   },
   trashList: {
     subtitle: 'Los contenidos quedan acá {days} días y después se borran solos. Las imágenes y archivos tienen su propia papelera en {media}.',

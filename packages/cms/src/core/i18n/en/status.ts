@@ -20,7 +20,7 @@ const status = {
   publishStatusHelp: {
     building: 'The site is updating. It usually takes about 5 minutes.',
     success: 'The site already shows these changes.',
-    failed: 'The site could not be updated and still shows the previous version. Try publishing again; if it fails again, contact support.',
+    failed: 'The site could not be updated and still shows the previous version. Retry from Publish; if it fails again, contact support.',
     unconfirmed: 'We did not get confirmation that the site was updated. Check the site: if you don\'t see the changes, contact support.'
   },
   roles: {

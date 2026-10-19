@@ -76,7 +76,11 @@ const lists = {
     removed: { one: '{count} removed', other: '{count} removed' },
     removedItem: 'Removed: {title}',
     errorReason: 'Reason: {reason}',
-    errorDetail: 'Technical detail: {detail}'
+    errorDetail: 'Technical detail: {detail}',
+    retry: 'Retry',
+    retryOf: 'Retry',
+    retrying: 'Retrying the site update',
+    retryFailed: 'Could not retry'
   },
   trashList: {
     subtitle: 'Content stays here for {days} days and is then deleted automatically. Images and files have their own trash in {media}.',
