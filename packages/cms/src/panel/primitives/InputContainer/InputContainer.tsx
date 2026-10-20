@@ -11,6 +11,10 @@ interface Props {
   help?: string
   // Right-aligned next to the label, e.g. a character counter.
   aside?: ReactNode
+  // Right after the label, e.g. "Same in every language".
+  badge?: ReactNode
+  // Between the label and the input, e.g. the original text of a translation.
+  note?: ReactNode
   children: ReactNode
 }
 
@@ -20,19 +24,24 @@ const InputContainer = ({
   error,
   help,
   aside,
+  badge,
+  note,
   children
 }: Props) => {
+  const title = badge
+    ? <span className='InputContainer__Title'><Label htmlFor={htmlFor}>{label}</Label>{badge}</span>
+    : <Label htmlFor={htmlFor}>{label}</Label>
+
   return (
     <div className="InputContainer">
       {aside ? (
         <div className='InputContainer__Header'>
-          <Label htmlFor={htmlFor}>{label}</Label>
+          {title}
           { aside }
         </div>
-      ) : (
-        <Label htmlFor={htmlFor}>{label}</Label>
-      )}
+      ) : title}
       {help && <p id={`${htmlFor}-help`} className='InputContainer__Help'>{help}</p>}
+      {note}
       { children }
       <InputError message={error}/>
     </div>

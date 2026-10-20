@@ -10,15 +10,18 @@ import InputError from '../../primitives/InputError/InputError'
 import { fieldId, useFieldError } from '../fieldUtils'
 import EntryPicker from './EntryPicker'
 import type { LinkKindType, LinkValueType } from '../../../core/kinds/link'
+import type { ReactNode } from 'react'
 
 interface Props {
   name: string
   label: string
   allow?: readonly LinkKindType[]
+  // Next to the legend, e.g. "Same in every language".
+  badge?: ReactNode
 }
 
 // Groups type + destination + "new tab" under one fieldset; errors point at the destination.
-const LinkInput = ({ name, label, allow }: Props) => {
+const LinkInput = ({ name, label, allow, badge }: Props) => {
   const { t } = useT()
   const [{ value: link }, , linkHelpers] = useField<LinkValueType>(name)
   const [{ value: type }, , typeHelpers] = useField<LinkKindType>(`${name}.type`)
@@ -32,7 +35,7 @@ const LinkInput = ({ name, label, allow }: Props) => {
 
   return (
     <fieldset className='LinkInput'>
-      <legend className='LinkInput__Legend'>{label}</legend>
+      <legend className='LinkInput__Legend'>{label}{badge}</legend>
 
       <div className='LinkInput__Row'>
         <Dropdown

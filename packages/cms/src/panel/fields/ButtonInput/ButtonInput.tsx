@@ -7,6 +7,7 @@ import { useT } from '../../client/context'
 import InputContainer from '../../primitives/InputContainer/InputContainer'
 import { fieldId, useFieldError, useFieldLabel, usePartPath, useText } from '../fieldUtils'
 import LinkInput from '../LinkInput/LinkInput'
+import { SharedBadge, useLocaleNote } from '../LocaleNote/LocaleNote'
 import type { ButtonField } from '../../../core/kinds/button'
 
 interface Props {
@@ -23,6 +24,7 @@ const ButtonInput = ({ name, field }: Props) => {
   const [{ value: variant }, , variantHelpers] = useField<string>(`${name}.variant`)
   const labelError = useFieldError(labelPath)
   const id = fieldId(name)
+  const languages = useLocaleNote(name, field, 'label')
 
   return (
     <fieldset className='ButtonInput'>
@@ -30,9 +32,10 @@ const ButtonInput = ({ name, field }: Props) => {
       {field.help && <p className='ButtonInput__Help'>{text(field.help)}</p>}
 
       <div className='ButtonInput__Row'>
-        <InputContainer label={t('fields.button.text')} htmlFor={`${id}-label`} error={labelError}>
+        <InputContainer label={t('fields.button.text')} htmlFor={`${id}-label`} error={labelError} note={languages.note}>
           <InputText
             id={`${id}-label`}
+            aria-describedby={languages.describedBy}
             value={buttonText ?? ''}
             maxLength={40}
             autoComplete='off'
@@ -44,7 +47,7 @@ const ButtonInput = ({ name, field }: Props) => {
         </InputContainer>
 
         {field.variants.length > 1 && (
-          <InputContainer label={t('fields.button.style')} htmlFor={`${id}-variant`} error={undefined}>
+          <InputContainer label={t('fields.button.style')} htmlFor={`${id}-variant`} error={undefined} badge={<SharedBadge />}>
             <Dropdown
               inputId={`${id}-variant`}
               value={variant}
@@ -55,7 +58,7 @@ const ButtonInput = ({ name, field }: Props) => {
         )}
       </div>
 
-      <LinkInput name={`${name}.link`} label={t('fields.button.target')} />
+      <LinkInput name={`${name}.link`} label={t('fields.button.target')} badge={<SharedBadge />} />
     </fieldset>
   )
 }

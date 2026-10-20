@@ -11,7 +11,8 @@ import type { TextType } from '../../core/text'
 
 export const fieldId = (name: string) => `cms-${name.replace(/\./g, '-')}`
 
-export const describedBy = (name: string, field: { help?: TextType }) => (field.help ? `${fieldId(name)}-help` : undefined)
+export const describedBy = (name: string, field: { help?: TextType }, ...extra: (string | undefined)[]) =>
+  [field.help ? `${fieldId(name)}-help` : undefined, ...extra].filter(Boolean).join(' ') || undefined
 
 // Schema texts (labels, help, placeholders) in the panel language.
 export const useText = () => {

@@ -1,6 +1,10 @@
 import cmsConfig from '@playground/cms.config'
 import { render } from '@testing-library/react'
+import { Formik } from 'formik'
 import { CmsPanelContext } from '../client/context'
+import { EntryContext } from '../fields/entryContext'
+import { MediaRegistryContext } from '../fields/referencesContext'
+import type { MediaItemType } from '../../core/media'
 import type { CmsActionsType, CmsPanelType } from '../client/context'
 import type { ReactElement } from 'react'
 
@@ -19,3 +23,20 @@ export const panelFor = (overrides: Partial<CmsPanelType> = {}): CmsPanelType =>
 
 export const renderPanel = (ui: ReactElement, overrides: Partial<CmsPanelType> = {}) =>
   render(<CmsPanelContext.Provider value={panelFor(overrides)}>{ui}</CmsPanelContext.Provider>)
+
+interface FieldContextType {
+  values: Record<string, unknown>
+  locale?: string
+  media?: Record<string, MediaItemType>
+}
+
+// An input as the editor renders it: inside Formik, in one language, with the files it knows.
+export const renderField = (ui: ReactElement, { values, locale = 'es', media = {} }: FieldContextType, overrides: Partial<CmsPanelType> = {}) =>
+  renderPanel(
+    <Formik initialValues={values} onSubmit={() => undefined}>
+      <EntryContext value={{ entryId: null, locale }}>
+        <MediaRegistryContext value={{ media, remember: () => undefined }}>{ui}</MediaRegistryContext>
+      </EntryContext>
+    </Formik>,
+    overrides
+  )

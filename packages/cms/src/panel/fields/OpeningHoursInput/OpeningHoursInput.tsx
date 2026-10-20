@@ -8,6 +8,7 @@ import { weekDayName } from '../../../core/kinds/openingHours'
 import { useCms, useT } from '../../client/context'
 import InputError from '../../primitives/InputError/InputError'
 import { fieldId, useFieldError, useFieldLabel, usePartPath, useText } from '../fieldUtils'
+import { SharedBadge, useLocaleNote } from '../LocaleNote/LocaleNote'
 import type { DayHoursType, OpeningHoursField } from '../../../core/kinds/openingHours'
 
 interface Props {
@@ -83,19 +84,23 @@ const OpeningHoursInput = ({ name, field }: Props) => {
   const [{ value: note, onBlur }, , noteHelpers] = useField<string>(notePath)
   const noteError = useFieldError(notePath)
   const noteId = `${fieldId(name)}-note`
+  const languages = useLocaleNote(name, field, 'note')
 
   return (
     <fieldset className='OpeningHoursInput'>
       <legend className='OpeningHoursInput__Legend'>{label(field)}</legend>
       {field.help && <p className='OpeningHoursInput__Help'>{text(field.help)}</p>}
 
+      <SharedBadge />
       <ul className='OpeningHoursInput__Days'>
         {value.days.map((day, index) => <DayRow key={day.day} name={name} index={index} />)}
       </ul>
 
       <label htmlFor={noteId} className='OpeningHoursInput__NoteLabel'>{t('openingHoursInput.note')}</label>
+      {languages.note}
       <InputText
         id={noteId}
+        aria-describedby={languages.describedBy}
         name={notePath}
         value={note ?? ''}
         maxLength={200}

@@ -3,6 +3,7 @@ import { useField } from 'formik'
 import { Calendar } from 'primereact/calendar'
 import InputContainer from '../../primitives/InputContainer/InputContainer'
 import { describedBy, fieldId, useFieldError, useFieldLabel, useText } from '../fieldUtils'
+import { useLocaleNote } from '../LocaleNote/LocaleNote'
 import type { DateField, DatetimeField } from '../../../core/fields'
 
 interface Props {
@@ -30,10 +31,11 @@ const DateInput = ({ name, field }: Props) => {
   const [{ value }, , { setValue, setTouched }] = useField<string | null>(name)
   const error = useFieldError(name)
   const id = fieldId(name)
+  const languages = useLocaleNote(name, field)
   const withTime = field.kind === 'datetime'
 
   return (
-    <InputContainer label={label(field)} htmlFor={id} error={error} help={text(field.help)}>
+    <InputContainer label={label(field)} htmlFor={id} error={error} help={text(field.help)} badge={languages.badge}>
       <Calendar
         inputId={id}
         name={name}

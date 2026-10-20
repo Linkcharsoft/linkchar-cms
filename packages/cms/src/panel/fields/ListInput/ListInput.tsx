@@ -9,7 +9,9 @@ import useSortableField from '../../editor/useSortableField'
 import { useConfirm } from '../../primitives/ConfirmAction/ConfirmAction'
 import CustomButton from '../../primitives/CustomButton/CustomButton'
 import InputError from '../../primitives/InputError/InputError'
+import Notice from '../../primitives/Notice/Notice'
 import { useFieldError, useFieldLabel, useStoredText, useText } from '../fieldUtils'
+import { useEditingTranslation } from '../LocaleNote/LocaleNote'
 import type { ListField } from '../../../core/fields'
 
 interface Props {
@@ -21,6 +23,7 @@ type ItemType = { _key: string } & Record<string, unknown>
 
 const ListInput = ({ name, field }: Props) => {
   const { t } = useT()
+  const translating = useEditingTranslation()
   const { config } = useCms()
   const confirm = useConfirm()
   const text = useText()
@@ -50,6 +53,7 @@ const ListInput = ({ name, field }: Props) => {
         <span className='ListInput__Count'>{field.max !== undefined ? t('fields.list.count', { count: items.length, max: field.max }) : items.length}</span>
       </legend>
       {field.help && <p className='ListInput__Help'>{text(field.help)}</p>}
+      {translating && <Notice>{t('fields.locale.sharedItems')}</Notice>}
 
       {items.length > 0 && (
         <SortableList

@@ -126,6 +126,13 @@ const editor = {
     }
   },
   fields: {
+    locale: {
+      shared: 'Same in every language',
+      sharedItems: 'Adding, removing or reordering items changes every language; here you translate their texts.',
+      originalEmpty: 'No text in {language}.',
+      showAll: 'Show all',
+      showLess: 'Show less'
+    },
     chooseOne: 'Choose an option',
     chooseMany: 'Choose one or more options',
     regenerateSlug: 'Generate again',

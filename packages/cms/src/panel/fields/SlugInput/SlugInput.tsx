@@ -10,6 +10,7 @@ import CustomButton from '../../primitives/CustomButton/CustomButton'
 import InputContainer from '../../primitives/InputContainer/InputContainer'
 import { EntryContext } from '../entryContext'
 import { describedBy, fieldId, useFieldError, useFieldLabel, useText, useValuePath } from '../fieldUtils'
+import { useLocaleNote } from '../LocaleNote/LocaleNote'
 import type { SlugField } from '../../../core/fields'
 
 interface Props {
@@ -32,6 +33,7 @@ const SlugInput = ({ name, field }: Props) => {
   const [{ value, onBlur }, , { setValue }] = useField<string>(path)
   const error = useFieldError(path)
   const id = fieldId(name)
+  const languages = useLocaleNote(name, field)
 
   const sourceValue = getIn(values, name.split('.').slice(0, -1).concat(field.from).join('.'))
   const source = String((isLocaleMap(sourceValue, config.locales) ? sourceValue[locale || config.defaultLocale] : sourceValue) ?? '')
@@ -42,7 +44,7 @@ const SlugInput = ({ name, field }: Props) => {
   }, [isManual, source, value, setValue])
 
   return (
-    <InputContainer label={label(field)} htmlFor={id} error={error} help={text(field.help)}>
+    <InputContainer label={label(field)} htmlFor={id} error={error} help={text(field.help)} badge={languages.badge} note={languages.note}>
       <div className='SlugInput'>
         <span className='SlugInput__Prefix' aria-hidden='true'>/</span>
         <InputText
@@ -52,7 +54,7 @@ const SlugInput = ({ name, field }: Props) => {
           autoComplete='off'
           className='SlugInput__Input'
           invalid={!!error}
-          aria-describedby={describedBy(name, field)}
+          aria-describedby={describedBy(name, field, languages.describedBy)}
           onBlur={event => {
             setValue(slugify(value ?? ''))
             onBlur(event)

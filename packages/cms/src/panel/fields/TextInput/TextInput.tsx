@@ -6,6 +6,7 @@ import { InputTextarea } from 'primereact/inputtextarea'
 import { useT } from '../../client/context'
 import InputContainer from '../../primitives/InputContainer/InputContainer'
 import { describedBy, fieldId, useFieldError, useFieldLabel, useText, useValuePath } from '../fieldUtils'
+import { useLocaleNote } from '../LocaleNote/LocaleNote'
 import type { EmailField, PhoneField, TextareaField, TextField, UrlField, VideoField } from '../../../core/fields'
 
 interface Props {
@@ -23,6 +24,7 @@ const TextInput = ({ name, field }: Props) => {
   const [{ value, onBlur }, , { setValue }] = useField<string>(path)
   const error = useFieldError(path)
   const id = fieldId(name)
+  const languages = useLocaleNote(name, field)
   const placeholders: Partial<Record<Props['field']['kind'], string>> = {
     url: t('fields.placeholders.url'),
     video: t('fields.placeholders.video'),
@@ -37,7 +39,7 @@ const TextInput = ({ name, field }: Props) => {
     invalid: !!error,
     maxLength: field.maxLength,
     placeholder: field.placeholder ? text(field.placeholder) : placeholders[field.kind],
-    'aria-describedby': describedBy(name, field),
+    'aria-describedby': describedBy(name, field, languages.describedBy),
     className: 'TextInput'
   }
 
@@ -46,7 +48,7 @@ const TextInput = ({ name, field }: Props) => {
     : undefined
 
   return (
-    <InputContainer label={label(field)} htmlFor={id} error={error} help={text(field.help)} aside={counter}>
+    <InputContainer label={label(field)} htmlFor={id} error={error} help={text(field.help)} badge={languages.badge} note={languages.note} aside={counter}>
       {field.kind === 'textarea' ? (
         <InputTextarea {...common} rows={field.rows ?? 3} autoResize onChange={event => setValue(event.target.value)} />
       ) : (

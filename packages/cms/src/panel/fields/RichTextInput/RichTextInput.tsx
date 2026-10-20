@@ -4,6 +4,7 @@ import dynamic from 'next/dynamic'
 import { useT } from '../../client/context'
 import InputContainer from '../../primitives/InputContainer/InputContainer'
 import { describedBy, fieldId, useFieldError, useFieldLabel, useText, useValuePath } from '../fieldUtils'
+import { useLocaleNote } from '../LocaleNote/LocaleNote'
 import type { RichTextField } from '../../../core/kinds/richText'
 import type { RichTextDocType } from '../../../core/richText/nodes'
 
@@ -26,16 +27,17 @@ const RichTextInput = ({ name, field }: Props) => {
   const [{ value }, , { setValue, setTouched }] = useField<RichTextDocType | null>(path)
   const error = useFieldError(path)
   const id = fieldId(name)
+  const languages = useLocaleNote(name, field)
 
   return (
-    <InputContainer label={label(field)} htmlFor={id} error={error} help={text(field.help)}>
+    <InputContainer label={label(field)} htmlFor={id} error={error} help={text(field.help)} badge={languages.badge} note={languages.note}>
       <RichTextEditor
         id={id}
         label={text(field.label)}
         value={value ?? null}
         headings={field.headings}
         invalid={!!error}
-        describedBy={describedBy(name, field)}
+        describedBy={describedBy(name, field, languages.describedBy)}
         onChange={setValue}
         onBlur={() => setTouched(true)}
       />

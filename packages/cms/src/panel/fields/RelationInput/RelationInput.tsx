@@ -12,6 +12,7 @@ import CustomButton from '../../primitives/CustomButton/CustomButton'
 import InputContainer from '../../primitives/InputContainer/InputContainer'
 import Notice from '../../primitives/Notice/Notice'
 import { describedBy, fieldId, useFieldError, useFieldLabel, useText } from '../fieldUtils'
+import { useLocaleNote } from '../LocaleNote/LocaleNote'
 import { ReferencesContext } from '../referencesContext'
 import type { RelationField } from '../../../core/kinds/relation'
 import type { RelationRefType } from '../../../core/relations'
@@ -44,6 +45,7 @@ const RelationInput = ({ name, field }: Props) => {
   const [{ value }, , { setValue, setTouched }] = useField<string | string[] | null>(name)
   const error = useFieldError(name)
   const id = fieldId(name)
+  const languages = useLocaleNote(name, field)
   const target = getCollection(config, field.to)
 
   const toOption = (optionId: string): OptionType => (labels[optionId]
@@ -99,7 +101,7 @@ const RelationInput = ({ name, field }: Props) => {
   }
 
   return (
-    <InputContainer label={label(field)} htmlFor={id} error={error} help={text(field.help)}>
+    <InputContainer label={label(field)} htmlFor={id} error={error} help={text(field.help)} badge={languages.badge}>
       <AutoComplete
         inputId={id}
         multiple={field.multiple}

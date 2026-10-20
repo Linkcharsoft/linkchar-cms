@@ -17,7 +17,7 @@ declare module './registry' {
 
 const isDoc = (value: unknown): value is RichTextDocType => isRecord(value) && value.type === 'doc'
 
-const plainText = (node: unknown): string => {
+export const plainText = (node: unknown): string => {
   if (!isRecord(node)) return ''
   if (typeof node.text === 'string') return node.text
   return Array.isArray(node.content) ? node.content.map(plainText).join(' ') : ''

@@ -123,6 +123,13 @@ const editor = {
     }
   },
   fields: {
+    locale: {
+      shared: 'Igual en todos los idiomas',
+      sharedItems: 'Agregar, quitar u ordenar elementos cambia todos los idiomas; acá traducís sus textos.',
+      originalEmpty: 'Sin texto en {language}.',
+      showAll: 'Ver completo',
+      showLess: 'Ver menos'
+    },
     chooseOne: 'Elegí una opción',
     chooseMany: 'Elegí una o más opciones',
     regenerateSlug: 'Generar de nuevo',

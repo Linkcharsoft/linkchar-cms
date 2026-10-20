@@ -5,6 +5,7 @@ import { MultiSelect } from 'primereact/multiselect'
 import { useT } from '../../client/context'
 import InputContainer from '../../primitives/InputContainer/InputContainer'
 import { describedBy, fieldId, useFieldError, useFieldLabel, useText } from '../fieldUtils'
+import { useLocaleNote } from '../LocaleNote/LocaleNote'
 import type { MultiSelectField, SelectField } from '../../../core/fields'
 
 interface Props {
@@ -19,6 +20,7 @@ const SelectInput = ({ name, field }: Props) => {
   const [{ value }, , { setValue, setTouched }] = useField<string | string[] | null>(name)
   const error = useFieldError(name)
   const id = fieldId(name)
+  const languages = useLocaleNote(name, field)
 
   const common = {
     inputId: id,
@@ -30,7 +32,7 @@ const SelectInput = ({ name, field }: Props) => {
   }
 
   return (
-    <InputContainer label={label(field)} htmlFor={id} error={error} help={text(field.help)}>
+    <InputContainer label={label(field)} htmlFor={id} error={error} help={text(field.help)} badge={languages.badge}>
       {field.kind === 'multiSelect' ? (
         <MultiSelect
           {...common}
