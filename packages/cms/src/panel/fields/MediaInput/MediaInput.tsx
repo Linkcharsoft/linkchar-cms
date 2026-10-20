@@ -15,6 +15,7 @@ import { navItems } from '../../shell/navigation'
 import { EntryContext } from '../entryContext'
 import { fieldId, useFieldError, useFieldLabel, useMediaVariant, useText } from '../fieldUtils'
 import { LocaleBadge } from '../LocaleNote/LocaleNote'
+import MissingAlt from '../MissingAlt/MissingAlt'
 import { useMediaRegistry } from '../referencesContext'
 import type { FileField, ImageField } from '../../../core/fields'
 import type { MediaItemType } from '../../../core/media'
@@ -109,6 +110,7 @@ const MediaInput = ({ name, field }: Props) => {
               <p className='MediaInput__Meta'>
                 {isImageMime(item.mime) ? t('mediaInput.altText', { alt: mediaText(item.alt) }) : formatBytes(item.size)}
               </p>
+              {variant.translating && isImageMime(item.mime) && <MissingAlt ids={[item.id]} />}
               {item.deletedAt && (
                 <p role='alert' className='MediaInput__Warning'>{t('mediaInput.trashed', { media: navItems(config).media.label })}</p>
               )}

@@ -29,10 +29,12 @@ interface Props {
   onChanged: (item: MediaItemType) => void
   onRemoved: (id: string) => void
   onHide: () => void
+  // Opens on the alt text of this language: the one a field said was missing.
+  focusLocale?: string
 }
 
 // Mounted per opened item, so the form always starts from that item's values.
-const MediaDetails = ({ item, canPurge, onChanged, onRemoved, onHide }: Props) => {
+const MediaDetails = ({ item, canPurge, onChanged, onRemoved, onHide, focusLocale }: Props) => {
   const { t, translate } = useT()
   const { config, actions } = useCms()
   const notify = useNotify()
@@ -125,6 +127,7 @@ const MediaDetails = ({ item, canPurge, onChanged, onRemoved, onHide }: Props) =
       dismissableMask
       className='MediaDetails'
       onHide={onHide}
+      onShow={() => focusLocale && document.getElementById(`media-alt-${focusLocale}`)?.focus()}
       footer={(
         <DialogFooter
           start={inTrash && canPurge && (

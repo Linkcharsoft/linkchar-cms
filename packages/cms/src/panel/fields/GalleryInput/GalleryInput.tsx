@@ -15,6 +15,7 @@ import InputError from '../../primitives/InputError/InputError'
 import { EntryContext } from '../entryContext'
 import { useFieldError, useFieldLabel, useMediaVariant, useText } from '../fieldUtils'
 import { LocaleBadge } from '../LocaleNote/LocaleNote'
+import MissingAlt from '../MissingAlt/MissingAlt'
 import { useMediaRegistry } from '../referencesContext'
 import type { GalleryField } from '../../../core/fields'
 
@@ -98,6 +99,8 @@ const GalleryInput = ({ name, field }: Props) => {
           ))}
         </SortableList>
       )}
+
+      {variant.translating && <MissingAlt ids={ids} />}
 
       <div className='GalleryInput__Actions'>
         {inherited ? (

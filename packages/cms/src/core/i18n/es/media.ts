@@ -111,6 +111,10 @@ const media = {
     sameAs: 'Igual que en {language}',
     onlyFor: 'Solo para {language}',
     altText: 'Texto alternativo: {alt}',
+    altMissing: 'Falta el texto alternativo en {language}.',
+    altsMissing: 'Falta el texto alternativo en {language} de:',
+    completeAlt: 'Completar',
+    completeAltOf: 'Completar el texto alternativo en {language}',
     trashed: 'Está en la papelera: restauralo desde {media} o elegí otro.',
     missing: 'El archivo elegido ya no existe. Elegí otro.'
   },

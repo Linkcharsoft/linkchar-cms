@@ -1,10 +1,12 @@
 'use client'
 import { useField } from 'formik'
 import dynamic from 'next/dynamic'
+import { richTextReferences } from '../../../core/richText/nodes'
 import { useT } from '../../client/context'
 import InputContainer from '../../primitives/InputContainer/InputContainer'
 import { describedBy, fieldId, useFieldError, useFieldLabel, useText, useValuePath } from '../fieldUtils'
-import { useLocaleNote } from '../LocaleNote/LocaleNote'
+import { useEditingTranslation, useLocaleNote } from '../LocaleNote/LocaleNote'
+import MissingAlt from '../MissingAlt/MissingAlt'
 import type { RichTextField } from '../../../core/kinds/richText'
 import type { RichTextDocType } from '../../../core/richText/nodes'
 
@@ -28,6 +30,7 @@ const RichTextInput = ({ name, field }: Props) => {
   const error = useFieldError(path)
   const id = fieldId(name)
   const languages = useLocaleNote(name, field)
+  const translating = useEditingTranslation()
 
   return (
     <InputContainer label={label(field)} htmlFor={id} error={error} help={text(field.help)} badge={languages.badge} note={languages.note}>
@@ -41,6 +44,7 @@ const RichTextInput = ({ name, field }: Props) => {
         onChange={setValue}
         onBlur={() => setTouched(true)}
       />
+      {translating && value && <MissingAlt ids={richTextReferences(value).media} />}
     </InputContainer>
   )
 }

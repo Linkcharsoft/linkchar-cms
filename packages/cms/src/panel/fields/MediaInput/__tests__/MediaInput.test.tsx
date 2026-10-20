@@ -11,7 +11,7 @@ afterEach(cleanup)
 
 const media = (n: number, alt: Record<string, string>): MediaItemType => ({
   id: `00000000-0000-4000-8000-00000000000${n}`, path: `${n}.webp`, url: `http://127.0.0.1:54421/${n}.webp`, filename: `foto-${n}.webp`, folder: '',
-  alt, caption: {}, mime: 'image/webp', size: 10, width: 800, height: 600, focalX: null, focalY: null, blurDataUrl: null, createdAt: '', deletedAt: null
+  alt, caption: {}, mime: 'image/webp', size: 10, width: 800, height: 600, focalX: null, focalY: null, blurDataUrl: null, createdAt: '2026-10-01T12:00:00Z', deletedAt: null
 })
 
 const A = media(1, { es: 'Fachada', en: 'Front' })
@@ -41,6 +41,18 @@ describe('MediaInput per language', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Volver a la original' }))
     await waitFor(() => expect(screen.getByText('foto-1.webp')).toBeTruthy())
     expect(stored()).toEqual({ cover: { es: A.id } })
+  })
+
+  it('asks for the alt text this language still lacks and opens it', async () => {
+    const lacking = media(3, { es: 'Escalera' })
+    renderField(
+      <MediaInput name='cover' field={cover} />,
+      { values: { cover: { es: lacking.id } }, locale: 'en', media: { [lacking.id]: lacking } },
+      { actions: { getMediaUsage: async () => [] } as never }
+    )
+    expect(screen.getByText('Falta el texto alternativo en Inglés.')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Completar el texto alternativo en Inglés' }))
+    await waitFor(() => expect(document.getElementById('media-alt-en')).toBeTruthy())
   })
 
   it('keeps the usual actions in the default language', () => {
