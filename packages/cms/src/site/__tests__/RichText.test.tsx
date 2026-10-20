@@ -68,10 +68,10 @@ describe('JsonLd', () => {
 
 describe('imageProps', () => {
   it('turns the focal point into object-position and passes the blur placeholder', () => {
-    const image = { id: 'x', src: 'https://cdn.test/a.webp', alt: 'Sala', caption: '', width: 800, height: 600, focalX: 20, focalY: null, blurDataUrl: 'data:image/png;base64,AA' }
+    const image = { id: 'x', src: 'https://cdn.test/a.webp', alt: 'Sala', caption: '', width: 800, height: 600, focalX: 0.3, focalY: null, blurDataUrl: 'data:image/png;base64,AA' }
     expect(imageProps(image, { sizes: '100vw' })).toEqual({
       src: 'https://cdn.test/a.webp', alt: 'Sala', width: 800, height: 600, sizes: '100vw',
-      style: { objectPosition: '20% 50%' }, placeholder: 'blur', blurDataURL: 'data:image/png;base64,AA'
+      style: { objectPosition: '30% 50%' }, placeholder: 'blur', blurDataURL: 'data:image/png;base64,AA'
     })
   })
 })

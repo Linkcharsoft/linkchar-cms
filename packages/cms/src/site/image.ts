@@ -5,6 +5,9 @@ interface ImageOptionsType {
   sizes?: string
 }
 
+// The focal point is stored as a 0–1 ratio.
+const percent = (ratio: number | null) => `${Number(((ratio ?? 0.5) * 100).toFixed(2))}%`
+
 // Props for next/image: size, alt text, the focal point as object-position and the blur placeholder when there is one.
 export const imageProps = (image: SiteImageType, { sizes }: ImageOptionsType = {}) => ({
   src: image.src,
@@ -12,6 +15,6 @@ export const imageProps = (image: SiteImageType, { sizes }: ImageOptionsType = {
   width: image.width ?? undefined,
   height: image.height ?? undefined,
   ...(sizes ? { sizes } : {}),
-  style: { objectPosition: `${image.focalX ?? 50}% ${image.focalY ?? 50}%` },
+  style: { objectPosition: `${percent(image.focalX)} ${percent(image.focalY)}` },
   ...(image.blurDataUrl ? { placeholder: 'blur' as const, blurDataURL: image.blurDataUrl } : {})
 })

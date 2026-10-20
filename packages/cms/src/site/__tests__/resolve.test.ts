@@ -28,7 +28,7 @@ const config = defineCmsConfig({ schema, locales: ['es', 'en'] })
 
 const media = (n: number, alt: Record<string, string>): MediaItemType => ({
   id: ID(n), path: `sitio/${n}.webp`, url: `https://cdn.test/${n}.webp`, filename: `${n}.webp`, folder: 'sitio', alt, caption: {},
-  mime: 'image/webp', size: 100, width: 1200, height: 800, focalX: 30, focalY: null, blurDataUrl: null, createdAt: '', deletedAt: null
+  mime: 'image/webp', size: 100, width: 1200, height: 800, focalX: 0.3, focalY: null, blurDataUrl: null, createdAt: '', deletedAt: null
 })
 
 const refs: SiteRefsType = {
@@ -61,7 +61,7 @@ describe('resolveSiteContent', () => {
   it('reads images with the alt text of the locale, falling back to the default one', () => {
     const { hero } = resolveSiteContent(config, schema.home.fields, data, 'en', refs)
     expect(hero.title).toBe('Hello')
-    expect(hero.cover).toEqual({ id: ID(1), src: 'https://cdn.test/1.webp', alt: 'Facade', caption: '', width: 1200, height: 800, focalX: 30, focalY: null, blurDataUrl: null })
+    expect(hero.cover).toEqual({ id: ID(1), src: 'https://cdn.test/1.webp', alt: 'Facade', caption: '', width: 1200, height: 800, focalX: 0.3, focalY: null, blurDataUrl: null })
     expect(hero.photos.map(photo => photo.alt)).toEqual(['Facade', 'Patio'])
   })
 
