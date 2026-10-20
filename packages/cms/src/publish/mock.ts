@@ -8,6 +8,7 @@ export interface MockBuildOptionsType {
 // Stands in for the build in development: reports "started" and then the result, as the webhook would.
 export const mockBuild = ({ result = 'success', seconds = 15 }: MockBuildOptionsType = {}): PublishTargetType => ({
   name: 'mock',
+  revalidateOnPublish: true,
 
   trigger: async ({ report }) => {
     const jobId = `mock-${Date.now()}`

@@ -371,6 +371,7 @@ export const publishChanges = async (ctx: CmsContextType, selection: PublishSele
 
   const result = data as { publishId: number, published: number, removed: number }
   const buildStatus = await triggerBuild(ctx, result.publishId)
+  if (ctx.publishTarget?.revalidateOnPublish) ctx.revalidate('/', 'layout')
 
   return { ok: true, published: result.published, removed: result.removed, buildStatus }
 }

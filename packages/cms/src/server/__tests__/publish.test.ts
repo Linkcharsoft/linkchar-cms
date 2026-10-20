@@ -173,6 +173,12 @@ describe('publishChanges', () => {
     expect(db.tables.publish_log[0]).toMatchObject({ build_status: 'building', job_id: 'job-1' })
   })
 
+  it('revalidates the running site when the target builds nothing', async () => {
+    ctx.publishTarget = { ...target(async () => ({ ok: true, jobId: null })), revalidateOnPublish: true }
+    await publishChanges(ctx, { publish: [{ id: ID(1), revision: 2 }], remove: [] })
+    expect(ctx.revalidate).toHaveBeenCalledWith('/', 'layout')
+  })
+
   it('explains database errors with a code the panel translates', async () => {
     db.rpc.publish_site = () => ({ data: null, error: { code: '23505', message: 'dup' } })
     expect(await publishChanges(ctx, { publish: [{ id: ID(1), revision: 2 }], remove: [] })).toEqual({ ok: false, error: 'errors.publish.slugTaken' })

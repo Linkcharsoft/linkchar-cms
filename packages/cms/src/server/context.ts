@@ -17,7 +17,7 @@ export interface CmsContextType {
   // A client with no session, e.g. to check a password without replacing the cookie session.
   anonymous: () => CmsClientType
   publishTarget: PublishTargetType | null
-  revalidate: (path: string) => void
+  revalidate: (path: string, type?: 'page' | 'layout') => void
   now: () => Date
 }
 

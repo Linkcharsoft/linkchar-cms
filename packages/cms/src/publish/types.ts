@@ -17,6 +17,8 @@ export type WebhookResultType = BuildEventType | 'unauthorized' | 'invalid'
 export interface PublishTargetType {
   name: string
   trigger: (ctx: TriggerContextType) => Promise<TriggerResultType>
+  // No real build runs (the local mock): the running site revalidates its pages instead.
+  revalidateOnPublish?: boolean
   // Reads a build status notification sent to the panel's webhook route.
   readWebhook?: (request: Request) => Promise<WebhookResultType>
 }

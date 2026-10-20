@@ -93,7 +93,7 @@ export const createCmsServer = ({ config, supabase, publishTarget = null }: CmsS
     admin,
     anonymous: () => detached(credentials().publishableKey),
     publishTarget,
-    revalidate: path => revalidatePath(path),
+    revalidate: (path, type) => revalidatePath(path, type),
     now: () => new Date()
   })
 
