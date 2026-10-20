@@ -110,7 +110,7 @@ export const schema = defineSchema({
       title: text({ label: 'Título' }),
       intro: textarea({ label: 'Introducción' })
     }, { anchor: 'equipo', uses: ['team'], hideable: true })
-  }, { path: '/estudio', sitemap: { priority: 0.6, changeFrequency: 'monthly' } }),
+  }, { path: { es: '/estudio', en: '/studio' }, sitemap: { priority: 0.6, changeFrequency: 'monthly' } }),
 
   notFound: page('Página no encontrada', {
     content: section('Contenido', {
@@ -139,8 +139,8 @@ export const schema = defineSchema({
       brochure: file({ label: 'Ficha en PDF', folder: 'proyectos' }),
       featured: boolean({ label: 'Destacado' })
     }),
-    seo: seo({ path: '/proyectos/:slug', titleFrom: 'title', descriptionFrom: 'summary' })
-  }, { singularLabel: 'Proyecto', titleField: 'title', slugField: 'slug', path: '/proyectos/:slug', icon: 'pi-building' }),
+    seo: seo({ titleFrom: 'title', descriptionFrom: 'summary' })
+  }, { singularLabel: 'Proyecto', titleField: 'title', slugField: 'slug', path: { es: '/proyectos/:slug', en: '/projects/:slug' }, icon: 'pi-building' }),
 
   posts: collection('Blog', {
     title: text({ label: 'Título', required: true, maxLength: 120 }),
@@ -152,7 +152,7 @@ export const schema = defineSchema({
     author: relation({ label: 'Autor', to: 'team' }),
     category: relation({ label: 'Categoría', to: 'categories' }),
     topics: multiSelect({ label: 'Temas', max: 3, options: [{ label: 'Obra', value: 'obra' }, { label: 'Materiales', value: 'materiales' }, { label: 'Estudio', value: 'estudio' }] }),
-    seo: seo({ path: '/blog/:slug', titleFrom: 'title', descriptionFrom: 'excerpt' })
+    seo: seo({ titleFrom: 'title', descriptionFrom: 'excerpt' })
   }, {
     singularLabel: { es: 'Artículo', en: 'Post' },
     tabLabel: 'Artículos',

@@ -18,7 +18,7 @@ const cmsConfig = defineCmsConfig({
     { value: 'equipo', label: 'Equipo' }
   ],
   fields: [openingHours, color],
-  site: { titleTemplate: '%s | Estudio Norte' },
+  site: { url: process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3100', titleTemplate: '%s | Estudio Norte' },
   extensions: [
     { id: 'stats', label: { es: 'Estadísticas', en: 'Statistics' }, icon: 'pi-chart-bar', group: 'admin', path: 'estadisticas' },
     { id: 'guide', label: { es: 'Guía de marca', en: 'Brand guide' }, icon: 'pi-book', href: 'https://linkchar.com' }
