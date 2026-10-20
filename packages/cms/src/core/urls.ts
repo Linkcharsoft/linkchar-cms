@@ -90,11 +90,8 @@ const PATTERN = /^\/((?:[a-z0-9]+(?:-[a-z0-9]+)*\/)*(?:[a-z0-9]+(?:-[a-z0-9]+)*|
 export const pathProblems = (id: string, entry: PathOwnerType, locales: readonly string[], defaultLocale: string, taken: Map<string, string>) => {
   if (!entry.path) return []
   const problems: string[] = []
-  if (typeof entry.path !== 'string') {
-    const keys = Object.keys(entry.path)
-    if (keys.length !== locales.length || !locales.every(locale => keys.includes(locale))) {
-      problems.push(`${id}.path needs one pattern per locale (${locales.join(', ')}).`)
-    }
+  if (typeof entry.path !== 'string' && !locales.every(locale => Object.hasOwn(entry.path as object, locale))) {
+    problems.push(`${id}.path needs one pattern per locale (${locales.join(', ')}).`)
   }
   for (const locale of locales) {
     const pattern = pathPattern(entry, locale)
