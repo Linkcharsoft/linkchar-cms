@@ -21,3 +21,12 @@ test('the panel speaks English with panelLocale "en"', async ({ page }) => {
   await expect(page.locator('body')).not.toContainText('Guardado')
   console.expectClean()
 })
+
+test('the editor names languages and shared values in English', async ({ page }) => {
+  await signIn(page, QA.super.email)
+  await page.goto('/dashboard/sitio/settings?locale=en')
+  await page.waitForLoadState('networkidle')
+  await expect(page.getByTestId('editor-locale')).toContainText('English')
+  await expect(page.locator('.InputContainer').filter({ hasText: 'Nombre del sitio' })).toContainText('Same in every language')
+  await expect(page.locator('.LocaleOriginal').first()).toContainText('Spanish')
+})

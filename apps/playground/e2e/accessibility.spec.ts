@@ -29,7 +29,8 @@ test('the panel screens have no serious accessibility issues', async ({ page }) 
   await signIn(page, QA.super.email)
   const screens = [
     '/dashboard', '/dashboard/paginas', '/dashboard/paginas/home', '/dashboard/colecciones/posts', `/dashboard/colecciones/posts/${post!.id}`,
-    '/dashboard/sitio/settings', '/dashboard/media', '/dashboard/publicar', '/dashboard/papelera', '/dashboard/usuarios', '/dashboard/cuenta'
+    '/dashboard/sitio/settings', '/dashboard/paginas/home?locale=en', `/dashboard/colecciones/posts/${post!.id}?locale=en`,
+    '/dashboard/sitio/settings?locale=en', '/dashboard/media', '/dashboard/publicar', '/dashboard/papelera', '/dashboard/usuarios', '/dashboard/cuenta'
   ]
   const found: Record<string, string[]> = {}
   for (const screen of screens) {
