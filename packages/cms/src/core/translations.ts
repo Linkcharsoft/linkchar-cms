@@ -2,6 +2,7 @@ import { CmsConfigError, fieldDefinition } from './config'
 import { withDefaults } from './defaults'
 import { isRecord } from './kinds/shared'
 import { fieldLocalize, isBlank, leafVariants, missingInLeaf } from './locales'
+import { missingAltLocales } from './media'
 import { dataFields } from './walk'
 import type { CmsConfigType } from './config'
 import type { DataField, FieldsRecord } from './fields'
@@ -81,10 +82,7 @@ const missingAlt = (config: CmsConfigType, field: LeafField, value: unknown, pat
     const used = variants.get(locale)?.value ?? original
     if (used === undefined) return []
     const ids = definition.references(used, field).media ?? []
-    const lacking = ids.some(id => {
-      const alt = mediaAlt(id) ?? {}
-      return !isBlank(alt[config.defaultLocale]) && isBlank(alt[locale])
-    })
+    const lacking = ids.some(id => missingAltLocales(config, mediaAlt(id) ?? {}).includes(locale))
     return lacking ? [{ path, locale, kind: 'alt' as const }] : []
   })
 }

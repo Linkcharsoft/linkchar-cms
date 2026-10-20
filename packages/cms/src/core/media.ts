@@ -1,3 +1,5 @@
+import { isBlank } from './locales'
+import type { CmsConfigType } from './config'
 import type { LocalizedTextType } from './text'
 
 // Mirrors the `media` bucket in supabase/migrations (file_size_limit and allowed_mime_types).
@@ -64,3 +66,7 @@ export interface MediaItemType {
   createdAt: string
   deletedAt: string | null
 }
+
+// Locales whose alt text is still empty while the default locale has one: what publishing asks for.
+export const missingAltLocales = (config: Pick<CmsConfigType, 'locales' | 'defaultLocale'>, alt: LocalizedTextType): string[] =>
+  (isBlank(alt[config.defaultLocale]) ? [] : config.locales.filter(locale => locale !== config.defaultLocale && isBlank(alt[locale])))

@@ -2,6 +2,7 @@ import { textContext, translatorFor } from '../core/config'
 import { withDefaults } from '../core/defaults'
 import { entryIds, getEntry } from '../core/entries'
 import { languageName } from '../core/i18n/translator'
+import { missingContent } from '../core/missing'
 import { changedSections } from '../core/pages'
 import { panelPaths } from '../core/paths'
 import { BUILD_CONFIRMATION_TIMEOUT_MS } from '../core/publish'
@@ -9,9 +10,7 @@ import { documentReferences } from '../core/references'
 import { referenceWarnings } from '../core/relations'
 import { canPublish } from '../core/roles'
 import { resolveText } from '../core/text'
-import { missingTranslations } from '../core/translations'
 import { entryPath, entryUrls, publishUrls } from '../core/urls'
-import { validateContent } from '../core/validation'
 import { fieldLabel } from '../core/walk'
 import { logActivity } from './activity'
 import { requireRole } from './auth'
@@ -95,27 +94,20 @@ type MediaAltType = (id: string) => LocalizedTextType | undefined
 
 const missingItems = async (ctx: CmsContextType, fields: FieldsRecord, data: unknown, mediaAlt: MediaAltType): Promise<MissingItemType[]> => {
   const { config } = ctx
-  const stored = withDefaults(config, fields, data)
-  const { errors } = await validateContent(config, fields, stored, { mode: 'publish' })
   const texts = textContext(config)
   const { t } = translatorFor(config)
   const named = (label: string, locale: string | null) =>
     (locale && locale !== config.defaultLocale ? `${label} (${languageName(locale, config.panelLocale)})` : label)
 
-  const fieldsMissing = Object.keys(errors ?? {}).map((path): MissingItemType => {
-    const last = path.split('.').pop() ?? ''
-    const locale = config.locales.includes(last) ? last : null
-    return { path, locale, kind: 'field', label: named(fieldLabel(fields, path, texts), locale) }
-  })
-  const altsMissing = missingTranslations(config, fields, stored, { mediaAlt })
-    .filter(item => item.kind === 'alt')
-    .map((item): MissingItemType => ({
+  return (await missingContent(config, fields, data, { mediaAlt })).map(item => {
+    const label = fieldLabel(fields, item.field, texts)
+    return {
       path: item.path,
       locale: item.locale,
-      kind: 'alt',
-      label: named(t('validation.altOf', { field: fieldLabel(fields, item.path, texts) }), item.locale)
-    }))
-  return [...fieldsMissing, ...altsMissing]
+      kind: item.kind,
+      label: named(item.kind === 'alt' ? t('validation.altOf', { field: label }) : label, item.locale)
+    }
+  })
 }
 
 // Alt texts of every file the pending documents use, for the missing translations check.
