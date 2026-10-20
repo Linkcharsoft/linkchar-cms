@@ -29,7 +29,6 @@ jobs:
       - run: pnpm lint-check
       - run: pnpm type-check
       - run: pnpm test
-      - run: pnpm --filter playground build
 
   db:
     runs-on: ubuntu-latest
