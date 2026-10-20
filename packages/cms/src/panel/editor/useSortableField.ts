@@ -1,8 +1,9 @@
 'use client'
 import { arrayMove } from '@dnd-kit/sortable'
 import { useField } from 'formik'
-import { useState } from 'react'
+import { use, useEffect, useState } from 'react'
 import { newKey } from '../../core/defaults'
+import { FormFocusContext } from '../fields/formFocusContext'
 
 interface KeyedItemType {
   _key: string
@@ -31,6 +32,14 @@ const useSortableField = <T extends KeyedItemType>(name: string): SortableFieldT
   }
 
   const open = (key: string) => setOpenKeys(current => (current.includes(key) ? current : [...current, key]))
+
+  const { reveal } = use(FormFocusContext)
+  useEffect(() => {
+    if (!reveal?.path.startsWith(`${name}.`)) return
+    const key = items[Number(reveal.path.slice(name.length + 1).split('.')[0])]?._key
+    if (key) open(key)
+  // Only when a new reveal arrives.
+  }, [reveal?.nonce])
 
   return {
     items,

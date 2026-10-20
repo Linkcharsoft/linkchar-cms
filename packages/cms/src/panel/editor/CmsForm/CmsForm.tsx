@@ -9,6 +9,7 @@ import { Fragment, useCallback, useEffect, useRef, useState } from 'react'
 import { documentTitle, getEntry } from '../../../core/entries'
 import { languageName } from '../../../core/i18n/translator'
 import { changedKeys, pickKeys, rebase, sameContent } from '../../../core/merge'
+import { splitLocale } from '../../../core/missing'
 import { pageSections } from '../../../core/pages'
 import { visibleFields } from '../../../core/permissions'
 import { entryPath, slugsOf } from '../../../core/urls'
@@ -260,11 +261,12 @@ const CmsForm = ({
 
   // Opens whatever hides the field (language, tab, panel, group, page section) and then focuses it.
   const showField = (path: string) => {
-    const last = path.split('.').pop() ?? ''
-    if (config.locales.includes(last) && last !== locale) switchLocale(last)
+    const { field, locale: own } = splitLocale(config, path)
+    if (own && own !== locale) switchLocale(own)
     setReveal({ path, nonce: Date.now() })
     window.setTimeout(() => {
-      const id = fieldId(path)
+      // Inputs are named after the field, never the locale: "hero.title.en" lives in #cms-hero-title.
+      const id = fieldId(field)
       const element = window.document.getElementById(id) ?? window.document.querySelector<HTMLElement>(`[id^="${id}"]`)
       element?.scrollIntoView({ block: 'center' })
       element?.focus({ preventScroll: true })

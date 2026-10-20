@@ -57,6 +57,7 @@ test.describe('page editor', () => {
     await expect(missing).toContainText('Imagen de portada')
     await missing.getByRole('button', { name: /Imagen de portada/ }).click()
     await expect(page.locator('#section-hero')).toHaveClass(/PageSection--Open/)
+    await expect(page.locator('#cms-hero-cover')).toBeFocused()
   })
 
   test('opens a section from its link and marks the outline', async ({ page }) => {
