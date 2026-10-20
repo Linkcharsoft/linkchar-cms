@@ -1,6 +1,11 @@
 @use '../../theme/mixins' as cms
 
 .MediaDetails
+  &__Missing
+    padding: 0 8px
+    border-radius: 999px
+    @apply cms-text-semibold-12 bg-cms-warning-50 text-cms-warning-800
+
   @include cms.dialog-width(lg)
 
   &__Layout

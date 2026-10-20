@@ -8,6 +8,7 @@ const media = {
     texts: {
       alt: 'Alt text',
       altIn: 'Alt text ({language})',
+      altMissing: 'Missing',
       altHelp: 'Describe the image for people who can\'t see it (screen readers) and for Google. Required.',
       altPlaceholder: 'E.g.: Team gathered around a table',
       description: 'Description',
@@ -23,6 +24,10 @@ const media = {
       searchPlaceholder: 'Search by name or description',
       allFolders: 'All folders',
       fileType: 'File type',
+      altFilter: 'Alt text',
+      altAll: 'With and without alt text',
+      altMissingIn: 'No alt text in {languages}',
+      altMissingShort: 'No alt: {locales}',
       types: {
         any: 'Images and PDF',
         image: 'Images',

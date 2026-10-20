@@ -22,6 +22,8 @@ export interface MediaQueryType {
   search?: string
   trash?: boolean
   page?: number
+  // Images whose alt text in this locale is still empty while the default locale has one.
+  missingAlt?: string
 }
 
 export const MEDIA_PAGE_SIZE = 40
@@ -67,6 +69,11 @@ export const listMedia = async (ctx: CmsContextType, query: MediaQueryType = {})
   if (query.folder) request = request.eq('folder', query.folder)
   if (query.type === 'image') request = request.like('mime', 'image/%')
   if (query.type === 'document') request = request.eq('mime', 'application/pdf')
+  const { defaultLocale, locales } = ctx.config
+  if (query.missingAlt && query.missingAlt !== defaultLocale && locales.includes(query.missingAlt)) {
+    // Saving drops blank texts, so a missing alt text is an absent key.
+    request = request.like('mime', 'image/%').not(`alt->>${defaultLocale}`, 'is', null).is(`alt->>${query.missingAlt}`, null)
+  }
   if (query.search?.trim()) {
     const value = orValue(query.search.trim())
     request = request.or([`filename.ilike.${value}`, ...ctx.config.locales.map(locale => `alt->>${locale}.ilike.${value}`)].join(','))

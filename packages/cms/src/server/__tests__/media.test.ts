@@ -55,6 +55,11 @@ describe('listMedia', () => {
     expect((await listMedia(ctx, { search: 'es' })).items).toEqual([])
   })
 
+  it('finds the images still without alt text in a locale', async () => {
+    expect((await listMedia(ctx, { missingAlt: 'en' })).items.map(item => item.id)).toEqual([ID(2)])
+    expect((await listMedia(ctx, { missingAlt: 'es' })).items).toHaveLength(2)
+  })
+
   it('shows the trash on its own', async () => {
     expect((await listMedia(ctx, { trash: true })).items.map(item => item.id)).toEqual([ID(3)])
   })

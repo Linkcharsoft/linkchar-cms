@@ -2,6 +2,7 @@
 import './MediaLibrary.sass'
 import { Dropdown } from 'primereact/dropdown'
 import { useEffect, useRef, useState } from 'react'
+import { languageName } from '../../../core/i18n/translator'
 import { useCms, useT } from '../../client/context'
 import { useText } from '../../fields/fieldUtils'
 import CustomButton from '../../primitives/CustomButton/CustomButton'
@@ -64,6 +65,12 @@ const MediaLibrary = ({
     { label: t('media.library.types.any'), value: ALL },
     { label: t('media.library.types.image'), value: 'image' },
     { label: t('media.library.types.document'), value: 'document' }
+  ]
+
+  const otherLocales = config.locales.filter(locale => locale !== config.defaultLocale)
+  const altOptions = [
+    { label: t('media.library.altAll'), value: ALL },
+    ...otherLocales.map(locale => ({ value: locale, label: t('media.library.altMissingIn', { languages: languageName(locale, config.panelLocale) }) }))
   ]
 
   const load = async (nextQuery: MediaQueryType, nextPage = 1) => {
@@ -153,6 +160,15 @@ const MediaLibrary = ({
             value={query.type ?? ALL}
             options={typeOptions}
             onChange={event => update({ type: event.value === ALL ? undefined : event.value })}
+          />
+        )}
+        {otherLocales.length > 0 && accept !== 'document' && (
+          <Dropdown
+            inputId={`${mode}-media-alt`}
+            aria-label={t('media.library.altFilter')}
+            value={query.missingAlt ?? ALL}
+            options={altOptions}
+            onChange={event => update({ missingAlt: event.value === ALL ? undefined : event.value })}
           />
         )}
       </DashboardToolbar>

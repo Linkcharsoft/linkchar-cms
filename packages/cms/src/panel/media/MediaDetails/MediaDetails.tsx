@@ -7,7 +7,7 @@ import { InputText } from 'primereact/inputtext'
 import { InputTextarea } from 'primereact/inputtextarea'
 import { useEffect, useState } from 'react'
 import { languageName } from '../../../core/i18n/translator'
-import { formatBytes, isImageMime, MAX_MEDIA_BYTES } from '../../../core/media'
+import { formatBytes, isImageMime, MAX_MEDIA_BYTES, missingAltLocales } from '../../../core/media'
 import { useCms, useFormatDate, useT } from '../../client/context'
 import { useText } from '../../fields/fieldUtils'
 import { useConfirm } from '../../primitives/ConfirmAction/ConfirmAction'
@@ -54,6 +54,7 @@ const MediaDetails = ({ item, canPurge, onChanged, onRemoved, onHide, focusLocal
   const inTrash = !!item.deletedAt
   const inUse = !!usage && usage.length > 0
   const multilingual = locales.length > 1
+  const lacking = isImage ? missingAltLocales(config, alt) : []
   const folderOptions = config.mediaFolders.map(option => ({ value: option.value, label: text(option.label) }))
 
   useEffect(() => {
@@ -172,7 +173,14 @@ const MediaDetails = ({ item, canPurge, onChanged, onRemoved, onHide, focusLocal
             const id = `media-alt-${locale}`
             const withHelp = isImage && index === 0
             return (
-              <InputContainer key={id} label={altLabel(locale)} htmlFor={id} help={withHelp ? t('media.texts.altHelp') : undefined} error={undefined}>
+              <InputContainer
+                key={id}
+                label={altLabel(locale)}
+                htmlFor={id}
+                help={withHelp ? t('media.texts.altHelp') : undefined}
+                error={undefined}
+                badge={lacking.includes(locale) && <span className='MediaDetails__Missing'>{t('media.texts.altMissing')}</span>}
+              >
                 <InputTextarea
                   id={id}
                   value={alt[locale] ?? ''}

@@ -5,6 +5,7 @@ const media = {
     texts: {
       alt: 'Texto alternativo',
       altIn: 'Texto alternativo ({language})',
+      altMissing: 'Falta',
       altHelp: 'Describí la imagen para quien no puede verla (lectores de pantalla) y para Google. Es obligatorio.',
       altPlaceholder: 'Ej.: Equipo de trabajo reunido alrededor de una mesa',
       description: 'Descripción',
@@ -20,6 +21,10 @@ const media = {
       searchPlaceholder: 'Buscar por nombre o descripción',
       allFolders: 'Todas las carpetas',
       fileType: 'Tipo de archivo',
+      altFilter: 'Texto alternativo',
+      altAll: 'Con y sin texto alternativo',
+      altMissingIn: 'Sin texto alternativo en {languages}',
+      altMissingShort: 'Sin alt: {locales}',
       types: {
         any: 'Imágenes y PDF',
         image: 'Imágenes',
