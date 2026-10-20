@@ -1,8 +1,8 @@
 import type { Metadata } from 'next'
 import type { ReactNode } from 'react'
 
+// A playground: never indexed. Each page titles itself through cms.site.metadata().
 export const metadata: Metadata = {
-  title: { default: 'Estudio Norte', template: '%s | Estudio Norte' },
   robots: { index: false, follow: false }
 }
 

@@ -1,5 +1,7 @@
-import HomeScreen from '@/screens/HomeScreen'
+import HomeScreen, { homeMetadata } from '@/screens/HomeScreen'
 
-const EnglishHomePage = () => <HomeScreen locale='en' />
+export const generateMetadata = () => homeMetadata('en')
 
-export default EnglishHomePage
+const HomePage = () => <HomeScreen locale='en' />
+
+export default HomePage

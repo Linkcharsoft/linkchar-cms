@@ -1,38 +1,48 @@
-import { buildDefaults, entryIds, getEntry, languageName, resolveContent, resolveText, textContext } from '@linkcharsoft/cms/core'
-import cmsConfig from '../../cms.config'
+import { imageProps, JsonLd } from '@linkcharsoft/cms/site'
+import Image from 'next/image'
+import Link from 'next/link'
+import { cms } from '@/cms/server'
+import SiteFrame from '@/site/SiteFrame'
 import type { LocaleType } from '@linkcharsoft/cms/core'
+import type { Metadata, Route } from 'next'
 
 interface Props {
   locale: LocaleType
 }
 
-// Until the database arrives (stage 2) the site shows the schema defaults, read like real content.
-const HomeScreen = ({ locale }: Props) => {
-  const { fields } = cmsConfig.schema.home
-  const home = resolveContent(cmsConfig, fields, buildDefaults(cmsConfig, fields), locale)
-  const texts = textContext(cmsConfig, locale)
-  const other = cmsConfig.locales.find(item => item !== locale) ?? cmsConfig.defaultLocale
+export const homeMetadata = async (locale: LocaleType): Promise<Metadata> =>
+  cms.site.metadata(await cms.site.getEntryContent('home', { locale }))
+
+const HomeScreen = async ({ locale }: Props) => {
+  const home = await cms.site.getEntryContent('home', { locale })
+  const { hero, services, projects } = home.content
+  const featured = await cms.site.getDocuments('projects', projects.featured, { locale })
 
   return (
-    <main id='main'>
-      <p>{home.hero.eyebrow || cmsConfig.branding.name}</p>
-      <h1>{home.hero.title}</h1>
-      <section aria-labelledby='services'>
-        <h2 id='services'>{home.services.title}</h2>
+    <SiteFrame locale={locale} urls={home.urls}>
+      <JsonLd data={cms.site.jsonLd(home)} />
+      <section id='inicio'>
+        {hero.eyebrow && <p>{hero.eyebrow}</p>}
+        <h1 data-testid='hero-title'>{hero.title}</h1>
+        {hero.intro && <p>{hero.intro}</p>}
+        {hero.cover?.width && hero.cover.height && <Image {...imageProps(hero.cover, { sizes: '100vw' })} priority />}
+        {hero.cta.link.href && <Link href={hero.cta.link.href as Route}>{hero.cta.label}</Link>}
+      </section>
+      <section id='servicios' aria-labelledby='services-title'>
+        <h2 id='services-title'>{services.title}</h2>
         <ul>
-          {home.services.items.map(item => <li key={item._key}>{item.name}</li>)}
+          {services.items.map(item => <li key={item._key}>{item.name}</li>)}
         </ul>
       </section>
-      <section aria-labelledby='model'>
-        <h2 id='model'>Content model</h2>
-        <ul>
-          {entryIds(cmsConfig).map(id => <li key={id}>{resolveText(getEntry(cmsConfig, id)?.label, texts)}</li>)}
-        </ul>
-      </section>
-      <a href={other === cmsConfig.defaultLocale ? '/' : `/${other}`} hrefLang={other}>
-        {languageName(other, other)}
-      </a>
-    </main>
+      {!projects._hidden && featured.length > 0 && (
+        <section id='proyectos' aria-labelledby='projects-title'>
+          <h2 id='projects-title'>{projects.title}</h2>
+          <ul>
+            {featured.map(project => <li key={project.id}>{project.path ? <Link href={project.path as Route}>{project.content.title}</Link> : project.content.title}</li>)}
+          </ul>
+        </section>
+      )}
+    </SiteFrame>
   )
 }
 
