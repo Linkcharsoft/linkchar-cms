@@ -33,6 +33,9 @@ const atLocale = (config: CmsConfigType, value: unknown, locale: string): unknow
 
 const join = (head: string, inner: string) => (inner ? `${head}.${inner}` : head)
 
+// An image, file or gallery of another locale that holds nothing reuses the original: null and [] included.
+export const inheritsOriginal = (value: unknown) => value === undefined || value === null || (Array.isArray(value) && value.length === 0)
+
 // Emptiness of a localized part (button label, opening hours note).
 export const isBlank = (value: unknown) =>
   value === undefined || value === null || (typeof value === 'string' && !value.trim()) || (Array.isArray(value) && value.length === 0)
@@ -111,7 +114,7 @@ export const leafVariants = (config: CmsConfigType, field: LeafField, value: unk
   }
 
   if (mode === 'translate' || mode === 'inherit') {
-    const own = mode === 'translate' ? locales : locales.filter(locale => locale === defaultLocale || atLocale(config, value, locale) !== undefined)
+    const own = mode === 'translate' ? locales : locales.filter(locale => locale === defaultLocale || !inheritsOriginal(atLocale(config, value, locale)))
     return own.map(locale => ({
       locale,
       value: atLocale(config, value, locale),

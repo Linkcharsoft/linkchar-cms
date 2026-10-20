@@ -28,3 +28,28 @@
 
   &__Image
     object-fit: cover
+
+  &__Original
+    display: flex
+    flex-wrap: wrap
+    gap: 8px
+
+  &__OriginalItem
+    display: flex
+    align-items: center
+    gap: 8px
+    max-width: 260px
+    padding: 6px 10px 6px 6px
+    border-radius: 8px
+    @apply border border-cms-border bg-cms-neutral-50
+
+  &__OriginalTitle
+    overflow: hidden
+    text-overflow: ellipsis
+    white-space: nowrap
+    @apply cms-text-regular-14 text-cms-ink-700
+
+  &__Actions
+    display: flex
+    flex-wrap: wrap
+    gap: 8px

@@ -1,6 +1,7 @@
 'use client'
 import './LocaleNote.sass'
 import { getIn, useFormikContext } from 'formik'
+import { classNames } from 'primereact/utils'
 import { use, useState } from 'react'
 import { languageName } from '../../../core/i18n/translator'
 import { plainText } from '../../../core/kinds/richText'
@@ -20,17 +21,20 @@ export const useEditingTranslation = () => {
   return config.locales.length > 1 && !!locale && locale !== config.defaultLocale
 }
 
+// A short mark next to a label about languages; `own` marks a value this language has for itself.
+export const LocaleBadge = ({ own = false, children }: { own?: boolean, children: ReactNode }) => (
+  <span className={classNames('SharedBadge', { 'SharedBadge--Own': own })}>
+    <i className={`pi ${own ? 'pi-language' : 'pi-globe'}`} aria-hidden='true' />
+    {children}
+  </span>
+)
+
 // "Same in every language", for a value every language shares; shown only while translating.
 export const SharedBadge = () => {
   const { t } = useT()
   const translating = useEditingTranslation()
   if (!translating) return null
-  return (
-    <span className='SharedBadge'>
-      <i className='pi pi-globe' aria-hidden='true' />
-      {t('fields.locale.shared')}
-    </span>
-  )
+  return <LocaleBadge>{t('fields.locale.shared')}</LocaleBadge>
 }
 
 const OriginalText = ({ id, value }: { id: string, value: unknown }) => {

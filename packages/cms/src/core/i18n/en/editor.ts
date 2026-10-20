@@ -13,7 +13,7 @@ const editor = {
     reloadAndRetry: 'Reload the page and try again.',
     couldNotFinish: 'It could not be completed',
     language: 'Language',
-    languageHelp: 'Texts are entered per language; images, links and options are the same in all of them.',
+    languageHelp: 'Texts are entered per language. Images and files reuse the original ones unless you pick others; links and options are the same in all of them.',
     languageMissing: { one: '{count} missing', other: '{count} missing' },
     languageComplete: 'complete',
     discardSection: {

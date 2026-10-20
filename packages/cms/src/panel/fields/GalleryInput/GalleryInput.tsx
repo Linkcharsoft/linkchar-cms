@@ -3,15 +3,18 @@ import './GalleryInput.sass'
 import { arrayMove } from '@dnd-kit/sortable'
 import { useField } from 'formik'
 import Image from 'next/image'
-import { useState } from 'react'
-import { useT } from '../../client/context'
+import { use, useState } from 'react'
+import { languageName } from '../../../core/i18n/translator'
+import { useCms, useT } from '../../client/context'
 import SortableItem from '../../editor/SortableItem/SortableItem'
 import SortableList from '../../editor/SortableList/SortableList'
 import MediaPicker from '../../media/MediaPicker/MediaPicker'
 import { useMediaText } from '../../media/mediaText'
 import CustomButton from '../../primitives/CustomButton/CustomButton'
 import InputError from '../../primitives/InputError/InputError'
-import { useFieldError, useFieldLabel, useText, useValuePath } from '../fieldUtils'
+import { EntryContext } from '../entryContext'
+import { useFieldError, useFieldLabel, useMediaVariant, useText } from '../fieldUtils'
+import { LocaleBadge } from '../LocaleNote/LocaleNote'
 import { useMediaRegistry } from '../referencesContext'
 import type { GalleryField } from '../../../core/fields'
 
@@ -20,25 +23,41 @@ interface Props {
   field: GalleryField
 }
 
+// Other languages show the original gallery until they get their own, which starts as a copy of it.
 const GalleryInput = ({ name, field }: Props) => {
   const { t } = useT()
+  const { config } = useCms()
+  const { locale } = use(EntryContext)
   const text = useText()
   const label = useFieldLabel()
   const mediaText = useMediaText()
-  const path = useValuePath(name, field)
-  const [{ value }, , { setValue, setTouched }] = useField<string[]>(path)
-  const error = useFieldError(path)
+  const variant = useMediaVariant(name)
+  const [{ value }, , { setValue, setTouched }] = useField<string[]>(variant.path)
+  const error = useFieldError(variant.path)
   const { media: known, remember } = useMediaRegistry()
   const [isPicking, setIsPicking] = useState(false)
   const ids = Array.isArray(value) ? value : []
   const atMax = field.max !== undefined && ids.length >= field.max
+  const inherited = variant.translating && !variant.overridden
+  const language = languageName(locale || config.defaultLocale, config.panelLocale)
+  const original = languageName(config.defaultLocale, config.panelLocale)
 
+  // An own gallery left empty goes back to the original: a language never shows an empty one by mistake.
   const commit = (next: string[]) => {
+    if (variant.overridden && next.length === 0) {
+      variant.restore()
+      return
+    }
     setValue(next)
     setTouched(true, false)
   }
 
   const titleOf = (id: string) => (known[id] && (mediaText(known[id].alt) || known[id].filename)) || t('gallery.removed')
+  const thumbnail = (id: string) => (known[id] ? (
+    <span className='GalleryInput__Thumb'>
+      <Image src={known[id].url} alt='' fill sizes='64px' className='GalleryInput__Image' />
+    </span>
+  ) : undefined)
 
   return (
     <fieldset className='GalleryInput'>
@@ -47,32 +66,57 @@ const GalleryInput = ({ name, field }: Props) => {
         <span className='GalleryInput__Count'>
           {field.max !== undefined ? t('fields.list.count', { count: ids.length, max: field.max }) : ids.length}
         </span>
+        {variant.translating && (
+          <LocaleBadge own={variant.overridden}>
+            {variant.overridden ? t('mediaInput.onlyFor', { language }) : t('mediaInput.sameAs', { language: original })}
+          </LocaleBadge>
+        )}
       </legend>
       {field.help && <p className='GalleryInput__Help'>{text(field.help)}</p>}
 
-      {ids.length > 0 && (
+      {inherited ? (
+        ids.length > 0 ? (
+          <ul className='GalleryInput__Original'>
+            {ids.map(id => (
+              <li key={id} className='GalleryInput__OriginalItem'>
+                {thumbnail(id)}
+                <span className='GalleryInput__OriginalTitle'>{titleOf(id)}</span>
+              </li>
+            ))}
+          </ul>
+        ) : <p className='GalleryInput__Help'>{t('gallery.noOriginal', { language: original })}</p>
+      ) : ids.length > 0 && (
         <SortableList ids={ids} labelOf={titleOf} onMove={(from, to) => commit(arrayMove(ids, from, to))}>
           {ids.map(id => (
             <SortableItem
               key={id}
               id={id}
               title={titleOf(id)}
-              thumbnail={known[id] ? (
-                <span className='GalleryInput__Thumb'>
-                  <Image src={known[id].url} alt='' fill sizes='64px' className='GalleryInput__Image' />
-                </span>
-              ) : undefined}
+              thumbnail={thumbnail(id)}
               onRemove={() => commit(ids.filter(entry => entry !== id))}
             />
           ))}
         </SortableList>
       )}
 
-      <div>
-        <CustomButton type='button' variant='secondary' size='sm' disabled={atMax} onClick={() => setIsPicking(true)}>
-          <i className='pi pi-images' aria-hidden='true' />
-          {t('gallery.add')}
-        </CustomButton>
+      <div className='GalleryInput__Actions'>
+        {inherited ? (
+          <CustomButton type='button' variant='secondary' size='sm' onClick={() => (ids.length > 0 ? variant.override([...ids]) : setIsPicking(true))}>
+            <i className='pi pi-images' aria-hidden='true' />
+            {t('gallery.override', { language })}
+          </CustomButton>
+        ) : (
+          <CustomButton type='button' variant='secondary' size='sm' disabled={atMax} onClick={() => setIsPicking(true)}>
+            <i className='pi pi-images' aria-hidden='true' />
+            {t('gallery.add')}
+          </CustomButton>
+        )}
+        {variant.overridden && (
+          <CustomButton type='button' variant='ghost' size='sm' onClick={variant.restore}>
+            <i className='pi pi-undo' aria-hidden='true' />
+            {t('gallery.restore')}
+          </CustomButton>
+        )}
       </div>
       <InputError message={error} />
 
@@ -86,7 +130,9 @@ const GalleryInput = ({ name, field }: Props) => {
           onPick={picked => {
             remember(...picked)
             const added = picked.map(item => item.id).filter(id => !ids.includes(id))
-            commit([...ids, ...added].slice(0, field.max ?? Infinity))
+            const next = [...ids, ...added].slice(0, field.max ?? Infinity)
+            if (inherited) variant.override(next)
+            else commit(next)
             setIsPicking(false)
           }}
         />

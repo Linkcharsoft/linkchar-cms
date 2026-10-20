@@ -89,23 +89,36 @@ const media = {
     image: {
       choose: 'Elegir imagen',
       chooseFor: 'Elegir imagen para {label}',
-      changeOf: 'Cambiar imagen de {label}'
+      changeOf: 'Cambiar imagen de {label}',
+      override: 'Usar otra imagen para {language}',
+      overrideOf: 'Usar otra imagen para {language} en {label}',
+      restore: 'Volver a la original',
+      noOriginal: 'Sin imagen en {language}.'
     },
     file: {
       choose: 'Elegir PDF',
       chooseFor: 'Elegir PDF para {label}',
-      changeOf: 'Cambiar PDF de {label}'
+      changeOf: 'Cambiar PDF de {label}',
+      override: 'Usar otro PDF para {language}',
+      overrideOf: 'Usar otro PDF para {language} en {label}',
+      restore: 'Volver al original',
+      noOriginal: 'Sin PDF en {language}.'
     },
     change: 'Cambiar',
     edit: 'Editar',
     editAltAndFocal: 'Texto alternativo y punto focal',
     remove: 'Quitar',
+    sameAs: 'Igual que en {language}',
+    onlyFor: 'Solo para {language}',
     altText: 'Texto alternativo: {alt}',
     trashed: 'Está en la papelera: restauralo desde {media} o elegí otro.',
     missing: 'El archivo elegido ya no existe. Elegí otro.'
   },
   gallery: {
     add: 'Agregar imágenes',
+    override: 'Usar otras imágenes para {language}',
+    restore: 'Volver a las originales',
+    noOriginal: 'Sin imágenes en {language}.',
     removed: 'Imagen eliminada'
   }
 } as const

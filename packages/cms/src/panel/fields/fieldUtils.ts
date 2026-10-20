@@ -1,7 +1,7 @@
 'use client'
 import { getIn, useFormikContext } from 'formik'
 import { use } from 'react'
-import { fieldLocalize, isLocaleMap } from '../../core/locales'
+import { fieldLocalize, inheritsOriginal, isLocaleMap } from '../../core/locales'
 import { resolveText } from '../../core/text'
 import { useCms, useTextContext } from '../client/context'
 import { EntryContext } from './entryContext'
@@ -42,6 +42,42 @@ export const useValuePath = (name: string, field: LeafField | DataField) => {
   if (mode === 'translate') return `${name}.${locale || config.defaultLocale}`
   if (mode === 'inherit') return `${name}.${config.defaultLocale}`
   return name
+}
+
+export interface MediaVariantType {
+  // Where the shown value lives: this language's own one, or the original it reuses.
+  path: string
+  // Another language than the default one is on screen.
+  translating: boolean
+  // This language has its own value instead of reusing the original.
+  overridden: boolean
+  override: (value: unknown) => void
+  restore: () => void
+}
+
+// An image, file or gallery per language: other languages reuse the original until they get their own.
+export const useMediaVariant = (name: string): MediaVariantType => {
+  const { config } = useCms()
+  const { locale } = use(EntryContext)
+  const { values, setFieldValue, setFieldTouched } = useFormikContext<Record<string, unknown>>()
+  const current = locale || config.defaultLocale
+  const translating = current !== config.defaultLocale
+  const stored: unknown = getIn(values, name)
+  const own = isLocaleMap(stored, config.locales) ? stored[current] : undefined
+  const overridden = translating && !inheritsOriginal(own)
+  const set = (value: unknown) => {
+    void setFieldValue(`${name}.${current}`, value)
+    void setFieldTouched(`${name}.${current}`, true, false)
+  }
+
+  return {
+    path: translating && !overridden ? `${name}.${config.defaultLocale}` : `${name}.${current}`,
+    translating,
+    overridden,
+    override: set,
+    // Formik drops a key set to undefined: the language goes back to reusing the original.
+    restore: () => set(undefined)
+  }
 }
 
 // A stored text in the language being edited (a list item's title, a block summary), plain or per locale.

@@ -2,7 +2,8 @@
 import './MediaInput.sass'
 import { useField } from 'formik'
 import Image from 'next/image'
-import { useState } from 'react'
+import { use, useState } from 'react'
+import { languageName } from '../../../core/i18n/translator'
 import { formatBytes, isImageMime } from '../../../core/media'
 import { useCms, useT } from '../../client/context'
 import MediaDetails from '../../media/MediaDetails/MediaDetails'
@@ -11,7 +12,9 @@ import { useMediaText } from '../../media/mediaText'
 import CustomButton from '../../primitives/CustomButton/CustomButton'
 import InputContainer from '../../primitives/InputContainer/InputContainer'
 import { navItems } from '../../shell/navigation'
-import { fieldId, useFieldError, useFieldLabel, useText, useValuePath } from '../fieldUtils'
+import { EntryContext } from '../entryContext'
+import { fieldId, useFieldError, useFieldLabel, useMediaVariant, useText } from '../fieldUtils'
+import { LocaleBadge } from '../LocaleNote/LocaleNote'
 import { useMediaRegistry } from '../referencesContext'
 import type { FileField, ImageField } from '../../../core/fields'
 import type { MediaItemType } from '../../../core/media'
@@ -21,16 +24,17 @@ interface Props {
   field: ImageField | FileField
 }
 
-// Single image or PDF. Stores the media id; alt text and focal point are edited on the media item itself.
+// One image or PDF by media id (alt and focal point live on the item); other languages reuse the original.
 const MediaInput = ({ name, field }: Props) => {
   const { t } = useT()
   const { config } = useCms()
+  const { locale } = use(EntryContext)
   const text = useText()
   const label = useFieldLabel()
   const mediaText = useMediaText()
-  const path = useValuePath(name, field)
-  const [{ value }, , { setValue, setTouched }] = useField<string | null>(path)
-  const error = useFieldError(path)
+  const variant = useMediaVariant(name)
+  const [{ value }, , { setValue, setTouched }] = useField<string | null>(variant.path)
+  const error = useFieldError(variant.path)
   const { media: known, remember } = useMediaRegistry()
   const [isPicking, setIsPicking] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
@@ -39,15 +43,50 @@ const MediaInput = ({ name, field }: Props) => {
   const isImageField = field.kind === 'image'
   const kind = isImageField ? 'image' : 'file'
   const fieldName = text(field.label)
+  const language = languageName(locale || config.defaultLocale, config.panelLocale)
+  const original = languageName(config.defaultLocale, config.panelLocale)
+  // Translating with the original on screen: picking gives this language its own file instead of replacing it.
+  const inherited = variant.translating && !variant.overridden
 
   const commit = (next: MediaItemType | null) => {
     if (next) remember(next)
+    if (inherited) {
+      variant.override(next?.id ?? null)
+      return
+    }
     setValue(next?.id ?? null)
     setTouched(true, false)
   }
 
+  const badge = variant.translating
+    ? <LocaleBadge own={variant.overridden}>{variant.overridden ? t('mediaInput.onlyFor', { language }) : t('mediaInput.sameAs', { language: original })}</LocaleBadge>
+    : null
+
+  const pickButton = (
+    <CustomButton
+      id={id}
+      type='button'
+      variant='secondary'
+      size={item ? 'sm' : undefined}
+      aria-label={inherited
+        ? t(`mediaInput.${kind}.overrideOf`, { language, label: fieldName })
+        : item ? t(`mediaInput.${kind}.changeOf`, { label: fieldName }) : t(`mediaInput.${kind}.chooseFor`, { label: fieldName })}
+      onClick={() => setIsPicking(true)}
+    >
+      <i className={item ? 'pi pi-sync' : isImageField ? 'pi pi-image' : 'pi pi-file-pdf'} aria-hidden='true' />
+      {inherited ? t(`mediaInput.${kind}.override`, { language }) : item ? t('mediaInput.change') : t(`mediaInput.${kind}.choose`)}
+    </CustomButton>
+  )
+
+  const restoreButton = variant.overridden && (
+    <CustomButton type='button' variant='ghost' size='sm' onClick={variant.restore}>
+      <i className='pi pi-undo' aria-hidden='true' />
+      {t(`mediaInput.${kind}.restore`)}
+    </CustomButton>
+  )
+
   return (
-    <InputContainer label={label(field)} htmlFor={id} error={error} help={text(field.help)}>
+    <InputContainer label={label(field)} htmlFor={id} error={error} help={text(field.help)} badge={badge}>
       <div className='MediaInput'>
         {item ? (
           <>
@@ -75,48 +114,36 @@ const MediaInput = ({ name, field }: Props) => {
               )}
               <div className='MediaInput__Actions'>
                 {/* The field label points at this button (htmlFor), so it gets a name that keeps the action. */}
-                <CustomButton
-                  id={id}
-                  type='button'
-                  variant='secondary'
-                  size='sm'
-                  aria-label={t(`mediaInput.${kind}.changeOf`, { label: fieldName })}
-                  onClick={() => setIsPicking(true)}
-                >
-                  <i className='pi pi-sync' aria-hidden='true' />
-                  {t('mediaInput.change')}
-                </CustomButton>
+                {pickButton}
                 <CustomButton type='button' variant='secondary' size='sm' onClick={() => setIsEditing(true)}>
                   <i className='pi pi-pencil' aria-hidden='true' />
                   {isImageField && field.focalPoint ? t('mediaInput.editAltAndFocal') : t('mediaInput.edit')}
                 </CustomButton>
-                <CustomButton type='button' variant='ghost' size='sm' onClick={() => commit(null)}>
-                  <i className='pi pi-times' aria-hidden='true' />
-                  {t('mediaInput.remove')}
-                </CustomButton>
+                {restoreButton}
+                {!variant.translating && (
+                  <CustomButton type='button' variant='ghost' size='sm' onClick={() => commit(null)}>
+                    <i className='pi pi-times' aria-hidden='true' />
+                    {t('mediaInput.remove')}
+                  </CustomButton>
+                )}
               </div>
             </div>
           </>
         ) : (
           <div className='MediaInput__Empty'>
             {value && <p role='alert' className='MediaInput__Warning'>{t('mediaInput.missing')}</p>}
-            <CustomButton
-              id={id}
-              type='button'
-              variant='secondary'
-              aria-label={t(`mediaInput.${kind}.chooseFor`, { label: fieldName })}
-              onClick={() => setIsPicking(true)}
-            >
-              <i className={isImageField ? 'pi pi-image' : 'pi pi-file-pdf'} aria-hidden='true' />
-              {t(`mediaInput.${kind}.choose`)}
-            </CustomButton>
+            {inherited && !value && <p className='MediaInput__Meta'>{t(`mediaInput.${kind}.noOriginal`, { language: original })}</p>}
+            <div className='MediaInput__Actions'>
+              {pickButton}
+              {restoreButton}
+            </div>
           </div>
         )}
       </div>
 
       {isPicking && (
         <MediaPicker
-          header={t(`mediaInput.${kind}.choose`)}
+          header={inherited ? t(`mediaInput.${kind}.override`, { language }) : t(`mediaInput.${kind}.choose`)}
           accept={isImageField ? 'image' : 'document'}
           defaultFolder={field.folder}
           onHide={() => setIsPicking(false)}

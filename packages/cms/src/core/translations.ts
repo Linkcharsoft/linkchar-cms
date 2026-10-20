@@ -1,7 +1,7 @@
 import { CmsConfigError, fieldDefinition } from './config'
 import { withDefaults } from './defaults'
 import { isRecord } from './kinds/shared'
-import { fieldLocalize, isBlank, leafVariants, missingInLeaf } from './locales'
+import { fieldLocalize, inheritsOriginal, isBlank, leafVariants, missingInLeaf } from './locales'
 import { missingAltLocales } from './media'
 import { dataFields } from './walk'
 import type { CmsConfigType } from './config'
@@ -24,7 +24,7 @@ const resolveLeaf = (config: CmsConfigType, field: LeafField, stored: unknown, l
     const own = map[locale]
     return own !== undefined && !fieldDefinition(config, field.kind).isEmpty(own, field) ? own : map[defaultLocale]
   }
-  if (mode === 'inherit') return map[locale] ?? map[defaultLocale]
+  if (mode === 'inherit') return inheritsOriginal(map[locale]) ? map[defaultLocale] : map[locale]
 
   const parts = Object.fromEntries(Object.keys(mode).map(part => {
     const values = asRecord(map[part])

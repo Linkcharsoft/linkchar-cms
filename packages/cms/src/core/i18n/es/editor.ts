@@ -10,7 +10,7 @@ const editor = {
     reloadAndRetry: 'Recargá la página y volvé a intentar.',
     couldNotFinish: 'No se pudo completar',
     language: 'Idioma',
-    languageHelp: 'Los textos se cargan por idioma; imágenes, links y opciones son iguales en todos.',
+    languageHelp: 'Los textos se cargan por idioma. Imágenes y archivos usan los originales salvo que elijas otros; links y opciones son iguales en todos.',
     languageMissing: { one: 'falta {count}', other: 'faltan {count}' },
     languageComplete: 'completo',
     discardSection: {

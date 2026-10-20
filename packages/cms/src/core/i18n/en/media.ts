@@ -92,23 +92,36 @@ const media = {
     image: {
       choose: 'Choose image',
       chooseFor: 'Choose image for {label}',
-      changeOf: 'Change image of {label}'
+      changeOf: 'Change image of {label}',
+      override: 'Use another image for {language}',
+      overrideOf: 'Use another image for {language} in {label}',
+      restore: 'Back to the original',
+      noOriginal: 'No image in {language}.'
     },
     file: {
       choose: 'Choose PDF',
       chooseFor: 'Choose PDF for {label}',
-      changeOf: 'Change PDF of {label}'
+      changeOf: 'Change PDF of {label}',
+      override: 'Use another PDF for {language}',
+      overrideOf: 'Use another PDF for {language} in {label}',
+      restore: 'Back to the original',
+      noOriginal: 'No PDF in {language}.'
     },
     change: 'Change',
     edit: 'Edit',
     editAltAndFocal: 'Alt text and focal point',
     remove: 'Remove',
+    sameAs: 'Same as in {language}',
+    onlyFor: 'Only for {language}',
     altText: 'Alt text: {alt}',
     trashed: 'It\'s in the trash: restore it from {media} or choose another one.',
     missing: 'The chosen file no longer exists. Choose another one.'
   },
   gallery: {
     add: 'Add images',
+    override: 'Use other images for {language}',
+    restore: 'Back to the original images',
+    noOriginal: 'No images in {language}.',
     removed: 'Deleted image'
   }
 } satisfies CatalogType<typeof es>

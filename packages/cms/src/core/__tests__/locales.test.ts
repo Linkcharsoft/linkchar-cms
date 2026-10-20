@@ -2,8 +2,9 @@ import { describe, expect, expectTypeOf, it } from 'vitest'
 import { defineCmsConfig } from '../config'
 import { buildDefaults, withDefaults } from '../defaults'
 import { diffContent } from '../diff'
-import { block, blocks, button, image, list, number, richText, section, text } from '../fields'
+import { block, blocks, button, gallery, image, list, number, richText, section, text } from '../fields'
 import { openingHours } from '../kinds/openingHours'
+import { leafVariants } from '../locales'
 import { mergePatch } from '../merge'
 import { documentReferences } from '../references'
 import { localeProgress, missingTranslations, resolveContent } from '../translations'
@@ -102,6 +103,13 @@ describe('resolveContent', () => {
     const en = resolveContent(config, fields, data, 'en')
     expect(en.hero.title).toBe('Hola')
     expect(en.extra[0].body).toEqual(doc('Texto'))
+  })
+
+  it('reuses the original for an image or gallery of another locale that holds nothing', () => {
+    const media = { cover: image({ label: 'Imagen' }), photos: gallery({ label: 'Fotos' }) }
+    const data = { cover: { es: ID.es, en: null }, photos: { es: [ID.es], en: [] } }
+    expect(resolveContent(config, media, data, 'en')).toEqual({ cover: ID.es, photos: [ID.es] })
+    expect(leafVariants(config, media.photos, data.photos).map(variant => variant.locale)).toEqual(['es'])
   })
 
   it('rejects a locale the project does not have', () => {
