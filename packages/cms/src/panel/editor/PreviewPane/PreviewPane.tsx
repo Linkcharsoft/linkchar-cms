@@ -12,6 +12,8 @@ interface Props {
   savedAt: Date | null
   // Section on screen in the editor: the page scrolls to the element with this id.
   anchor?: string | null
+  // Set with more than one language: the iframe says which one it shows.
+  language?: string
 }
 
 const withHash = (url: string, anchor?: string | null) => (anchor ? `${url}#${anchor}` : url)
@@ -29,7 +31,7 @@ const deviceTemplate = (option: DeviceOptionType) => (
   </span>
 )
 
-const PreviewPane = ({ path, savedAt, anchor }: Props) => {
+const PreviewPane = ({ path, savedAt, anchor, language }: Props) => {
   const { t } = useT()
   const frame = useRef<HTMLIFrameElement>(null)
   const [device, setDevice] = useState<PreviewDeviceType>('desktop')
@@ -85,7 +87,7 @@ const PreviewPane = ({ path, savedAt, anchor }: Props) => {
           <iframe
             ref={frame}
             src={src}
-            title={t('editor.previewPane.frame')}
+            title={language ? t('editor.previewPane.frameIn', { language }) : t('editor.previewPane.frame')}
             className='PreviewPane__Frame'
             style={{ width, height: box.height / scale || '100%', transform: `scale(${scale})` }}
           />

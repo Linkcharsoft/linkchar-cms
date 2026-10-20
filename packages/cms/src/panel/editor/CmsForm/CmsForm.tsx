@@ -353,7 +353,7 @@ const CmsForm = ({
                     aria-pressed={previewOpen}
                     data-tour='preview'
                     disabled={!previewPath}
-                    tooltip={previewPath ? undefined : t('editor.previewNeedsUrl')}
+                    tooltip={previewPath ? undefined : multilingual ? t('editor.previewNeedsUrlIn', { language: languageName(locale, config.panelLocale) }) : t('editor.previewNeedsUrl')}
                     onClick={() => setPreviewOpen(open => !open)}
                   >
                     <i className='pi pi-eye' aria-hidden='true' />
@@ -396,7 +396,7 @@ const CmsForm = ({
         )}
 
         <div className={classNames({ CmsForm__Split: showPreview && !isPage, 'CmsForm__Page': isPage, 'CmsForm__Page--Preview': isPage && showPreview })}>
-          {showPreview && previewPath && <PreviewPane path={previewPath} savedAt={autosave.savedAt} anchor={anchor} />}
+          {showPreview && previewPath && <PreviewPane path={previewPath} savedAt={autosave.savedAt} anchor={anchor} language={multilingual ? languageName(locale, config.panelLocale) : undefined} />}
           <form
             className={isPage ? 'CmsForm__PageBody' : 'CmsForm__Body'}
             data-tour='form'

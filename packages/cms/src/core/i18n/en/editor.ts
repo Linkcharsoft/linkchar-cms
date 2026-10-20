@@ -5,6 +5,7 @@ const editor = {
   editor: {
     preview: 'Preview',
     previewNeedsUrl: 'Fill in the URL to see the preview',
+    previewNeedsUrlIn: 'Fill in the URL in {language} to see the preview',
     reviewAndPublish: 'Review and publish',
     missing: 'To publish, fill in:',
     missingMore: ' and {count} more',
@@ -82,6 +83,7 @@ const editor = {
       size: 'Screen size',
       open: 'Open in a new tab',
       frame: 'Preview of the site with the unpublished changes',
+      frameIn: 'Preview of the site in {language} with the unpublished changes',
       devices: { desktop: 'Desktop', tablet: 'Tablet', mobile: 'Phone' }
     },
     seoPreview: {

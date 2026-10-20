@@ -2,6 +2,7 @@ const editor = {
   editor: {
     preview: 'Vista previa',
     previewNeedsUrl: 'Completá la URL para ver la vista previa',
+    previewNeedsUrlIn: 'Completá la URL en {language} para ver la vista previa',
     reviewAndPublish: 'Revisar y publicar',
     missing: 'Para publicar falta completar:',
     missingMore: ' y {count} más',
@@ -79,6 +80,7 @@ const editor = {
       size: 'Tamaño de pantalla',
       open: 'Abrir en otra pestaña',
       frame: 'Vista previa del sitio con los cambios sin publicar',
+      frameIn: 'Vista previa del sitio en {language} con los cambios sin publicar',
       devices: { desktop: 'Escritorio', tablet: 'Tablet', mobile: 'Celular' }
     },
     seoPreview: {
