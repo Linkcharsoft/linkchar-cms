@@ -1,5 +1,24 @@
 # @linkcharsoft/cms
 
+## 0.5.0
+
+### Minor Changes
+
+- b584b61: Image fields, galleries and rich text say which files still lack their alt text in the language being edited ("The alt text in English is missing."), and "Fill in" opens the file's details on that language's alt text. `MediaDetails` takes `focusLocale` for that.
+- e8f6b12: The editor's language selector says what is missing in each language ("English · 3 missing", "Spanish · complete"), counting required values, translations and the alt texts of the files in use; shared values count in the default language. The "To publish, fill in" notice lists what can be filled in the language on screen first, alt texts included, and each link switches to the language it names.
+- 97e316a: Media shows the alt text each image still lacks per language: its card says "No alt: EN", its details mark the empty language as "Missing", and a new filter lists the images without alt text in a language (`searchMedia({ missingAlt: 'en' })`, `MediaQueryType.missingAlt`).
+- dc7dd63: Images, galleries and PDFs per language in the editor. In another language than the default one they show the original with "Same as in Spanish", and "Use another image for English" gives that language its own; "Back to the original" drops it again. A gallery of its own starts as a copy of the original and goes back to it once emptied. The site already read these values: `resolveContent` and `leafVariants` now also treat an empty override (`null` or `[]`) as reusing the original, so a language never shows an empty gallery by mistake. New `inheritsOriginal` in `@linkcharsoft/cms/core` and `useMediaVariant(name)` in `@linkcharsoft/cms/panel`.
+- 384a0c9: New helpers in `@linkcharsoft/cms/core` for what keeps a document out of the publication: `missingContent` lists required values, translations and alt texts with their field and locale (`{ path: 'hero.title.en', field: 'hero.title', locale: 'en', kind: 'field' }`), `splitLocale` separates a data path from its locale, `countByLocale` and `countBySectionAndLocale` count them, and `missingAltLocales` names the locales a media item still lacks an alt text in. The editor and the publish list use the same function, so they always agree.
+- 92a72d4: With more than one language, the page outline and each section header count what is missing per language ("ES 1 · EN 3"), the language being edited highlighted, so it shows at a glance which sections still need a translation. Screen readers hear "3 missing in English". Single-language projects keep the dot and the "Incomplete" mark.
+- 3e657bd: Each missing item in Publish links to its field: "Title (English)" opens the editor in English with that field in view and focused, and an alt text opens the image field in its language. Pending changes' `missing` items carry that `href`, built with the new `paths.field(kind, entryId, id, { field, locale })` (`/dashboard/paginas/home?locale=en#hero.title`). The editor opens any field named in the URL hash, and the overview's "View" on an incomplete item goes to the first missing field. The `publishPanel.problems` text is now only the lead ("Not published until these are filled in: "), followed by the links.
+- 7424335: While editing another language than the default one, each translated field shows the default language's text above it ("Spanish: Architecture to live in"; rich text as plain text, long ones cut with "Show all") and each shared value says "Same in every language": emails, numbers, options, links, a button's style and link, opening hours' days. Lists and blocks warn that adding, removing or reordering items changes every language. Project inputs get the same with `useLocaleNote(name, field, part?)` from `@linkcharsoft/cms/panel` (`{ badge, note, describedBy }`, for the new `badge` and `note` props of `InputContainer`), plus `SharedBadge` and `useEditingTranslation`. `describedBy` takes extra ids.
+
+### Patch Changes
+
+- 63bbe92: The preview names the language it shows, and when a language still has no URL (an empty slug in English) the disabled preview button says which language needs it.
+- 211dce8: The editor's "To publish, fill in" links focus the field they name in every language: translated fields ("Title (English)") and required values of the default language used to open the section and switch language without reaching the input. Fields inside a closed list or blocks item open it first.
+- ff8fc3e: `imageProps` turns the focal point into `object-position` in percent. Media stores it as a 0–1 ratio, so images on the site were placed at "0.3%" instead of "30%".
+
 ## 0.4.0
 
 ### Minor Changes
