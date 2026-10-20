@@ -70,6 +70,7 @@ const editor = {
       hidden: 'Hidden',
       hiddenOnSite: 'Hidden on the site',
       marksMissing: 'incomplete',
+      missingIn: { one: '{count} missing in {language}', other: '{count} missing in {language}' },
       marksChanged: 'changed',
       marksHidden: 'hidden',
       hiddenNotice: 'This section is not shown on the site. Turn on "Show on the site" to show it again.',

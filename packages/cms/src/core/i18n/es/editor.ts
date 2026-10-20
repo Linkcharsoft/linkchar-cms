@@ -67,6 +67,7 @@ const editor = {
       hidden: 'Oculta',
       hiddenOnSite: 'Oculta en el sitio',
       marksMissing: 'falta completar',
+      missingIn: { one: 'falta {count} en {language}', other: 'faltan {count} en {language}' },
       marksChanged: 'con cambios',
       marksHidden: 'oculta',
       hiddenNotice: 'Esta sección no se muestra en el sitio. Activá "Mostrar en el sitio" para volver a mostrarla.',

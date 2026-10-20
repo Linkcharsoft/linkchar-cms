@@ -6,8 +6,9 @@ import { InputSwitch } from 'primereact/inputswitch'
 import { classNames } from 'primereact/utils'
 import { Fragment, useEffect, useRef } from 'react'
 import { HIDDEN_KEY } from '../../../core/fields'
-import { useT } from '../../client/context'
+import { useCms, useT } from '../../client/context'
 import Notice from '../../primitives/Notice/Notice'
+import LocaleCounts, { totalMissing } from '../LocaleCounts/LocaleCounts'
 import type { Route } from 'next'
 import type { ReactNode } from 'react'
 
@@ -21,7 +22,8 @@ interface Props {
   onToggle: (open: boolean) => void
   hideable: boolean
   changed: boolean
-  missing: number
+  // Missing items per locale.
+  missing: Record<string, number>
   // Entries edited elsewhere whose content this section also shows.
   uses: { label: string, href: string }[]
   actions?: ReactNode
@@ -42,6 +44,7 @@ const HiddenSwitch = ({ name, id }: { name: string, id: string }) => {
 
 const PageSection = ({ sectionKey, label, icon, summary, open, onToggle, hideable, changed, missing, uses, actions, children }: Props) => {
   const { t } = useT()
+  const { config } = useCms()
   const [{ value: hidden }] = useField<boolean | undefined>(`${sectionKey}.${HIDDEN_KEY}`)
   const body = useRef<HTMLDivElement>(null)
   const id = `section-${sectionKey}`
@@ -72,7 +75,12 @@ const PageSection = ({ sectionKey, label, icon, summary, open, onToggle, hideabl
               <span className='PageSection__Title'>{label}</span>
               {!open && summary && <span className='PageSection__Summary'>{summary}</span>}
             </span>
-            {missing > 0 && <span className='PageSection__Mark PageSection__Mark--Missing'>{t('editor.page.missing')}</span>}
+            {totalMissing(missing) > 0 && (
+              <span className='PageSection__Mark PageSection__Mark--Missing'>
+                {t('editor.page.missing')}
+                {config.locales.length > 1 && <LocaleCounts counts={missing} />}
+              </span>
+            )}
             {changed && <span className='PageSection__Mark PageSection__Mark--Changed'>{t('editor.page.changed')}</span>}
             {hideable && hidden && <span className='PageSection__Mark'>{t('editor.page.hidden')}</span>}
             <i className={`pi ${open ? 'pi-chevron-up' : 'pi-chevron-down'} PageSection__Chevron`} aria-hidden='true' />

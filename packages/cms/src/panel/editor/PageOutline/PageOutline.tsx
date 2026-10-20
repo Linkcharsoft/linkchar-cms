@@ -2,14 +2,16 @@
 import './PageOutline.sass'
 import { Dropdown } from 'primereact/dropdown'
 import { classNames } from 'primereact/utils'
-import { useT } from '../../client/context'
+import { useCms, useT } from '../../client/context'
+import LocaleCounts, { totalMissing } from '../LocaleCounts/LocaleCounts'
 
 export interface OutlineItemType {
   key: string
   label: string
   icon?: string
   changed: boolean
-  missing: number
+  // Missing items per locale.
+  missing: Record<string, number>
   hidden: boolean
 }
 
@@ -21,13 +23,17 @@ interface Props {
 
 const Marks = ({ item }: { item: OutlineItemType }) => {
   const { t } = useT()
+  const { config } = useCms()
+  const multilingual = config.locales.length > 1
+  const incomplete = !multilingual && totalMissing(item.missing) > 0
   return (
     <span className='PageOutline__Marks'>
-      {item.missing > 0 && <span className='PageOutline__Dot PageOutline__Dot--Missing' title={t('editor.page.missing')} />}
+      {multilingual && <LocaleCounts counts={item.missing} />}
+      {incomplete && <span className='PageOutline__Dot PageOutline__Dot--Missing' title={t('editor.page.missing')} />}
       {item.changed && <span className='PageOutline__Dot PageOutline__Dot--Changed' title={t('editor.page.changedUnpublished')} />}
       {item.hidden && <i className='pi pi-eye-slash PageOutline__HiddenIcon' title={t('editor.page.hiddenOnSite')} />}
       <span className='sr-only'>
-        {[item.missing > 0 && t('editor.page.marksMissing'), item.changed && t('editor.page.marksChanged'), item.hidden && t('editor.page.marksHidden')]
+        {[incomplete && t('editor.page.marksMissing'), item.changed && t('editor.page.marksChanged'), item.hidden && t('editor.page.marksHidden')]
           .filter(Boolean).join(', ')}
       </span>
     </span>

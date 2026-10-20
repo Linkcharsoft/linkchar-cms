@@ -5,7 +5,8 @@ import { classNames } from 'primereact/utils'
 import { use, useCallback, useEffect, useRef, useState } from 'react'
 import { HIDDEN_KEY } from '../../../core/fields'
 import { sameContent } from '../../../core/merge'
-import { countBySection, pageSections, sectionSummary, usedEntries } from '../../../core/pages'
+import { countBySectionAndLocale } from '../../../core/missing'
+import { pageSections, sectionSummary, usedEntries } from '../../../core/pages'
 import { useCms, usePaths, useT } from '../../client/context'
 import { EntryContext } from '../../fields/entryContext'
 import { useText } from '../../fields/fieldUtils'
@@ -67,7 +68,7 @@ const PageFields = ({ fields, published, missing: missingItems, remounts, compac
   const sections = pageSections(fields)
   const [open, setOpen] = useState<Record<string, boolean>>(() => (sections[0] ? { [sections[0].key]: true } : {}))
   const [active, setActive] = useState<string | null>(null)
-  const missing = countBySection(missingItems.map(item => item.field))
+  const missing = countBySectionAndLocale(config, missingItems)
 
   // A jump from the outline wins over the scroll tracking until the smooth scroll settles.
   const jumping = useRef(0)
@@ -128,7 +129,7 @@ const PageFields = ({ fields, published, missing: missingItems, remounts, compac
     label: text(section.label),
     icon: section.mark?.icon,
     changed: !!published && !sameContent(values[section.key], published[section.key]),
-    missing: missing[section.key] ?? 0,
+    missing: missing[section.key] ?? {},
     hidden: !!section.mark?.hideable && (values[section.key] as DataRecord | undefined)?.[HIDDEN_KEY] === true
   }))
 
