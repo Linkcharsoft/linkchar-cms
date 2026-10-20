@@ -2,7 +2,7 @@
 
 Linkchar's CMS for Next.js projects: a content schema in code, Supabase storage, an editor panel and site readers. The package ships TypeScript source; the project compiles it.
 
-> 0.3.x ships the core, the server layer (Supabase queries and actions), publishing (Amplify and a local mock), the base migration, the editor panel with its theme and catalogs (`es`, `en`), and the `linkchar-cms` CLI. Site readers and the Next helpers (`withCms`) arrive in later stages.
+> 0.4.x ships the core, the server layer (Supabase queries and actions), publishing (Amplify and a local mock), the migrations, the editor panel with its theme and catalogs (`es`, `en`), the site readers (`cms.site`, `@linkcharsoft/cms/site`), `withCms` (`@linkcharsoft/cms/next`) and the `linkchar-cms` CLI. Editing per language in the panel (an image per language, what is missing in each one) arrives in 0.5.
 
 ## Install
 
@@ -29,8 +29,10 @@ pnpm add @linkcharsoft/cms
 ```
 
 ```ts
-// next.config.ts
-const nextConfig = { transpilePackages: ['@linkcharsoft/cms'] }
+// next.config.ts: compiles the package with the project (see "Next config")
+import { withCms } from '@linkcharsoft/cms/next'
+
+export default withCms({})
 ```
 
 The panel is styled with Tailwind 3 and Sass, compiled by the project (`tailwindcss`, `postcss` and `sass` are peer dependencies). The preset brings the panel tokens; presets can't add `content`, so the project spreads the package sources into it:
@@ -79,6 +81,23 @@ Text kinds keep one value per locale, `{ es: 'Hola', en: 'Hello' }`, even with a
 - `withDefaults(config, fields, data)` repairs stored content into that shape.
 - `resolveContent(config, fields, data, locale)` gives the site plain values for one locale.
 - `missingTranslations(config, fields, data, { mediaAlt })` lists what blocks publishing: texts filled in the default locale but empty in another, and the alt texts of the images in use.
+
+## URLs per locale
+
+An entry's `path` is one pattern for every locale or one per locale; collections end in `:slug`. The default locale has no prefix and the others get theirs:
+
+```ts
+about: page('Estudio', { /* … */ }, { path: { es: '/estudio', en: '/studio' } })      // /estudio, /en/studio
+posts: collection('Blog', { /* … */ }, { slugField: 'slug', path: '/blog/:slug' })   // /blog/casa, /en/blog/house
+```
+
+`defineCmsConfig` checks the patterns. Slugs are translated like any text, and each locale's slug must be unique in its collection: saving gives an automatic slug a free variant ("casa-2") and keeps a typed one with an error. Publishing stores the live URL of every locale and leaves a 301 from the old one when it changes, pages included. Changing a pattern in code doesn't create the 301 until the page or document is published again.
+
+`entryPath(config, entry, { locale, slug })`, `entryUrls`, `slugsOf`, `localePrefix`, `alternates` and `absoluteUrl` build the same URLs anywhere (the panel preview, the site, a sitemap).
+
+## Links
+
+A `link` field, a button's link and a rich text link point to a page or document of the site (`{ type: 'entry', entry: 'posts', id, anchor }`), so the site writes its URL in each language and removing the document warns about the link. "Other address" (`type: 'internal'`) keeps a path typed by hand, the same in every language, for screens the CMS doesn't manage. Rich text images keep only their media id: URL, size and alt text come from Media when the text is read.
 
 ## Database
 
@@ -132,6 +151,63 @@ The server actions, the build status webhook and the panel routes are generated 
 - The server functions also take the context directly (`saveDocument(ctx, input)`), which is how the tests run them.
 
 Publishing calls the `PublishTarget`. With Amplify, the build hook queues a build and the EventBridge rule reports its status with `Authorization: Bearer <CMS_BUILD_WEBHOOK_SECRET>`. A status event for an unknown job goes to the oldest open publish of the last 30 minutes. A failed build stores `publish_log.error_code` (`target_missing`, `hook_refused`, `hook_unreachable`, `build_failed`), which the panel translates (`errors.build.*`). The mock build reports `started` and then the result in-process.
+
+## Site
+
+`cms.site` reads content per locale, typed from the schema and ready to render: images with their alt text in the locale, links and buttons with their URL in the locale, rich text with its images and links resolved.
+
+```tsx
+// src/app/(en)/en/blog/[slug]/page.tsx
+import { imageProps, JsonLd, RichText } from '@linkcharsoft/cms/site'
+import Image from 'next/image'
+import { notFound } from 'next/navigation'
+import { cms } from '@/cms/server'
+
+type Props = { params: Promise<{ slug: string }> }
+
+const read = async ({ params }: Props) => cms.site.getDocumentBySlug('posts', (await params).slug, { locale: 'en' })
+
+export const generateStaticParams = () => cms.site.staticParams('posts', { locale: 'en' })
+export const generateMetadata = async (props: Props) => {
+  const post = await read(props)
+  return post ? cms.site.metadata(post) : {}
+}
+
+const PostPage = async (props: Props) => {
+  const post = await read(props)
+  if (!post) notFound()
+  const { title, cover, body } = post.content
+  return (
+    <article>
+      <JsonLd data={cms.site.jsonLd(post)} />
+      <h1>{title}</h1>
+      {cover && <Image {...imageProps(cover, { sizes: '100vw' })} />}
+      <RichText value={body} />
+    </article>
+  )
+}
+
+export default PostPage
+```
+
+- `getEntryContent(id, { locale })` reads a page or singleton; before its first publish it reads as the schema defaults.
+- `getDocumentBySlug`, `listDocuments` and `getDocuments` (in the order of a relation field) read collections.
+- Every document carries `urls` with its URL in each locale, for the language switch.
+- `sitemap()` lists every published URL with its languages: `export default () => cms.site.sitemap()` in `src/app/sitemap.ts`.
+- `metadata(document)` gives the title with `site.titleTemplate`, the canonical URL, hreflang and Open Graph; `site.url` makes them absolute.
+
+In Draft Mode (the panel preview) with a panel session the readers return drafts. Otherwise they read the published copy without touching cookies, so the pages stay static and each publish rebuilds the site.
+
+## Next config
+
+```ts
+// next.config.ts
+import { withCms } from '@linkcharsoft/cms/next'
+
+export default withCms({ reactStrictMode: true })
+```
+
+`withCms` compiles the package with the project, allows images from the Supabase bucket and adds the 301s publishing left to `redirects()`, read once per build with `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`. The build fails if they can't be read; `withCms(config, { redirects: false })` skips them.
 
 ## Field kinds
 
