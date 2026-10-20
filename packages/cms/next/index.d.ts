@@ -14,7 +14,9 @@ export interface CmsRedirectType {
   permanent: boolean
 }
 
-export declare const readRedirects: (supabaseUrl: string, publishableKey: string, fetcher?: typeof fetch) => Promise<CmsRedirectType[]>
+export type RedirectsFetcherType = (url: string, init: { headers: Record<string, string> }) => Promise<{ ok: boolean, status: number, json: () => Promise<unknown> }>
+
+export declare const readRedirects: (supabaseUrl: string, publishableKey: string, fetcher?: RedirectsFetcherType) => Promise<CmsRedirectType[]>
 
 // The package compiled with the project, Supabase images allowed, and the redirects of past publishes.
 export declare const withCms: (nextConfig?: NextConfig, options?: WithCmsOptionsType) => NextConfig

@@ -1,21 +1,42 @@
 // Plain JS: next.config loads before anything is transpiled, and Node won't strip types in node_modules.
+import { request as httpRequest } from 'node:http'
+import { request as httpsRequest } from 'node:https'
 
 /** @param {string} path */
 const literal = path => path.replace(/[:()*+?{}\\]/g, char => `\\${char}`)
+
+/** @typedef {import('./index').RedirectsFetcherType} RedirectsFetcherType */
+
+// Without keep-alive: next typegen and build exit right after, and on Windows Node can crash closing an idle socket.
+/** @type {RedirectsFetcherType} */
+const getJson = (url, { headers }) => new Promise((resolve, reject) => {
+  const target = new URL(url)
+  const send = target.protocol === 'https:' ? httpsRequest : httpRequest
+  const pending = send(target, { headers, agent: false }, response => {
+    let body = ''
+    response.setEncoding('utf8')
+    response.on('data', chunk => { body += chunk })
+    response.on('end', () => {
+      const status = response.statusCode ?? 0
+      resolve({ ok: status >= 200 && status < 300, status, json: async () => JSON.parse(body) })
+    })
+  })
+  pending.on('error', reject)
+  pending.end()
+})
 
 /**
  * The 301s publishing leaves when a URL changes, read once per build with the public key.
  * @param {string} supabaseUrl
  * @param {string} publishableKey
- * @param {typeof fetch} fetcher
+ * @param {RedirectsFetcherType} fetcher
  */
-export const readRedirects = async (supabaseUrl, publishableKey, fetcher = fetch) => {
+export const readRedirects = async (supabaseUrl, publishableKey, fetcher = getJson) => {
   const response = await fetcher(`${supabaseUrl.replace(/\/$/, '')}/rest/v1/redirects?select=from_path,to_path,status&order=from_path`, {
     headers: { apikey: publishableKey, Authorization: `Bearer ${publishableKey}` }
   })
   if (!response.ok) throw new Error(`[@linkcharsoft/cms] Could not read the redirects from Supabase (HTTP ${response.status}).`)
-  /** @type {{ from_path: string, to_path: string, status: number }[]} */
-  const rows = await response.json()
+  const rows = /** @type {{ from_path: string, to_path: string, status: number }[]} */ (await response.json())
   return rows.map(row => ({ source: literal(row.from_path), destination: row.to_path, permanent: row.status === 301 }))
 }
 
