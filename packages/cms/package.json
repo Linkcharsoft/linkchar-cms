@@ -27,6 +27,10 @@
     "./panel/routes/*": "./src/panel/routes/*.tsx",
     "./panel/styles.css": "./src/panel/theme/styles.css",
     "./site": "./src/site/index.ts",
+    "./next": {
+      "types": "./next/index.d.ts",
+      "default": "./next/index.js"
+    },
     "./tailwind": "./tailwind/preset.js",
     "./package.json": "./package.json"
   },
@@ -35,6 +39,7 @@
   },
   "files": [
     "cli",
+    "next",
     "src",
     "supabase",
     "tailwind",

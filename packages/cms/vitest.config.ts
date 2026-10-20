@@ -16,8 +16,8 @@ export default defineConfig({
         test: {
           name: 'node',
           environment: 'node',
-          include: ['{cli,src}/**/__tests__/**/*.test.ts'],
-          typecheck: { enabled: true, include: ['{cli,src}/**/__tests__/**/*.test.ts'] }
+          include: ['{cli,next,src}/**/__tests__/**/*.test.ts'],
+          typecheck: { enabled: true, include: ['{cli,next,src}/**/__tests__/**/*.test.ts'] }
         }
       },
       {
