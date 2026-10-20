@@ -51,6 +51,21 @@
     gap: 24px
     @include cms.card()
 
+  &__LocaleOption
+    display: inline-flex
+    align-items: baseline
+    gap: 6px
+
+  &__LocaleCount
+    @apply cms-text-regular-12 text-cms-ink-600
+
+    &::before
+      content: '·'
+      margin-right: 6px
+
+    &--Missing
+      @apply cms-text-semibold-12 text-cms-warning-800
+
   &__MissingLink
     text-decoration: underline
     text-underline-offset: 2px

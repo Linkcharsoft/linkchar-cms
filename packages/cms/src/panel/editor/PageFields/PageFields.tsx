@@ -17,6 +17,7 @@ import PageOutline from '../PageOutline/PageOutline'
 import PageSection from '../PageSection/PageSection'
 import SeoPreview from '../SeoPreview/SeoPreview'
 import type { FieldsRecord } from '../../../core/fields'
+import type { MissingContentType } from '../../../core/missing'
 import type { PageSectionType } from '../../../core/pages'
 
 type DataRecord = Record<string, unknown>
@@ -26,7 +27,7 @@ interface Props {
   // Published content, to mark what changed; null while the page was never published.
   published: DataRecord | null
   // Paths that still block publishing.
-  missingPaths: string[]
+  missing: MissingContentType[]
   remounts: Record<string, number>
   // Narrow layout (preview open): the outline collapses into a select.
   compact: boolean
@@ -56,7 +57,7 @@ const SectionBody = ({ section }: { section: PageSectionType }) => {
 }
 
 // A page as stacked, collapsible sections in site order, with an outline of what's missing and what changed.
-const PageFields = ({ fields, published, missingPaths, remounts, compact, onAnchorChange, onDiscardSection }: Props) => {
+const PageFields = ({ fields, published, missing: missingItems, remounts, compact, onAnchorChange, onDiscardSection }: Props) => {
   const { t } = useT()
   const { config } = useCms()
   const paths = usePaths()
@@ -66,7 +67,7 @@ const PageFields = ({ fields, published, missingPaths, remounts, compact, onAnch
   const sections = pageSections(fields)
   const [open, setOpen] = useState<Record<string, boolean>>(() => (sections[0] ? { [sections[0].key]: true } : {}))
   const [active, setActive] = useState<string | null>(null)
-  const missing = countBySection(missingPaths)
+  const missing = countBySection(missingItems.map(item => item.field))
 
   // A jump from the outline wins over the scroll tracking until the smooth scroll settles.
   const jumping = useRef(0)

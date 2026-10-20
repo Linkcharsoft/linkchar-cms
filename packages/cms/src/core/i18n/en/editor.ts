@@ -14,6 +14,8 @@ const editor = {
     couldNotFinish: 'It could not be completed',
     language: 'Language',
     languageHelp: 'Texts are entered per language; images, links and options are the same in all of them.',
+    languageMissing: { one: '{count} missing', other: '{count} missing' },
+    languageComplete: 'complete',
     discardSection: {
       header: 'Back to the published version: {label}',
       message: '{label} goes back to what is published. The rest of the page does not change and what is there now stays in the history.',

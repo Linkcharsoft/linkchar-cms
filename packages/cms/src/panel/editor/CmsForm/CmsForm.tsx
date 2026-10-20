@@ -9,7 +9,7 @@ import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'rea
 import { documentTitle, getEntry } from '../../../core/entries'
 import { languageName } from '../../../core/i18n/translator'
 import { changedKeys, pickKeys, rebase, sameContent } from '../../../core/merge'
-import { splitLocale } from '../../../core/missing'
+import { countByLocale, missingContent } from '../../../core/missing'
 import { pageSections } from '../../../core/pages'
 import { visibleFields } from '../../../core/permissions'
 import { entryPath, slugsOf } from '../../../core/urls'
@@ -34,6 +34,7 @@ import ConflictDialog from '../ConflictDialog/ConflictDialog'
 import PageFields from '../PageFields/PageFields'
 import PreviewPane from '../PreviewPane/PreviewPane'
 import useAutosave from '../useAutosave'
+import type { MissingContentType } from '../../../core/missing'
 import type { DocumentStatusType } from '../../../core/status'
 import type { ContentErrorsType } from '../../../core/validation'
 import type { ReplaceDraftResultType } from '../../../server/versions'
@@ -91,7 +92,7 @@ const CmsForm = ({
   const [locale, setLocale] = useState(initialLocale && config.locales.includes(initialLocale) ? initialLocale : config.defaultLocale)
   const [conflict, setConflict] = useState<{ data: DataRecord, updatedAt: string, keys: string[] } | null>(null)
   const [remounts, setRemounts] = useState<Record<string, number>>({})
-  const [missingPaths, setMissingPaths] = useState<string[]>([])
+  const [missing, setMissing] = useState<MissingContentType[]>([])
   const [anchor, setAnchor] = useState<string | null>(entry?.anchor ?? null)
   const [edited, setEdited] = useState(false)
   const [previewOpen, setPreviewOpen] = useState(false)
@@ -183,14 +184,14 @@ const CmsForm = ({
 
   useEffect(() => {
     let cancelled = false
-    validateContent(config, fields, formik.values, { mode: 'publish' }).then(({ errors }) => {
-      if (!cancelled) setMissingPaths(errors ? Object.keys(errors) : [])
+    missingContent(config, fields, formik.values, { mediaAlt: id => media[id]?.alt }).then(found => {
+      if (!cancelled) setMissing(found)
     })
     return () => {
       cancelled = true
     }
-  // Re-checked after each save, not on every keystroke.
-  }, [autosave.savedAt])
+  // Re-checked after each save, not on every keystroke, and when a file or its alt text changes.
+  }, [autosave.savedAt, media])
 
   useEffect(() => () => void autosave.flush(), [])
 
@@ -265,10 +266,9 @@ const CmsForm = ({
   }
 
   // Opens whatever hides the field (language, tab, panel, group, page section) and then focuses it.
-  const showField = (path: string) => {
-    const { field, locale: own } = splitLocale(config, path)
+  const showField = (field: string, own: string | null) => {
     if (own && own !== locale) switchLocale(own)
-    setReveal({ path, nonce: Date.now() })
+    setReveal({ path: field, nonce: Date.now() })
     window.setTimeout(() => {
       // Inputs are named after the field, never the locale: "hero.title.en" lives in #cms-hero-title.
       const id = fieldId(field)
@@ -282,23 +282,34 @@ const CmsForm = ({
   useEffect(() => {
     const target = decodeURIComponent(window.location.hash.slice(1))
     const isSection = entry?.kind === 'page' && pageSections(fields).some(section => section.key === target)
-    if (target && !isSection) showField(target)
+    if (target && !isSection) showField(target, null)
   // Only on load.
   }, [])
 
   if (!entry) return null
 
   const multilingual = config.locales.length > 1
-  const missingLabel = (path: string) => {
-    const last = path.split('.').pop() ?? ''
-    return multilingual && config.locales.includes(last) && last !== locale ? `${label(path)} (${languageName(last, config.panelLocale)})` : label(path)
+  const missingLabel = (item: MissingContentType) => {
+    const name = item.kind === 'alt' ? t('validation.altOf', { field: label(item.field) }) : label(item.field)
+    return multilingual && item.locale && item.locale !== locale ? `${name} (${languageName(item.locale, config.panelLocale)})` : name
   }
+  const counts = countByLocale(config, missing)
+  const localeOption = (option: { value: string, label: string } | null) => option && (
+    <span className='CmsForm__LocaleOption'>
+      {option.label}
+      <span className={classNames('CmsForm__LocaleCount', { 'CmsForm__LocaleCount--Missing': counts[option.value] > 0 })}>
+        {counts[option.value] > 0 ? t('editor.languageMissing', { count: counts[option.value] }) : t('editor.languageComplete')}
+      </span>
+    </span>
+  )
   const isPage = entry.kind === 'page'
   // A collection item is named by its title field: the header follows it while typing.
   const shownTitle = entry.kind === 'collection' ? documentTitle(entry, formik.values, textCtx) : title
-  const missing = [...new Map(missingPaths.map(path => [missingLabel(path), path])).entries()]
-  const issues = [...new Set([...missingPaths, ...errorPaths(formik.errors)])]
-  const extra = missing.length - MAX_MISSING_LISTED
+  // What can be filled in the language on screen comes first.
+  const here = (item: MissingContentType) => !item.locale || item.locale === locale
+  const listed = [...new Map([...missing.filter(here), ...missing.filter(item => !here(item))].map(item => [missingLabel(item), item])).entries()]
+  const issues = [...new Set([...missing.map(item => item.path), ...errorPaths(formik.errors)])]
+  const extra = listed.length - MAX_MISSING_LISTED
   const shownStatus = status === 'published' && edited ? 'changed' : status
   const previewPath = entryPath(config, entry, { locale, slug: slugsOf(config, entry, formik.values)[locale] })
   const showActions = toolbar || documentId || entry.path
@@ -324,6 +335,8 @@ const CmsForm = ({
                     tooltip={t('editor.languageHelp')}
                     value={locale}
                     options={config.locales.map(value => ({ value, label: languageName(value, config.panelLocale) }))}
+                    itemTemplate={localeOption}
+                    valueTemplate={localeOption}
                     onChange={event => switchLocale(event.value)}
                     data-testid='editor-locale'
                   />
@@ -369,13 +382,13 @@ const CmsForm = ({
           />
         </div>
 
-        {missing.length > 0 && (
+        {listed.length > 0 && (
           <Notice tone='warning' data-tour='missing'>
             {t('editor.missing')}{' '}
-            {missing.slice(0, MAX_MISSING_LISTED).map(([fieldName, path], index) => (
-              <Fragment key={path}>
+            {listed.slice(0, MAX_MISSING_LISTED).map(([fieldName, item], index) => (
+              <Fragment key={fieldName}>
                 {index > 0 && ', '}
-                <button type='button' className='CmsForm__MissingLink' onClick={() => showField(path)}>{fieldName}</button>
+                <button type='button' className='CmsForm__MissingLink' onClick={() => showField(item.field, item.locale)}>{fieldName}</button>
               </Fragment>
             ))}
             {extra > 0 ? t('editor.missingMore', { count: extra }) : ''}.
@@ -400,7 +413,7 @@ const CmsForm = ({
                           <PageFields
                             fields={fields}
                             published={publishedData}
-                            missingPaths={missingPaths}
+                            missing={missing}
                             remounts={remounts}
                             compact={showPreview}
                             onAnchorChange={onAnchorChange}

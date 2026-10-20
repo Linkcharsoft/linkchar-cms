@@ -11,6 +11,8 @@ const editor = {
     couldNotFinish: 'No se pudo completar',
     language: 'Idioma',
     languageHelp: 'Los textos se cargan por idioma; imágenes, links y opciones son iguales en todos.',
+    languageMissing: { one: 'falta {count}', other: 'faltan {count}' },
+    languageComplete: 'completo',
     discardSection: {
       header: 'Volver a lo publicado: {label}',
       message: '{label} vuelve a ser igual a lo publicado. El resto de la página no cambia y lo que hay ahora queda guardado en el historial.',
