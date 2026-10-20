@@ -2,7 +2,7 @@
 import './RichTextEditor.sass'
 import { EditorContent, useEditor, useEditorState } from '@tiptap/react'
 import { classNames } from 'primereact/utils'
-import { use, useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { RICH_TEXT_HEADING_LEVELS } from '../../../core/richText/nodes'
 import { entryPath, slugPrefixFor } from '../../../core/urls'
 import parseVideoUrl from '../../../core/video'
@@ -12,7 +12,7 @@ import UrlDialog from '../../editor/UrlDialog/UrlDialog'
 import MediaPicker from '../../media/MediaPicker/MediaPicker'
 import CustomButton from '../../primitives/CustomButton/CustomButton'
 import { useStoredText } from '../fieldUtils'
-import { ReferencesContext } from '../referencesContext'
+import { useMediaRegistry } from '../referencesContext'
 import { richTextExtensions } from './extensions'
 import type { EditorImageType } from './extensions'
 import type { MediaItemType } from '../../../core/media'
@@ -66,8 +66,8 @@ const RichTextEditor = ({ id, label, value, headings = RICH_TEXT_HEADING_LEVELS,
   const { config } = useCms()
   const stored = useStoredText()
   const [dialog, setDialog] = useState<DialogType>(null)
-  const knownMedia = use(ReferencesContext).media
-  // Files picked while editing, next to the ones the document already had when it loaded.
+  const { media: knownMedia, remember } = useMediaRegistry()
+  // The node renders right after the insert, before the registry update arrives.
   const picked = useRef(new Map<string, MediaItemType>())
   const lookup = (mediaId: string): EditorImageType | undefined => {
     const item = picked.current.get(mediaId) ?? knownMedia[mediaId]
@@ -284,6 +284,7 @@ const RichTextEditor = ({ id, label, value, headings = RICH_TEXT_HEADING_LEVELS,
           onHide={closeDialog}
           onPick={([item]) => {
             picked.current.set(item.id, item)
+            remember(item)
             editor.chain().focus().insertContentAt(dialog.to, { type: 'image', attrs: { mediaId: item.id } }).run()
             closeDialog()
           }}

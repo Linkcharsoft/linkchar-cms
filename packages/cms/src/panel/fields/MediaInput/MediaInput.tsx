@@ -2,7 +2,7 @@
 import './MediaInput.sass'
 import { useField } from 'formik'
 import Image from 'next/image'
-import { use, useState } from 'react'
+import { useState } from 'react'
 import { formatBytes, isImageMime } from '../../../core/media'
 import { useCms, useT } from '../../client/context'
 import MediaDetails from '../../media/MediaDetails/MediaDetails'
@@ -12,7 +12,7 @@ import CustomButton from '../../primitives/CustomButton/CustomButton'
 import InputContainer from '../../primitives/InputContainer/InputContainer'
 import { navItems } from '../../shell/navigation'
 import { fieldId, useFieldError, useFieldLabel, useText, useValuePath } from '../fieldUtils'
-import { ReferencesContext } from '../referencesContext'
+import { useMediaRegistry } from '../referencesContext'
 import type { FileField, ImageField } from '../../../core/fields'
 import type { MediaItemType } from '../../../core/media'
 
@@ -31,7 +31,7 @@ const MediaInput = ({ name, field }: Props) => {
   const path = useValuePath(name, field)
   const [{ value }, , { setValue, setTouched }] = useField<string | null>(path)
   const error = useFieldError(path)
-  const [known, setKnown] = useState(use(ReferencesContext).media)
+  const { media: known, remember } = useMediaRegistry()
   const [isPicking, setIsPicking] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
   const id = fieldId(name)
@@ -41,7 +41,7 @@ const MediaInput = ({ name, field }: Props) => {
   const fieldName = text(field.label)
 
   const commit = (next: MediaItemType | null) => {
-    if (next) setKnown(current => ({ ...current, [next.id]: next }))
+    if (next) remember(next)
     setValue(next?.id ?? null)
     setTouched(true, false)
   }
@@ -131,8 +131,8 @@ const MediaInput = ({ name, field }: Props) => {
         <MediaDetails
           item={item}
           canPurge={false}
-          onChanged={changed => setKnown(current => ({ ...current, [changed.id]: changed }))}
-          onRemoved={() => setKnown(current => ({ ...current, [item.id]: { ...item, deletedAt: new Date().toISOString() } }))}
+          onChanged={remember}
+          onRemoved={() => remember({ ...item, deletedAt: new Date().toISOString() })}
           onHide={() => setIsEditing(false)}
         />
       )}

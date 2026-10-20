@@ -3,7 +3,7 @@ import './GalleryInput.sass'
 import { arrayMove } from '@dnd-kit/sortable'
 import { useField } from 'formik'
 import Image from 'next/image'
-import { use, useState } from 'react'
+import { useState } from 'react'
 import { useT } from '../../client/context'
 import SortableItem from '../../editor/SortableItem/SortableItem'
 import SortableList from '../../editor/SortableList/SortableList'
@@ -12,7 +12,7 @@ import { useMediaText } from '../../media/mediaText'
 import CustomButton from '../../primitives/CustomButton/CustomButton'
 import InputError from '../../primitives/InputError/InputError'
 import { useFieldError, useFieldLabel, useText, useValuePath } from '../fieldUtils'
-import { ReferencesContext } from '../referencesContext'
+import { useMediaRegistry } from '../referencesContext'
 import type { GalleryField } from '../../../core/fields'
 
 interface Props {
@@ -28,7 +28,7 @@ const GalleryInput = ({ name, field }: Props) => {
   const path = useValuePath(name, field)
   const [{ value }, , { setValue, setTouched }] = useField<string[]>(path)
   const error = useFieldError(path)
-  const [known, setKnown] = useState(use(ReferencesContext).media)
+  const { media: known, remember } = useMediaRegistry()
   const [isPicking, setIsPicking] = useState(false)
   const ids = Array.isArray(value) ? value : []
   const atMax = field.max !== undefined && ids.length >= field.max
@@ -84,7 +84,7 @@ const GalleryInput = ({ name, field }: Props) => {
           defaultFolder={field.folder}
           onHide={() => setIsPicking(false)}
           onPick={picked => {
-            setKnown(current => ({ ...current, ...Object.fromEntries(picked.map(item => [item.id, item])) }))
+            remember(...picked)
             const added = picked.map(item => item.id).filter(id => !ids.includes(id))
             commit([...ids, ...added].slice(0, field.max ?? Infinity))
             setIsPicking(false)

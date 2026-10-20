@@ -5,7 +5,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import { Dropdown } from 'primereact/dropdown'
 import { Tag } from 'primereact/tag'
 import { classNames } from 'primereact/utils'
-import { Fragment, useCallback, useEffect, useRef, useState } from 'react'
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { documentTitle, getEntry } from '../../../core/entries'
 import { languageName } from '../../../core/i18n/translator'
 import { changedKeys, pickKeys, rebase, sameContent } from '../../../core/merge'
@@ -19,7 +19,7 @@ import { useCms, usePaths, useT, useTextContext } from '../../client/context'
 import { EntryContext } from '../../fields/entryContext'
 import { fieldId } from '../../fields/fieldUtils'
 import { errorPaths, FormFocusContext } from '../../fields/formFocusContext'
-import { ReferencesContext } from '../../fields/referencesContext'
+import { MediaRegistryContext, ReferencesContext } from '../../fields/referencesContext'
 import { RemountContext } from '../../fields/remountContext'
 import VersionHistory from '../../history/VersionHistory/VersionHistory'
 import { DOCUMENT_SEVERITIES } from '../../lists/documentStatus'
@@ -38,7 +38,7 @@ import type { DocumentStatusType } from '../../../core/status'
 import type { ContentErrorsType } from '../../../core/validation'
 import type { ReplaceDraftResultType } from '../../../server/versions'
 import type { RevealType } from '../../fields/formFocusContext'
-import type { ResolvedReferencesType } from '../../fields/referencesContext'
+import type { MediaRegistryType, ResolvedReferencesType } from '../../fields/referencesContext'
 import type { AutosaveOutcomeType } from '../useAutosave'
 import type { FormikErrors, FormikTouched } from 'formik'
 import type { Route } from 'next'
@@ -96,6 +96,11 @@ const CmsForm = ({
   const [edited, setEdited] = useState(false)
   const [previewOpen, setPreviewOpen] = useState(false)
   const [reveal, setReveal] = useState<RevealType | null>(null)
+  const [media, setMedia] = useState(references.media)
+  const registry = useMemo<MediaRegistryType>(() => ({
+    media,
+    remember: (...items) => setMedia(current => ({ ...current, ...Object.fromEntries(items.map(item => [item.id, item])) }))
+  }), [media])
   // What a save left unsaved (a taken URL): shown on its field until the editor changes that value.
   const serverErrors = useRef<{ path: string, message: string, value: unknown }[]>([])
   const label = (path: string) => fieldLabel(fields, path, textCtx)
@@ -388,21 +393,23 @@ const CmsForm = ({
             <FormFocusContext value={{ issues, reveal }}>
               <EntryContext value={{ entryId, locale }}>
                 <ReferencesContext value={references}>
-                  <RemountContext value={remounts}>
-                    {isPage
-                      ? (
-                        <PageFields
-                          fields={fields}
-                          published={publishedData}
-                          missingPaths={missingPaths}
-                          remounts={remounts}
-                          compact={showPreview}
-                          onAnchorChange={onAnchorChange}
-                          onDiscardSection={publishedData && documentId ? key => discardSection(key, label(key)) : undefined}
-                        />
-                      )
-                      : <CmsFields fields={fields} />}
-                  </RemountContext>
+                  <MediaRegistryContext value={registry}>
+                    <RemountContext value={remounts}>
+                      {isPage
+                        ? (
+                          <PageFields
+                            fields={fields}
+                            published={publishedData}
+                            missingPaths={missingPaths}
+                            remounts={remounts}
+                            compact={showPreview}
+                            onAnchorChange={onAnchorChange}
+                            onDiscardSection={publishedData && documentId ? key => discardSection(key, label(key)) : undefined}
+                          />
+                        )
+                        : <CmsFields fields={fields} />}
+                    </RemountContext>
+                  </MediaRegistryContext>
                 </ReferencesContext>
               </EntryContext>
             </FormFocusContext>
