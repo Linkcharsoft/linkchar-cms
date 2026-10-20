@@ -40,6 +40,7 @@ const ChangeItem = ({ change, highlighted }: { change: PendingChangeType, highli
   const { t } = useT()
   const formatDate = useFormatDate()
   const meta = [change.entryLabel !== change.title && change.entryLabel, change.updatedBy, formatDate(change.updatedAt, 'shortDateTime')]
+  const missing = [...new Map(change.missing.map(item => [item.label, item])).values()]
 
   return (
     <li id={changeId(change.id)} className={classNames('PublishPanel__Item', { 'PublishPanel__Item--Highlight': highlighted })}>
@@ -64,10 +65,19 @@ const ChangeItem = ({ change, highlighted }: { change: PendingChangeType, highli
           {t('publishPanel.urlChange', urlChange)}
         </p>
       ))}
-      {change.problems.length > 0 && (
+      {missing.length > 0 && (
         <p className='PublishPanel__Problem'>
           <i className='pi pi-exclamation-triangle' aria-hidden='true' />
-          {t('publishPanel.problems', { fields: change.problems.join(', ') })}
+          <span>
+            {t('publishPanel.problems')}
+            {missing.map((item, index) => (
+              <Fragment key={item.label}>
+                {index > 0 && ', '}
+                <Link href={item.href as Route} className='PublishPanel__MissingLink'>{item.label}</Link>
+              </Fragment>
+            ))}
+            .
+          </span>
         </p>
       )}
       {change.warnings.map(warning => (

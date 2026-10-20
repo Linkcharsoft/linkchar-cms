@@ -58,7 +58,7 @@ const lists = {
     },
     sectionsChanged: 'Changed: ',
     urlChange: 'The URL changes from {from} to {to}. Old links will redirect to the new one.',
-    problems: 'Not published until these are filled in: {fields}.',
+    problems: 'Not published until these are filled in: ',
     confirm: {
       publishes: 'To be published:',
       removes: 'To be removed from the site:',

@@ -20,6 +20,7 @@ import { describeUsage } from './media'
 import type { CmsContextType } from './context'
 import type { FieldsRecord } from '../core/fields'
 import type { MessageKeyType } from '../core/i18n/types'
+import type { MissingContentType } from '../core/missing'
 import type { BuildErrorCodeType, BuildEventType, BuildStatusType } from '../core/publish'
 import type { DocumentStatusType } from '../core/status'
 import type { LocalizedTextType } from '../core/text'
@@ -31,6 +32,8 @@ export interface MissingItemType {
   locale: string | null
   kind: 'field' | 'alt'
   label: string
+  // The field in the editor, in that language.
+  href: string
 }
 
 export interface PendingChangeType {
@@ -92,7 +95,9 @@ export const describeDocument = (ctx: CmsContextType, row: StatusRowType) => {
 
 type MediaAltType = (id: string) => LocalizedTextType | undefined
 
-const missingItems = async (ctx: CmsContextType, fields: FieldsRecord, data: unknown, mediaAlt: MediaAltType): Promise<MissingItemType[]> => {
+const missingItems = async (
+  ctx: CmsContextType, fields: FieldsRecord, data: unknown, mediaAlt: MediaAltType, hrefOf: (item: MissingContentType) => string
+): Promise<MissingItemType[]> => {
   const { config } = ctx
   const texts = textContext(config)
   const { t } = translatorFor(config)
@@ -105,7 +110,8 @@ const missingItems = async (ctx: CmsContextType, fields: FieldsRecord, data: unk
       path: item.path,
       locale: item.locale,
       kind: item.kind,
-      label: named(item.kind === 'alt' ? t('validation.altOf', { field: label }) : label, item.locale)
+      label: named(item.kind === 'alt' ? t('validation.altOf', { field: label }) : label, item.locale),
+      href: hrefOf(item)
     }
   })
 }
@@ -154,7 +160,8 @@ export const getPendingChanges = async (ctx: CmsContextType): Promise<PendingCha
     // Published before URLs were kept per locale: the default locale's comes from the single slug.
     const defaultLive = live[ctx.config.defaultLocale] ?? entryPath(ctx.config, described.entry, { slug: row.published_slug })
     if (defaultLive && row.status !== 'new') live[ctx.config.defaultLocale] = defaultLive
-    const missing = action === 'publish' ? await missingItems(ctx, described.entry.fields, row.data, mediaAlt) : []
+    const missing = action === 'publish' ? await missingItems(ctx, described.entry.fields, row.data, mediaAlt, item => paths.field(described.entry.kind, row.type!, described.id, item))
+      : []
     return {
       id: described.id,
       entryId: row.type!,

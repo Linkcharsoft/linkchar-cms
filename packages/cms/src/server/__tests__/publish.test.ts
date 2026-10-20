@@ -82,8 +82,8 @@ describe('getPendingChanges', () => {
 
     const [change] = await getPendingChanges(ctx)
     expect(change.missing).toEqual([
-      { path: 'title.en', locale: 'en', kind: 'field', label: 'Título (Inglés)' },
-      { path: 'cover', locale: 'en', kind: 'alt', label: 'Texto alternativo de Imagen (Inglés)' }
+      { path: 'title.en', locale: 'en', kind: 'field', label: 'Título (Inglés)', href: `/dashboard/colecciones/posts/${ID(1)}?locale=en#title` },
+      { path: 'cover', locale: 'en', kind: 'alt', label: 'Texto alternativo de Imagen (Inglés)', href: `/dashboard/colecciones/posts/${ID(1)}?locale=en#cover` }
     ])
     expect(change.problems).toEqual(['Título (Inglés)', 'Texto alternativo de Imagen (Inglés)'])
   })

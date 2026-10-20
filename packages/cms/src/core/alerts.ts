@@ -12,6 +12,8 @@ export interface AlertChangeType {
   title: string
   href: string
   problems: string[]
+  // The first one opens the missing field itself.
+  missing?: { href: string }[]
   warnings: string[]
 }
 
@@ -43,7 +45,7 @@ export const overviewAlerts = (
     ...publishAlerts,
     ...changes.flatMap((change): OverviewAlertType[] => [
       ...(change.problems.length > 0
-        ? [{ code: 'incomplete' as const, tone: 'warning' as const, title: change.title, fields: change.problems, href: change.href }]
+        ? [{ code: 'incomplete' as const, tone: 'warning' as const, title: change.title, fields: change.problems, href: change.missing?.[0]?.href ?? change.href }]
         : []),
       ...change.warnings.map(warning => ({ code: 'reference' as const, tone: 'warning' as const, title: change.title, warning, href: change.href }))
     ])

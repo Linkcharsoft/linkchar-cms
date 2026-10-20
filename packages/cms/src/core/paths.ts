@@ -26,6 +26,8 @@ export interface PanelPathsType {
   publishItem: (documentId?: string) => string
   // Where an entry is edited: a page or singleton editor, a collection list, or one collection document.
   entry: (kind: SchemaEntry['kind'], entryId: string, id?: string) => string
+  // One field of the editor in one language: "/dashboard/paginas/home?locale=en#hero.title".
+  field: (kind: SchemaEntry['kind'], entryId: string, id: string | undefined, target: { field: string, locale: string | null }) => string
   // A project screen or link declared in `extensions`.
   extension: (id: string) => string
   // Reachable without a session.
@@ -74,6 +76,11 @@ export const panelPaths = (config: CmsConfigType): PanelPathsType => {
   const login = at('login')
   const passwordRecovery = at('passwordRecovery')
   const auth = `${base}/${AUTH_SEGMENT}`
+  const entry: PanelPathsType['entry'] = (kind, entryId, id) => {
+    if (kind === 'page') return page(entryId)
+    if (kind === 'singleton') return site(entryId)
+    return id ? document(entryId, id) : collection(entryId)
+  }
 
   const paths: PanelPathsType = {
     home: base,
@@ -96,10 +103,10 @@ export const panelPaths = (config: CmsConfigType): PanelPathsType => {
     collection,
     document,
     publishItem: documentId => `${at('publish')}${documentId ? `?doc=${documentId}` : ''}`,
-    entry: (kind, entryId, id) => {
-      if (kind === 'page') return page(entryId)
-      if (kind === 'singleton') return site(entryId)
-      return id ? document(entryId, id) : collection(entryId)
+    entry,
+    field: (kind, entryId, id, { field, locale }) => {
+      const query = locale && locale !== config.defaultLocale ? `?locale=${locale}` : ''
+      return `${entry(kind, entryId, id)}${query}#${field}`
     },
     extension: id => {
       const found = config.extensions.find(extension => extension.id === id)

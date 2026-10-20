@@ -14,7 +14,14 @@ describe('panelPaths', () => {
     expect(paths.entry('collection', 'posts', 'p1')).toBe('/admin/colecciones/posts/p1')
     expect(paths.entry('singleton', 'settings')).toBe('/admin/sitio/settings')
     expect(paths.publishItem('p1')).toBe('/admin/publicar?doc=p1')
+    expect(paths.field('page', 'home', undefined, { field: 'hero.title', locale: 'es' })).toBe('/admin/paginas/home#hero.title')
+    expect(paths.field('collection', 'posts', 'p1', { field: 'title', locale: null })).toBe('/admin/colecciones/posts/p1#title')
     expect(paths.publicPaths).toContain('/admin/auth')
+  })
+
+  it('opens a field in another language with the locale in the query', () => {
+    const paths = panelPaths(defineCmsConfig({ schema: {}, locales: ['es', 'en'] }))
+    expect(paths.field('singleton', 'settings', undefined, { field: 'contact.note', locale: 'en' })).toBe('/dashboard/sitio/settings?locale=en#contact.note')
   })
 
   it('uses the configured segments', () => {

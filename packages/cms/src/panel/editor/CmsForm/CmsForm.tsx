@@ -273,6 +273,14 @@ const CmsForm = ({
     }, 350)
   }
 
+  // A link to one field ("#hero.title", from Publish) opens it; a page section alone is PageFields' job.
+  useEffect(() => {
+    const target = decodeURIComponent(window.location.hash.slice(1))
+    const isSection = entry?.kind === 'page' && pageSections(fields).some(section => section.key === target)
+    if (target && !isSection) showField(target)
+  // Only on load.
+  }, [])
+
   if (!entry) return null
 
   const multilingual = config.locales.length > 1

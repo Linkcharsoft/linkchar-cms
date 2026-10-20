@@ -26,6 +26,8 @@ const change = (overrides: Partial<PendingChangeType>): PendingChangeType => ({
   ...overrides
 })
 
+const missingTitle = { path: 'title.es', locale: 'es', kind: 'field' as const, label: 'Título', href: '/dashboard/colecciones/posts/b#title' }
+
 const record: PublishRecordType = {
   id: 1,
   requestedAt: '2026-10-01T12:00:00Z',
@@ -45,13 +47,24 @@ afterEach(cleanup)
 describe('PublishPanel', () => {
   it('counts only complete changes and leaves incomplete ones out', () => {
     renderPanel(<PublishPanel
-      changes={[change({ id: 'a' }), change({ id: 'b', status: 'changed', problems: ['Título'] })]}
+      changes={[change({ id: 'a' }), change({ id: 'b', status: 'changed', problems: ['Título'], missing: [missingTitle] })]}
       history={[]}
       canPublish
     />)
     expect(screen.getByText('1 cambio listo para publicar · 1 incompleto.')).toBeTruthy()
     expect(screen.getByRole('button', { name: /Publicar cambios \(1\)/ })).toBeTruthy()
-    expect(screen.getByText('No se publica hasta completar: Título.')).toBeTruthy()
+    expect(screen.getByText((_, element) => element?.textContent === 'No se publica hasta completar: Título.' && element.tagName === 'SPAN')).toBeTruthy()
+  })
+
+  it('links each missing field to the editor in its language, once per label', () => {
+    const english = { path: 'title.en', locale: 'en', kind: 'field' as const, label: 'Título (Inglés)', href: '/dashboard/colecciones/posts/b?locale=en#title' }
+    renderPanel(<PublishPanel
+      changes={[change({ id: 'b', problems: ['Título', 'Título (Inglés)'], missing: [missingTitle, english, { ...english, path: 'title.en.0' }] })]}
+      history={[]}
+      canPublish
+    />)
+    expect(screen.getByRole('link', { name: 'Título (Inglés)' }).getAttribute('href')).toBe('/dashboard/colecciones/posts/b?locale=en#title')
+    expect(screen.getAllByRole('link', { name: /^Título/ })).toHaveLength(2)
   })
 
   it('disables publishing without permission', () => {
