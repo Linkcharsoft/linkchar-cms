@@ -51,6 +51,7 @@ describe('MediaInput per language', () => {
       { actions: { getMediaUsage: async () => [] } as never }
     )
     expect(screen.getByText('Falta el texto alternativo en Inglés.')).toBeTruthy()
+    expect(screen.queryByText(/Escalera/)).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: 'Completar el texto alternativo en Inglés' }))
     await waitFor(() => expect(document.getElementById('media-alt-en')).toBeTruthy())
   })

@@ -46,6 +46,8 @@ const MediaInput = ({ name, field }: Props) => {
   const fieldName = text(field.label)
   const language = languageName(locale || config.defaultLocale, config.panelLocale)
   const original = languageName(config.defaultLocale, config.panelLocale)
+  // While translating only this language's alt text counts: the original's would hide that it's missing.
+  const altShown = item ? (variant.translating ? item.alt[locale]?.trim() ?? '' : mediaText(item.alt)) : ''
   // Translating with the original on screen: picking gives this language its own file instead of replacing it.
   const inherited = variant.translating && !variant.overridden
 
@@ -107,9 +109,9 @@ const MediaInput = ({ name, field }: Props) => {
             </div>
             <div className='MediaInput__Info'>
               <p className='MediaInput__Name'>{item.filename || mediaText(item.alt)}</p>
-              <p className='MediaInput__Meta'>
-                {isImageMime(item.mime) ? t('mediaInput.altText', { alt: mediaText(item.alt) }) : formatBytes(item.size)}
-              </p>
+              {isImageMime(item.mime)
+                ? altShown && <p className='MediaInput__Meta'>{t('mediaInput.altText', { alt: altShown })}</p>
+                : <p className='MediaInput__Meta'>{formatBytes(item.size)}</p>}
               {variant.translating && isImageMime(item.mime) && <MissingAlt ids={[item.id]} />}
               {item.deletedAt && (
                 <p role='alert' className='MediaInput__Warning'>{t('mediaInput.trashed', { media: navItems(config).media.label })}</p>
