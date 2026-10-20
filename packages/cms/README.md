@@ -2,7 +2,7 @@
 
 Linkchar's CMS for Next.js projects: a content schema in code, Supabase storage, an editor panel and site readers. The package ships TypeScript source; the project compiles it.
 
-> 0.4.x ships the core, the server layer (Supabase queries and actions), publishing (Amplify and a local mock), the migrations, the editor panel with its theme and catalogs (`es`, `en`), the site readers (`cms.site`, `@linkcharsoft/cms/site`), `withCms` (`@linkcharsoft/cms/next`) and the `linkchar-cms` CLI. Editing per language in the panel (an image per language, what is missing in each one) arrives in 0.5.
+> 0.5.x ships the core, the server layer (Supabase queries and actions), publishing (Amplify and a local mock), the migrations, the editor panel with its theme and catalogs (`es`, `en`) and its per-language editing, the site readers (`cms.site`, `@linkcharsoft/cms/site`), `withCms` (`@linkcharsoft/cms/next`) and the `linkchar-cms` CLI.
 
 ## Install
 
@@ -76,11 +76,12 @@ Registering the config types everything from the schema: `ContentOf<'home'>['her
 
 ## Localized content
 
-Text kinds keep one value per locale, `{ es: 'Hola', en: 'Hello' }`, even with a single locale. Images, galleries and files keep the original and, only when someone sets one, a version per locale. Everything else is shared. A field can opt out or in with `localized: false | true`.
+Text kinds keep one value per locale, `{ es: 'Hola', en: 'Hello' }`, even with a single locale. Images, galleries and files keep the original and, only when someone sets one, a version per locale; an empty one (`null`, `[]`) reuses the original. Everything else is shared. A field can opt out or in with `localized: false | true`.
 
 - `withDefaults(config, fields, data)` repairs stored content into that shape.
 - `resolveContent(config, fields, data, locale)` gives the site plain values for one locale.
-- `missingTranslations(config, fields, data, { mediaAlt })` lists what blocks publishing: texts filled in the default locale but empty in another, and the alt texts of the images in use.
+- `missingContent(config, fields, data, { mediaAlt })` lists what keeps a document out of the publication, each item with its field and locale (`{ path: 'hero.title.en', field: 'hero.title', locale: 'en', kind: 'field' }`): required values, texts filled in the default locale but empty in another, and the alt texts of the images in use. The editor and Publish use it; `countByLocale` and `countBySectionAndLocale` count it, `splitLocale` separates a path from its locale and `missingAltLocales(config, alt)` names the locales a file still lacks an alt text in.
+- `missingTranslations(config, fields, data, { mediaAlt })` is the translations-only part.
 
 ## URLs per locale
 
@@ -251,6 +252,8 @@ export default ColorInput
 
 A field's own `component` wins over the project's input for its kind, which wins over the package's. A kind without an input fails in the panel with a message that says where to add it. For translated fields, bind with `useValuePath(name, field)`: it points at `name.<locale>` for the language being edited.
 
+To show what the package's inputs show while translating, pass `useLocaleNote(name, field)` to `InputContainer`: `badge` is "Same in every language" for a shared value, `note` the default language's text above a translation, and `describedBy` its id for the input (`describedBy(name, field, note.describedBy)`). `useEditingTranslation()` says whether another language than the default one is on screen; `useMediaVariant(name)` gives a file-like value its own version per language.
+
 ## Panel
 
 The panel lives in the project's app as small generated files that import the package and the project's `cms` instance:
@@ -271,7 +274,9 @@ The URL segments are configurable and default to Spanish: `paths: { pages: 'pagi
 
 `createCmsClient` mounts the panel's own providers: PrimeReact in unstyled mode with the panel passthrough (whatever the site configures), toasts, the confirmation dialog and motion. Panel screens render inside `CmsClient`; outside it, panel components throw.
 
-The editor shows a language selector when the config has more than one locale. Translated texts are edited per language (`?locale=en` in the URL); images, links and options are the same in all of them.
+The editor shows a language selector when the config has more than one locale, with what is missing in each language ("English · 3 missing"). Translated texts are edited per language (`?locale=en` in the URL), with the default language's text above each one; shared values say "Same in every language". Images, galleries and PDFs reuse the original until someone picks "Use another image for English", and "Back to the original" drops it. The page outline and each section count what is missing per language (`ES 1 · EN 3`), and Media marks and filters the images without alt text in a language.
+
+Each missing item in Publish links to its field: `paths.field(kind, entryId, id, { field, locale })` builds `/dashboard/paginas/home?locale=en#hero.title`, and the editor opens and focuses any field named in the hash (`#services` alone still opens the section).
 
 ## Theme
 
