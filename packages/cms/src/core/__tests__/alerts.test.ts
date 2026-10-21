@@ -25,6 +25,14 @@ describe('overviewAlerts', () => {
     expect(overviewAlerts(config, record('building', 25 * 60), [], now)).toEqual([])
   })
 
+  it('reports hidden drafts left behind, after the changes', () => {
+    const stale = [{ title: 'Vieja', href: '/dashboard/colecciones/posts/d2', days: 20 }]
+    expect(overviewAlerts(config, null, [change({ problems: ['Portada'] })], now, stale)).toEqual([
+      expect.objectContaining({ code: 'incomplete' }),
+      { code: 'stale', tone: 'warning', title: 'Vieja', days: 20, href: '/dashboard/colecciones/posts/d2' }
+    ])
+  })
+
   it('reports what will not go out as expected, linking to the document', () => {
     const warning = '"Ana" (autor) está oculto: no va a aparecer en el sitio.'
     const alerts = overviewAlerts(config, null, [change({ problems: ['Portada', 'Texto'], warnings: [warning] })], now)

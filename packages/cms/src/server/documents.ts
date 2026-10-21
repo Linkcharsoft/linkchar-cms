@@ -1,3 +1,4 @@
+import { STALE_DRAFT_DAYS } from '../core/alerts'
 import { textContext } from '../core/config'
 import { documentTitle, entryIds, getCollection, getEntry } from '../core/entries'
 import { fieldLocalize } from '../core/locales'
@@ -10,6 +11,7 @@ import { incompleteIds } from './incomplete'
 import type { CmsContextType } from './context'
 import type { Database } from './database'
 import type { UsageRowType } from './media'
+import type { AlertDraftType } from '../core/alerts'
 import type { CollectionEntry, SchemaEntry } from '../core/define'
 import type { LeafField } from '../core/kinds/registry'
 import type { RelationRefType } from '../core/relations'
@@ -53,6 +55,7 @@ export interface TrashItemType {
 }
 
 export const TRASH_RETENTION_DAYS = 30
+const DAY_MS = 24 * 60 * 60 * 1000
 
 const LIST_COLUMNS = 'id, slug, data, sort_order, updated_at, status, visible'
 
@@ -219,6 +222,23 @@ export const getRelationLabels = async (ctx: CmsContextType, ids: string[]): Pro
       trashed: row.deleted_at !== null
     }]
   }))
+}
+
+// Hidden collection drafts nobody touched for STALE_DRAFT_DAYS, oldest first, for the overview.
+export const getStaleDrafts = async (ctx: CmsContextType, limit = 5): Promise<AlertDraftType[]> => {
+  const now = ctx.now().getTime()
+  const collections = entryIds(ctx.config).filter(id => getCollection(ctx.config, id))
+  const { data } = await ctx.db.from('document_status').select('id, type, data, updated_at')
+    .eq('status', 'hidden').is('deleted_at', null).in('type', collections)
+    .lt('updated_at', new Date(now - STALE_DRAFT_DAYS * DAY_MS).toISOString())
+    .order('updated_at').limit(limit)
+  const paths = panelPaths(ctx.config)
+
+  return (data ?? []).flatMap(row => {
+    const entry = row.type ? getCollection(ctx.config, row.type) : null
+    if (!entry || !row.id || !row.updated_at) return []
+    return [{ title: titleOf(ctx, entry, row.data), href: paths.document(row.type!, row.id), days: Math.floor((now - Date.parse(row.updated_at)) / DAY_MS) }]
+  })
 }
 
 export const getRecentDrafts = async (ctx: CmsContextType, limit = 5) => {

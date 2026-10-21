@@ -59,6 +59,7 @@ const OverviewPage = ({ drafts, pendingCount, latest, pages, alerts, forbidden =
   const alertText = (alert: OverviewAlertType) => {
     if (alert.code === 'publish') return t(`publishStatusHelp.${alert.status}`)
     if (alert.code === 'incomplete') return t('overview.incomplete', { title: alert.title, fields: alert.fields.join(', ') })
+    if (alert.code === 'stale') return t('overview.staleDraft', { title: alert.title, days: alert.days })
     return t('overview.reference', { title: alert.title, warning: alert.warning })
   }
 

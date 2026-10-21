@@ -17,6 +17,15 @@ export interface AlertChangeType {
   warnings: string[]
 }
 
+// A hidden draft nobody touched for a while: forgotten, or never meant to go out.
+export interface AlertDraftType {
+  title: string
+  href: string
+  days: number
+}
+
+export const STALE_DRAFT_DAYS = 14
+
 interface AlertBaseType {
   tone: 'warning' | 'error'
   // Where it gets solved.
@@ -27,14 +36,16 @@ export type OverviewAlertType = AlertBaseType & (
   | { code: 'publish', status: 'failed' | 'unconfirmed' }
   | { code: 'incomplete', title: string, fields: string[] }
   | { code: 'reference', title: string, warning: string }
+  | { code: 'stale', title: string, days: number }
 )
 
-// Things that need someone: a publish that failed or wasn't confirmed, changes that won't go out as expected.
+// Things that need someone: a publish that failed or wasn't confirmed, changes that won't go out as expected, drafts left behind.
 export const overviewAlerts = (
   config: CmsConfigType,
   latest: AlertPublishType | null,
   changes: AlertChangeType[],
-  now = Date.now()
+  now = Date.now(),
+  staleDrafts: AlertDraftType[] = []
 ): OverviewAlertType[] => {
   const publish = latest ? headerPublishStatus(latest.buildStatus, latest.requestedAt, now) : null
   const publishAlerts: OverviewAlertType[] = publish && publish.status !== 'building'
@@ -48,6 +59,7 @@ export const overviewAlerts = (
         ? [{ code: 'incomplete' as const, tone: 'warning' as const, title: change.title, fields: change.problems, href: change.missing?.[0]?.href ?? change.href }]
         : []),
       ...change.warnings.map(warning => ({ code: 'reference' as const, tone: 'warning' as const, title: change.title, warning, href: change.href }))
-    ])
+    ]),
+    ...staleDrafts.map((draft): OverviewAlertType => ({ code: 'stale', tone: 'warning', title: draft.title, days: draft.days, href: draft.href }))
   ]
 }

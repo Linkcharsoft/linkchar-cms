@@ -12,6 +12,7 @@ const admin = {
     view: 'View',
     incomplete: '"{title}" won\'t be published until you fill in: {fields}.',
     reference: 'In "{title}": {warning}',
+    staleDraft: '"{title}" has been an unpublished draft for {days} days. Publish it or send it to the trash.',
     publishing: 'Publishing',
     noPending: 'No pending changes',
     pending: { one: '{count} change waiting to be published', other: '{count} changes waiting to be published' },

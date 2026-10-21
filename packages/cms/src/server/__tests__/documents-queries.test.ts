@@ -1,6 +1,6 @@
 import cmsConfig from '@playground/cms.config'
 import { beforeEach, describe, expect, it } from 'vitest'
-import { getDocumentState, getRelationLabels, listCollection, listTrash, purgeExpiredDocuments, searchRelation, titleColumn } from '../documents'
+import { getDocumentState, getRelationLabels, getStaleDrafts, listCollection, listTrash, purgeExpiredDocuments, searchRelation, titleColumn } from '../documents'
 import { createFakeDb, fakeContext, signIn } from './fakeSupabase'
 import type { FakeDbType } from './fakeSupabase'
 
@@ -71,6 +71,24 @@ describe('listCollection', () => {
 
   it('uses the manual order for orderable collections', async () => {
     expect((await listCollection(fakeContext(db, cmsConfig), 'team')).sort).toBe('manual')
+  })
+})
+
+describe('getStaleDrafts', () => {
+  it('lists hidden drafts untouched for two weeks, oldest first, never the visible or published ones', async () => {
+    const now = Date.parse('2026-11-01T12:00:00Z')
+    const ctx = { ...fakeContext(db, cmsConfig), now: () => new Date(now) }
+    db.tables.documents.push(
+      post(5, 'Vieja oculta', { visible: false, updated_at: '2026-10-05T12:00:00Z' }),
+      post(6, 'Más vieja oculta', { visible: false, updated_at: '2026-10-01T12:00:00Z' }),
+      post(7, 'Reciente oculta', { visible: false, updated_at: '2026-10-25T12:00:00Z' }),
+      post(8, 'Vieja visible', { visible: true, updated_at: '2026-10-01T12:00:00Z' })
+    )
+    expect(await getStaleDrafts(ctx)).toEqual([
+      { title: 'Más vieja oculta', href: `/dashboard/colecciones/posts/${ID(6)}`, days: 31 },
+      { title: 'Vieja oculta', href: `/dashboard/colecciones/posts/${ID(5)}`, days: 27 }
+    ])
+    expect(await getStaleDrafts(ctx, 1)).toHaveLength(1)
   })
 })
 

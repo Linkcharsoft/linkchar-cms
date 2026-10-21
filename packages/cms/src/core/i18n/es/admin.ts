@@ -9,6 +9,7 @@ const admin = {
     view: 'Ver',
     incomplete: '"{title}" no se publica hasta completar: {fields}.',
     reference: 'En "{title}": {warning}',
+    staleDraft: '"{title}" lleva {days} días como borrador sin publicar. Publicalo o mandalo a la papelera.',
     publishing: 'Publicación',
     noPending: 'No hay cambios pendientes',
     pending: { one: '{count} cambio pendiente de publicar', other: '{count} cambios pendientes de publicar' },

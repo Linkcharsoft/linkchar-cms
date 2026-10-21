@@ -69,6 +69,7 @@ const QUERIES = {
   getEntryDocument: documents.getEntryDocument, getDocument: documents.getDocument, listCollection: documents.listCollection,
   listTrash: documents.listTrash, purgeExpiredDocuments: documents.purgeExpiredDocuments, getPublishedData: documents.getPublishedData,
   getDocumentState: documents.getDocumentState, getRelationLabels: documents.getRelationLabels, getRecentDrafts: documents.getRecentDrafts,
+  getStaleDrafts: documents.getStaleDrafts,
   listMedia: media.listMedia, getMediaByIds: media.getMediaByIds, purgeExpiredMedia: media.purgeExpiredMedia,
   listPages, getPendingChanges, getPendingCount, getPendingCounts, getPublishHistory, getLatestPublish, listPanelUsers, listActivity, purgeExpiredActivity
 }

@@ -14,11 +14,12 @@ export const overviewRoute = (cms: CmsServerType) => {
   const Page = async ({ searchParams }: Props) => {
     await cms.queries.requireRole()
     const { error } = await searchParams
-    const [drafts, changes, latest, pages] = await Promise.all([
+    const [drafts, changes, latest, pages, stale] = await Promise.all([
       cms.queries.getRecentDrafts(),
       cms.queries.getPendingChanges(),
       cms.queries.getLatestPublish(),
-      cms.queries.listPages()
+      cms.queries.listPages(),
+      cms.queries.getStaleDrafts()
     ])
 
     return (
@@ -27,7 +28,7 @@ export const overviewRoute = (cms: CmsServerType) => {
         pendingCount={changes.filter(change => change.action === 'unpublish' || change.problems.length === 0).length}
         latest={latest}
         pages={pages}
-        alerts={overviewAlerts(cms.config, latest, changes)}
+        alerts={overviewAlerts(cms.config, latest, changes, Date.now(), stale)}
         forbidden={error === 'sin-permiso'}
       />
     )

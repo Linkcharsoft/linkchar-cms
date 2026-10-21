@@ -22,15 +22,17 @@ describe('OverviewPage', () => {
         pages={[]}
         alerts={[
           { code: 'publish', status: 'failed', tone: 'error', href: '/dashboard/publicar' },
-          { code: 'incomplete', tone: 'warning', title: 'Casa Sur', fields: ['Foto principal', 'Nombre'], href: '/dashboard/colecciones/projects/p1' }
+          { code: 'incomplete', tone: 'warning', title: 'Casa Sur', fields: ['Foto principal', 'Nombre'], href: '/dashboard/colecciones/projects/p1' },
+          { code: 'stale', tone: 'warning', title: 'Vieja', days: 20, href: '/dashboard/colecciones/posts/d2' }
         ]}
       />
     )
     expect(screen.getByText(/No se pudo actualizar el sitio/)).toBeTruthy()
     expect(screen.getByText('"Casa Sur" no se publica hasta completar: Foto principal, Nombre.')).toBeTruthy()
+    expect(screen.getByText('"Vieja" lleva 20 días como borrador sin publicar. Publicalo o mandalo a la papelera.')).toBeTruthy()
     expect(screen.getByText('2 cambios pendientes de publicar')).toBeTruthy()
     expect(screen.getAllByRole('link', { name: 'Ver' }).map(link => link.getAttribute('href')))
-      .toEqual(['/dashboard/publicar', '/dashboard/colecciones/projects/p1'])
+      .toEqual(['/dashboard/publicar', '/dashboard/colecciones/projects/p1', '/dashboard/colecciones/posts/d2'])
   })
 
   it('marks the pages that missing content keeps out of the publication', () => {
