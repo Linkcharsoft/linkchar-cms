@@ -2,16 +2,21 @@ import { NextRequest } from 'next/server'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ACTION_NAMES } from '../../../cli/routes.js'
 import { defineCmsConfig } from '../../core/config'
+import { page } from '../../core/define'
+import { text } from '../../core/fields'
 import { amplify } from '../../publish/amplify'
 import { mockBuild } from '../../publish/mock'
 import { createCmsServer } from '../next'
-import { createFakeDb, fakeClient } from './fakeSupabase'
+import { createFakeDb, fakeClient, signIn } from './fakeSupabase'
 import type { FakeDbType } from './fakeSupabase'
 
-const state = vi.hoisted(() => ({ db: null as unknown, redirect: vi.fn((to: string) => { throw new Error(`NEXT_REDIRECT ${to}`) }) }))
+const state = vi.hoisted(() => ({ db: null as unknown, draft: false, redirect: vi.fn((to: string) => { throw new Error(`NEXT_REDIRECT ${to}`) }) }))
 
 vi.mock('react', () => ({ cache: <T>(fn: T) => fn }))
-vi.mock('next/headers', () => ({ cookies: async () => ({ getAll: () => [], set: () => {} }) }))
+vi.mock('next/headers', () => ({
+  cookies: async () => ({ getAll: () => [], set: () => {} }),
+  draftMode: async () => ({ isEnabled: state.draft, enable: () => {}, disable: () => {} })
+}))
 vi.mock('next/navigation', () => ({ redirect: state.redirect }))
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }))
 vi.mock('@supabase/ssr', () => ({ createServerClient: () => fakeClient(state.db as FakeDbType) }))
@@ -31,6 +36,7 @@ let db: FakeDbType
 beforeEach(() => {
   db = createFakeDb()
   state.db = db
+  state.draft = false
   state.redirect.mockClear()
 })
 
@@ -103,6 +109,42 @@ describe('createCmsServer', () => {
 
   it('hands the browser only the public Supabase settings', () => {
     expect(createCmsServer({ config, supabase }).browserSupabase()).toEqual({ url: supabase.url, publishableKey: 'pk' })
+  })
+
+  describe('site in Draft Mode', () => {
+    const homeConfig = defineCmsConfig({ schema: { home: page('Inicio', { title: text({ label: 'Título' }) }, { path: '/' }) } })
+    const readsDraft = async () => (await createCmsServer({ config: homeConfig, supabase }).site.getEntryContent('home')).draft
+
+    beforeEach(() => {
+      db.tables.published_documents.push({ id: 'h', type: 'home', key: 'home', slug: null, slugs: {}, paths: { es: '/' }, sort_order: 0, published_at: '', data: { title: { es: 'Publicado' } } })
+      db.tables.documents.push({ id: 'h', type: 'home', key: 'home', slugs: {}, deleted_at: null, visible: true, data: { title: { es: 'Borrador' } } })
+      signIn(db, { id: 'u1' })
+      state.draft = true
+    })
+
+    it('shows drafts to an active panel user', async () => {
+      expect(await readsDraft()).toBe(true)
+    })
+
+    it('shows the published site to a deactivated user whose preview cookie is still alive', async () => {
+      db.tables.profiles[0].active = false
+      expect(await readsDraft()).toBe(false)
+    })
+
+    it('shows the published site while the second factor is pending or without a session', async () => {
+      db.user = { id: 'u1', factors: [{ id: 'f', status: 'verified', created_at: '' }] }
+      expect(await readsDraft()).toBe(false)
+      db.user = null
+      expect(await readsDraft()).toBe(false)
+    })
+
+    it('does not read the session outside Draft Mode', async () => {
+      state.draft = false
+      const getUser = vi.fn(() => null)
+      Object.defineProperty(db, 'user', { get: getUser })
+      expect(await readsDraft()).toBe(false)
+      expect(getUser).not.toHaveBeenCalled()
+    })
   })
 
   it('reports through the project logger, console by default', async () => {

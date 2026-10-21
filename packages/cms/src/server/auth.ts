@@ -28,6 +28,12 @@ export const getCurrentProfile = (ctx: CmsContextType) => {
   return loading
 }
 
+// Opening the site in Draft Mode and reading drafts there: a signed-in, active user past the second factor.
+export const canPreview = async (ctx: CmsContextType) => {
+  const { user, profile, mfaPending } = await getCurrentProfile(ctx)
+  return Boolean(user && profile?.active && !mfaPending)
+}
+
 // Call at the top of every panel page and server action: RLS is the second layer, not the only one.
 export const requireRole = async (ctx: CmsContextType, minRole: RoleType = 'editor') => {
   const paths = panelPaths(ctx.config)

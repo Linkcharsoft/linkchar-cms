@@ -2,7 +2,7 @@ import { draftMode } from 'next/headers'
 import { NextResponse } from 'next/server'
 import { panelPaths } from '../core/paths'
 import { safePreviewPath } from '../core/preview'
-import { getCurrentProfile } from './auth'
+import { canPreview } from './auth'
 import type { CmsContextType } from './context'
 import type { EmailOtpType } from '@supabase/supabase-js'
 
@@ -39,8 +39,7 @@ export const enableDraft = async (ctx: CmsContextType, request: Request) => {
   const path = safePreviewPath(new URL(request.url).searchParams.get('path') ?? '/', ctx.config.basePath)
   if (!path) return new Response('Invalid path', { status: 400 })
 
-  const { user, profile, mfaPending } = await getCurrentProfile(ctx)
-  if (!user || !profile?.active || mfaPending) return new Response('Unauthorized', { status: 401 })
+  if (!await canPreview(ctx)) return new Response('Unauthorized', { status: 401 })
 
   const draft = await draftMode()
   draft.enable()

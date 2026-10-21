@@ -11,7 +11,7 @@ import { createSiteReaders } from '../site/readers'
 import { documentJsonLd, documentMetadata } from '../site/seo'
 import { changePassword, markTourSeen, recordMfaChange, resetTours, updateAvatar, updateProfile } from './account'
 import { listActivity, purgeExpiredActivity } from './activity'
-import { getCurrentProfile, requireRole } from './auth'
+import { canPreview, getCurrentProfile, requireRole } from './auth'
 import { createDocument, createRelated, duplicateDocument, reorderCollection, setDocumentVisibility, trashDocument } from './collections'
 import { CmsRedirect } from './context'
 import * as documents from './documents'
@@ -188,12 +188,11 @@ export const createCmsServer = ({ config, supabase, publishTarget = null, logger
     return publicClient
   }
 
-  // Drafts only in Draft Mode with a panel session; cookies are read only then, so built pages stay static.
+  // Drafts only in Draft Mode for someone who may preview; cookies are read only then, so built pages stay static.
   const siteSource = async () => {
     if ((await draftMode()).isEnabled) {
       const ctx = await context()
-      const { data } = await ctx.db.auth.getClaims()
-      if (data?.claims) return { db: ctx.db, draft: true }
+      if (await canPreview(ctx)) return { db: ctx.db, draft: true }
     }
     return { db: published(), draft: false }
   }
