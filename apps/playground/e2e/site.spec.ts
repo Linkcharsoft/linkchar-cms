@@ -96,6 +96,12 @@ test('the home describes the studio, the site and the page in one JSON-LD graph'
   expect(data['@graph'][2]['@context']).toBeUndefined()
 })
 
+test('a page without its own description takes the site tagline in its language', async ({ page }) => {
+  await page.goto('/en/studio')
+  await expect(page.locator('meta[name="description"]')).toHaveAttribute('content', 'Architecture and interiors')
+  await expect(page.locator('meta[property="og:description"]')).toHaveAttribute('content', 'Architecture and interiors')
+})
+
 test('a new slug in each language leaves a 301 per language', async ({ page }) => {
   const [draft, live] = await Promise.all([read('documents', POST), read('published_documents', POST)])
   const livePaths = (await admin.from('published_documents').select('paths').eq('id', POST).single()).data!.paths

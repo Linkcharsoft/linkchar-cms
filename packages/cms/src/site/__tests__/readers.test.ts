@@ -120,6 +120,18 @@ describe('site metadata', () => {
     })
   })
 
+  it('fills what the SEO leaves empty with the site defaults, never over its own values', async () => {
+    const cover = { id: ID(7), src: 'https://cdn.test/share.webp', alt: 'Fachada', caption: '', width: 1200, height: 630, focalX: null, focalY: null, blurDataUrl: null }
+    const defaults = { description: 'Arquitectura que se habita', image: cover }
+    const home = await readers().getEntryContent('home')
+    expect(documentMetadata(config, home, defaults)).toMatchObject({
+      description: 'Arquitectura que se habita',
+      openGraph: { description: 'Arquitectura que se habita', images: [{ url: 'https://cdn.test/share.webp', alt: 'Fachada', width: 1200, height: 630 }] }
+    })
+    const post = (await readers().getDocumentBySlug('posts', 'casa'))!
+    expect(documentMetadata(config, post, defaults)).toMatchObject({ description: 'Resumen', openGraph: { description: 'Resumen' } })
+  })
+
   it('describes the page for schema.org in its language', async () => {
     const home = await readers().getEntryContent('home', { locale: 'en' })
     expect(documentJsonLd(config, home)).toEqual({

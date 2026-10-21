@@ -23,11 +23,27 @@ export interface BrandingType {
   footer?: TextType
 }
 
-export interface SiteType {
+// Fields of a page or singleton that fill in what a page's SEO leaves empty, e.g. the site's tagline and share image.
+export type SiteDefaultsType<S extends ContentSchema = ContentSchema> = {
+  [K in keyof S & string]: S[K] extends { kind: 'collection' } ? never : {
+    entry: K
+    description?: keyof EntryValues<S[K]> & string
+    image?: keyof EntryValues<S[K]> & string
+  }
+}[keyof S & string]
+
+export interface SiteType<S extends ContentSchema = ContentSchema> {
   // Public origin of the site ("https://acme.com"), for the Google preview and links out of the panel.
   url?: string
   // How pages title themselves, e.g. "%s | Acme".
   titleTemplate?: string
+  defaults?: SiteDefaultsType<S>
+}
+
+interface SiteDefaultsRefType {
+  readonly entry: string
+  readonly description: string | null
+  readonly image: string | null
 }
 
 // A project menu item: its own panel screen (a route the project adds under (panel)) or an external link.
@@ -55,7 +71,7 @@ export interface CmsConfigInputType<S extends ContentSchema, L extends string> {
   paths?: Partial<Record<PanelSegmentType, string>>
   timeZone?: string
   branding?: BrandingType
-  site?: SiteType
+  site?: SiteType<S>
   mediaFolders?: readonly MediaFolderType[]
   extensions?: readonly CmsExtensionType[]
   // Opt-in kinds (openingHours) and the project's own, made with defineField.
@@ -72,7 +88,7 @@ export interface CmsConfigType<S extends ContentSchema = ContentSchema, L extend
   paths: Readonly<Record<PanelSegmentType, string>>
   timeZone: string
   branding: BrandingType
-  site: { readonly url: string | null, readonly titleTemplate: string }
+  site: { readonly url: string | null, readonly titleTemplate: string, readonly defaults: SiteDefaultsRefType | null }
   mediaFolders: readonly MediaFolderType[]
   extensions: readonly CmsExtensionType[]
   fieldTypes: ReadonlyMap<string, FieldDefinitionType>
@@ -159,6 +175,24 @@ const checkFields = (ctx: CheckContextType, fields: FieldsRecord, where: string)
   }
 }
 
+const DEFAULT_KINDS = { description: ['text', 'textarea'], image: ['image'] } as const
+
+const siteDefaults = (schema: ContentSchema, defaults: SiteDefaultsType | undefined): SiteDefaultsRefType | null => {
+  if (!defaults) return null
+  const entry = schema[defaults.entry]
+  if (!entry || entry.kind === 'collection') throw new CmsConfigError(`site.defaults.entry "${defaults.entry}" must be a page or singleton of the schema.`)
+  const fields = new Map(dataFields(entry.fields))
+  for (const role of ['description', 'image'] as const) {
+    const key = defaults[role]
+    if (!key) continue
+    const kind = fields.get(key)?.kind
+    if (!kind || !(DEFAULT_KINDS[role] as readonly string[]).includes(kind)) {
+      throw new CmsConfigError(`site.defaults.${role} "${key}" must be a ${DEFAULT_KINDS[role].join(' or ')} field of "${defaults.entry}".`)
+    }
+  }
+  return Object.freeze({ entry: defaults.entry, description: defaults.description ?? null, image: defaults.image ?? null })
+}
+
 const checkSchema = (ctx: CheckContextType) => {
   const { schema } = ctx
   const urls = new Map<string, string>()
@@ -211,7 +245,7 @@ export const defineCmsConfig = <const S extends ContentSchema, const L extends s
     paths,
     timeZone: input.timeZone ?? 'America/Argentina/Buenos_Aires',
     branding: input.branding ?? { name: 'CMS' },
-    site: Object.freeze({ url: input.site?.url ?? null, titleTemplate }),
+    site: Object.freeze({ url: input.site?.url ?? null, titleTemplate, defaults: siteDefaults(input.schema, input.site?.defaults as SiteDefaultsType | undefined) }),
     mediaFolders: input.mediaFolders ?? [],
     extensions: input.extensions ?? [],
     fieldTypes,

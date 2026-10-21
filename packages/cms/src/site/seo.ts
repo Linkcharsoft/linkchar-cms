@@ -13,6 +13,8 @@ interface SeoValuesType {
   image: SiteImageType | null
 }
 
+export type SiteDefaultValuesType = Omit<SeoValuesType, 'title'>
+
 const text = (value: unknown) => (typeof value === 'string' ? value.trim() : '')
 
 // The SEO section's own title and description, else the fields it falls back to, else the entry's name.
@@ -31,9 +33,21 @@ export const seoOf = (config: CmsConfigType, document: SiteDocumentType): SeoVal
   }
 }
 
-// generateMetadata for a page or document: title with the site template, canonical, hreflang and Open Graph.
-export const documentMetadata = (config: CmsConfigType, document: SiteDocumentType): Metadata => {
-  const { title, description, image } = seoOf(config, document)
+// The site defaults (site.defaults in the config) read from their entry in the document's locale.
+export const siteDefaultValues = (config: CmsConfigType, defaults: SiteDocumentType): SiteDefaultValuesType => {
+  const ref = config.site.defaults
+  const content = defaults.content as Record<string, unknown>
+  return {
+    description: ref?.description ? text(content[ref.description]) : '',
+    image: ref?.image ? (content[ref.image] as SiteImageType | null | undefined) ?? null : null
+  }
+}
+
+// generateMetadata for a page or document: title with the site template, canonical, hreflang, Open Graph and the site defaults.
+export const documentMetadata = (config: CmsConfigType, document: SiteDocumentType, defaults?: SiteDefaultValuesType): Metadata => {
+  const { title, ...own } = seoOf(config, document)
+  const description = own.description || defaults?.description || ''
+  const image = own.image ?? defaults?.image ?? null
   const links = alternates(config, document.urls, document.locale)
   const isArticle = getEntry(config, document.entry)?.kind === 'collection'
   return {

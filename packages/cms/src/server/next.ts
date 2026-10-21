@@ -8,7 +8,7 @@ import { cache } from 'react'
 import { consoleLogger } from '../core/logger'
 import { panelPaths } from '../core/paths'
 import { createSiteReaders } from '../site/readers'
-import { documentJsonLd, documentMetadata } from '../site/seo'
+import { documentJsonLd, documentMetadata, seoOf, siteDefaultValues } from '../site/seo'
 import { changePassword, markTourSeen, recordMfaChange, resetTours, updateAvatar, updateProfile } from './account'
 import { listActivity, purgeExpiredActivity } from './activity'
 import { canPreview, getCurrentProfile, requireRole } from './auth'
@@ -29,6 +29,7 @@ import type { Database } from './database'
 import type { CmsConfigType } from '../core/config'
 import type { CmsLoggerType } from '../core/logger'
 import type { PublishTargetType } from '../publish/types'
+import type { FixedEntryIdType } from '../site/readers'
 import type { SiteDocumentType } from '../site/types'
 import type { Route } from 'next'
 import type { NextRequest } from 'next/server'
@@ -197,9 +198,20 @@ export const createCmsServer = ({ config, supabase, publishTarget = null, logger
     return { db: published(), draft: false }
   }
 
+  const readers = createSiteReaders({ config, supabaseUrl: () => credentials().url, source: siteSource, published })
+
+  // The defaults entry is read only when the page's own SEO leaves a gap.
+  const defaultsFor = async (document: SiteDocumentType) => {
+    const ref = config.site.defaults
+    if (!ref) return undefined
+    const { description, image } = seoOf(config, document)
+    if ((description || !ref.description) && (image || !ref.image)) return undefined
+    return siteDefaultValues(config, await readers.getEntryContent(ref.entry as FixedEntryIdType, { locale: document.locale }))
+  }
+
   const site = {
-    ...createSiteReaders({ config, supabaseUrl: () => credentials().url, source: siteSource, published }),
-    metadata: (document: SiteDocumentType) => documentMetadata(config, document),
+    ...readers,
+    metadata: async (document: SiteDocumentType) => documentMetadata(config, document, await defaultsFor(document)),
     jsonLd: (document: SiteDocumentType, type?: string) => documentJsonLd(config, document, type)
   }
 

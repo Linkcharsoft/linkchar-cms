@@ -2,8 +2,8 @@ import { NextRequest } from 'next/server'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ACTION_NAMES } from '../../../cli/routes.js'
 import { defineCmsConfig } from '../../core/config'
-import { page } from '../../core/define'
-import { text } from '../../core/fields'
+import { page, singleton } from '../../core/define'
+import { text, textarea } from '../../core/fields'
 import { amplify } from '../../publish/amplify'
 import { mockBuild } from '../../publish/mock'
 import { createCmsServer } from '../next'
@@ -145,6 +145,21 @@ describe('createCmsServer', () => {
       expect(await readsDraft()).toBe(false)
       expect(getUser).not.toHaveBeenCalled()
     })
+  })
+
+  it('fills the page metadata with the site defaults, in the page language', async () => {
+    const schema = {
+      settings: singleton('Sitio', { tagline: textarea({ label: 'Descripción corta' }) }),
+      home: page('Inicio', { title: text({ label: 'Título' }) }, { path: '/' })
+    }
+    const sited = defineCmsConfig({ schema, locales: ['es', 'en'], site: { defaults: { entry: 'settings', description: 'tagline' } } })
+    db.tables.published_documents.push(
+      { id: 's', type: 'settings', key: 'settings', slug: null, slugs: {}, paths: {}, sort_order: 0, published_at: '', data: { tagline: { es: 'Salud mental', en: 'Mental health' } } },
+      { id: 'h', type: 'home', key: 'home', slug: null, slugs: {}, paths: { es: '/', en: '/en' }, sort_order: 0, published_at: '', data: { title: { es: 'Hola', en: 'Hello' } } }
+    )
+    const cms = createCmsServer({ config: sited, supabase })
+    const metadata = await cms.site.metadata(await cms.site.getEntryContent('home', { locale: 'en' }))
+    expect(metadata).toMatchObject({ description: 'Mental health', openGraph: { description: 'Mental health', locale: 'en' } })
   })
 
   it('reports through the project logger, console by default', async () => {

@@ -325,7 +325,7 @@ export default PostPage
 - `getDocumentBySlug`, `listDocuments` and `getDocuments` (in the order of a relation field) read collections.
 - Every document carries `urls` with its URL in each locale, for the language switch.
 - `sitemap()` lists every published URL with its languages: `export default () => cms.site.sitemap()` in `src/app/sitemap.ts`. It throws when the config has no `site.url`; `absoluteUrl` alone still returns relative paths.
-- `metadata(document)` gives the title with `site.titleTemplate`, the canonical URL, hreflang and Open Graph; `site.url` makes them absolute.
+- `await metadata(document)` gives the title with `site.titleTemplate`, the canonical URL, hreflang and Open Graph; `site.url` makes them absolute. With `site: { defaults: { entry: 'settings', description: 'tagline', image: 'shareImage' } }` in the config, a page whose SEO leaves the description or the share image empty takes them from those fields (text or textarea, image) of a page or singleton, in the page's language; its own values always win.
 - `jsonLd(document)` gives a `WebPage` or `Article` node for one page. For the site as a whole, `@linkcharsoft/cms/site` has schema.org helpers that take the site's name, origin and locale: `organization`, `website`, `breadcrumbs`, `blogPosting`, `openingHoursSpecification` (from an `openingHours` field) and `jsonLdGraph`, which joins them (and `jsonLd()` nodes) in one script:
 
 ```tsx

@@ -48,10 +48,22 @@ describe('defineCmsConfig', () => {
   })
 
   it('checks the site settings', () => {
-    expect(defineCmsConfig({ schema }).site).toEqual({ url: null, titleTemplate: '%s' })
+    expect(defineCmsConfig({ schema }).site).toEqual({ url: null, titleTemplate: '%s', defaults: null })
     expect(defineCmsConfig({ schema, site: { url: 'https://acme.com', titleTemplate: '%s | Acme' } }).site.titleTemplate).toBe('%s | Acme')
     expect(() => defineCmsConfig({ schema, site: { titleTemplate: 'Acme' } })).toThrow('%s')
     expect(() => defineCmsConfig({ schema, site: { url: 'https://acme.com/blog' } })).toThrow('origin')
+  })
+
+  it('takes the site defaults from text and image fields of a page or singleton', () => {
+    const withShare = { ...schema, settings: singleton('Sitio', { name: text({ label: 'Nombre' }), share: image({ label: 'Imagen' }) }) }
+    expect(defineCmsConfig({ schema: withShare, site: { defaults: { entry: 'settings', description: 'name', image: 'share' } } }).site.defaults)
+      .toEqual({ entry: 'settings', description: 'name', image: 'share' })
+    expect(() => defineCmsConfig({ schema: withShare, site: { defaults: { entry: 'settings', description: 'share' } } })).toThrow('site.defaults.description "share" must be a text or textarea field')
+    expect(() => defineCmsConfig({ schema: withShare, site: { defaults: { entry: 'settings', image: 'name' } } })).toThrow('site.defaults.image')
+    // @ts-expect-error a collection has no single value to fall back to
+    expect(() => defineCmsConfig({ schema, site: { defaults: { entry: 'posts', description: 'title' } } })).toThrow('page or singleton')
+    // @ts-expect-error only keys of the entry's fields
+    expect(() => defineCmsConfig({ schema, site: { defaults: { entry: 'settings', description: 'tagline' } } })).toThrow('"tagline"')
   })
 
   it('rejects panel segments that are not URL-safe or collide', () => {
