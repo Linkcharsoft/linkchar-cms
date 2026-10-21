@@ -1,5 +1,25 @@
 # @linkcharsoft/cms
 
+## 0.8.0
+
+### Minor Changes
+
+- 254ca8a: Project tables in the Supabase types: a project registers its generated `Database` (its own tables next to the CMS ones) as `Register.database`, and two new server functions use it: `await cms.supabase()`, the request's session client (RLS applies, the same one the panel uses), and `cms.supabaseAdmin()`, the secret-key client for after `requireRole`. The package keeps typing its own queries against its `Database`, so project types that fall behind don't break it. `ProjectDatabaseOf` and `ProjectClientType` are exported from `@linkcharsoft/cms/server`.
+  
+  To update a project with its own Supabase clients for its tables: register `database: Database` in the `Register` interface next to `config`, use `cms.supabase()` / `cms.supabaseAdmin()` and delete those clients.
+- 9eef7be: `DraftRefresh` in `@linkcharsoft/cms/site`: rendered in Draft Mode, it refreshes the previewed page after each autosave (`cms:refresh`), scrolls to the section being edited (`cms:scroll`) and shows the exit link to `/api/cms/disable-draft`. The link text comes from the package catalogs (`site.draftExit`, `locale` prop) and `label`/`className` replace its text and look.
+  
+  To update a project: replace its own preview listener with `{(await draftMode()).isEnabled && <DraftRefresh locale={locale} />}` in the site layout.
+- 3fd5632: schema.org helpers in `@linkcharsoft/cms/site`: `organization`, `website`, `breadcrumbs`, `blogPosting`, `openingHoursSpecification` (from an `openingHours` value) and `jsonLdGraph`, which joins nodes, arrays and `cms.site.jsonLd()` results in one `@graph`. They take the site's name, origin and locale (`inLanguage`), and leave empty values out.
+  
+  To update a project: replace its own copies of these helpers with the package's; pass `locale` in the site info (`inLanguage` used to be fixed in the copies).
+- 22fa575: Site defaults for page metadata: `site.defaults: { entry, description?, image? }` in `defineCmsConfig` names text/textarea and image fields of a page or singleton (typed against the schema, checked when the config is defined). When a page's SEO leaves the description or the share image empty, `cms.site.metadata()` takes them from those fields in the page's language, as drafts in Draft Mode. The page's own values always win, and the defaults entry is read only when there is a gap.
+  
+  `cms.site.metadata()` is now async.
+  
+  To update a project: `generateMetadata` that returns `cms.site.metadata(...)` keeps working; code that spreads or edits its result needs `await` first. A project that added its own defaults (e.g. a `withSiteDefaults` wrapper) can replace it with `site.defaults`.
+- b2ab0c0: `cms.site.sitemap()` dates a page by the newest of its own publish and the last publish of the entries its sections declare in `uses`: a blog page listing posts changes `lastModified` with each new post, a home showing services with each service. Still one query.
+
 ## 0.7.2
 
 ### Patch Changes
