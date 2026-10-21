@@ -30,6 +30,7 @@ import type { CmsConfigType } from '../core/config'
 import type { CmsLoggerType } from '../core/logger'
 import type { PublishTargetType } from '../publish/types'
 import type { SiteDocumentType } from '../site/types'
+import type { Route } from 'next'
 import type { NextRequest } from 'next/server'
 
 export interface CmsServerOptionsType {
@@ -126,7 +127,7 @@ export const createCmsServer = ({ config, supabase, publishTarget = null, logger
       try {
         return await fn(await context(), ...args)
       } catch (error) {
-        if (error instanceof CmsRedirect) redirect(error.to)
+        if (error instanceof CmsRedirect) redirect(error.to as Route)
         throw error
       }
     }])) as BoundAllType<T>
