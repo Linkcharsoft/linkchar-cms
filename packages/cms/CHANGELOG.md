@@ -1,5 +1,12 @@
 # @linkcharsoft/cms
 
+## 0.7.2
+
+### Patch Changes
+
+- 0aeb222: The site reads drafts in Draft Mode only for a signed-in, active panel user past the second factor, the same check `/api/cms/draft` makes before enabling the preview. Before, a deactivated user (or one with a revoked session or a pending second factor) whose Draft Mode cookie was still alive kept reading drafts; now they get the published site.
+- 96ba1b8: The `focalX`/`focalY` doc of `SiteImageType` now says what they are: a 0–1 ratio (0.5 is the center), as stored and as `imageProps()` reads them. It said 0–100, so code that built `object-position` by hand from it showed the corner of the image.
+
 ## 0.7.1
 
 ### Patch Changes
