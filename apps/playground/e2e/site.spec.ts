@@ -87,6 +87,15 @@ test('the sitemap lists every page in both languages', async ({ request }) => {
   expect(sitemap).toContain('<xhtml:link rel="alternate" hreflang="en" href="http://localhost:3100/en/studio" />')
 })
 
+test('the home describes the studio, the site and the page in one JSON-LD graph', async ({ page }) => {
+  await page.goto('/en')
+  const data = JSON.parse(await page.locator('script[type="application/ld+json"]').textContent() ?? '{}')
+  expect(data['@context']).toBe('https://schema.org')
+  expect(data['@graph'].map((node: { '@type': string }) => node['@type'])).toEqual(['Organization', 'WebSite', 'WebPage'])
+  expect(data['@graph'][1]).toMatchObject({ name: 'Estudio Norte', url: 'http://localhost:3100/', inLanguage: 'en' })
+  expect(data['@graph'][2]['@context']).toBeUndefined()
+})
+
 test('a new slug in each language leaves a 301 per language', async ({ page }) => {
   const [draft, live] = await Promise.all([read('documents', POST), read('published_documents', POST)])
   const livePaths = (await admin.from('published_documents').select('paths').eq('id', POST).single()).data!.paths

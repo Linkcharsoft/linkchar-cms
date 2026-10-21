@@ -1,8 +1,9 @@
-import { imageProps, JsonLd } from '@linkcharsoft/cms/site'
+import { imageProps, JsonLd, jsonLdGraph, organization, website } from '@linkcharsoft/cms/site'
 import Image from 'next/image'
 import Link from 'next/link'
 import { cms } from '@/cms/server'
 import SiteFrame from '@/site/SiteFrame'
+import cmsConfig from '../../cms.config'
 import type { LocaleType } from '@linkcharsoft/cms/core'
 import type { Metadata, Route } from 'next'
 
@@ -17,10 +18,11 @@ const HomeScreen = async ({ locale }: Props) => {
   const home = await cms.site.getEntryContent('home', { locale })
   const { hero, services, projects } = home.content
   const featured = await cms.site.getDocuments('projects', projects.featured, { locale })
+  const site = { name: cmsConfig.branding.name, url: cmsConfig.site.url ?? '', locale, description: hero.intro }
 
   return (
     <SiteFrame locale={locale} urls={home.urls}>
-      <JsonLd data={cms.site.jsonLd(home)} />
+      <JsonLd data={jsonLdGraph(organization(site), website(site), cms.site.jsonLd(home))} />
       <section id='inicio'>
         {hero.eyebrow && <p>{hero.eyebrow}</p>}
         <h1 data-testid='hero-title'>{hero.title}</h1>
