@@ -352,7 +352,7 @@ const CmsForm = ({
             )}
             actions={showActions && (
               <>
-                {entry.path && (
+                {(entry.path || entry.previewPath) && (
                   <CustomButton
                     type='button'
                     variant={previewOpen ? 'primary' : 'secondary'}
