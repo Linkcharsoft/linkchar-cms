@@ -17,6 +17,7 @@ import { entryPath, slugsOf } from '../../../core/urls'
 import { validateContent } from '../../../core/validation'
 import { fieldLabel } from '../../../core/walk'
 import { useCms, usePaths, useT, useTextContext } from '../../client/context'
+import { announceSaved } from '../../client/savedEvent'
 import { EntryContext } from '../../fields/entryContext'
 import { fieldId } from '../../fields/fieldUtils'
 import { errorPaths, FormFocusContext } from '../../fields/formFocusContext'
@@ -161,6 +162,7 @@ const CmsForm = ({
         if (adopted.length > 0) adopt({ ...rebased.values, ...pickKeys(result.data, adjusted) }, adopted)
         showServerErrors(result.errors ?? {}, data)
         setEdited(true)
+        announceSaved()
         return result.errors ? 'partial' : 'saved'
       }
       case 'invalid':

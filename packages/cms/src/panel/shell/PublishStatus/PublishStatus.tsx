@@ -5,6 +5,7 @@ import { Tag } from 'primereact/tag'
 import { useEffect, useEffectEvent, useState } from 'react'
 import { headerPublishStatus } from '../../../core/publish'
 import { useCms, usePaths, useT } from '../../client/context'
+import { onSaved } from '../../client/savedEvent'
 import CustomButton from '../../primitives/CustomButton/CustomButton'
 import type { PublishDisplayStatusType } from '../../../core/publish'
 import type { PendingCountsType, PublishRecordType } from '../../../server/publish'
@@ -58,6 +59,8 @@ const PublishStatus = ({ latest: initialLatest, counts: initialCounts }: Props) 
   useEffect(() => {
     void refresh()
   }, [pathname])
+
+  useEffect(() => onSaved(() => void refresh()), [])
 
   useEffect(() => {
     if (status !== 'building') return
