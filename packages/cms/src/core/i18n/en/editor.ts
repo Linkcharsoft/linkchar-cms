@@ -124,7 +124,9 @@ const editor = {
       empty: 'There are no versions yet.',
       emptyHelp: 'One is saved when publishing and another every 15 minutes while you edit.',
       showChanges: 'See changes',
-      same: 'It is the same as the current draft.'
+      same: 'It is the same as the current draft.',
+      today: 'Today',
+      yesterday: 'Yesterday'
     }
   },
   fields: {

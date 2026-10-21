@@ -16,6 +16,7 @@ test('publishes the pending changes and follows the build', async ({ page }) => 
   await page.getByRole('button', { name: 'Nueva pregunta' }).click()
   await page.waitForURL(/\/faq\/[0-9a-f-]{36}$/)
   await page.waitForLoadState('networkidle')
+  const editorUrl = page.url()
   await page.locator('#cms-question').fill(QUESTION)
   await page.locator('.ProseMirror').first().click()
   await page.keyboard.type('Sí, también reformas y ampliaciones.')
@@ -45,6 +46,13 @@ test('publishes the pending changes and follows the build', async ({ page }) => 
   await expect(status).toContainText('Publicando')
   await expect(status).toBeHidden({ timeout: 30_000 })
   await expect(page.locator('[data-tour=publish-history]')).toContainText('Listo')
+
+  await page.goto(editorUrl)
+  await page.waitForLoadState('networkidle')
+  await page.locator('[data-tour=history]').click()
+  const history = page.locator('.VersionHistory')
+  await expect(history.getByRole('heading', { level: 3, name: 'Hoy' })).toBeVisible()
+  await expect(history).toContainText('Versión publicada')
   console.expectClean()
 })
 

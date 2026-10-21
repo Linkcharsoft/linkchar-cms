@@ -121,7 +121,9 @@ const editor = {
       empty: 'Todavía no hay versiones.',
       emptyHelp: 'Se guarda una al publicar y otra cada 15 minutos mientras editás.',
       showChanges: 'Ver cambios',
-      same: 'Es igual al borrador actual.'
+      same: 'Es igual al borrador actual.',
+      today: 'Hoy',
+      yesterday: 'Ayer'
     }
   },
   fields: {

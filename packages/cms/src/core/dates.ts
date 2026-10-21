@@ -25,6 +25,13 @@ export const dayRange = (day: string, timeZone: string) => {
   return { from: new Date(from).toISOString(), to: new Date(to).toISOString() }
 }
 
+// The calendar day ("2026-10-13") a timestamp falls on in the site's time zone.
+export const dayOf = (value: string | Date, timeZone: string) => {
+  const parts = new Intl.DateTimeFormat('en-US', { timeZone, year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(new Date(value))
+  const part = (type: string) => parts.find(item => item.type === type)?.value ?? ''
+  return `${part('year')}-${part('month')}-${part('day')}`
+}
+
 export type DateStyleType = 'dateTime' | 'shortDateTime' | 'date' | 'time' | 'longDate'
 
 const DATE_STYLES: Record<DateStyleType, Intl.DateTimeFormatOptions> = {

@@ -2,6 +2,7 @@
 import './VersionHistory.sass'
 import { Sidebar } from 'primereact/sidebar'
 import { useState } from 'react'
+import { dayOf } from '../../../core/dates'
 import { useCms, useFormatDate, useT } from '../../client/context'
 import { useConfirm } from '../../primitives/ConfirmAction/ConfirmAction'
 import CustomButton from '../../primitives/CustomButton/CustomButton'
@@ -46,7 +47,7 @@ const DiffList = ({ diff }: { diff: FieldDiffType[] }) => {
 
 const VersionHistory = ({ entryId, documentId, canDiscard, replace, sections, flush }: Props) => {
   const { t } = useT()
-  const { actions } = useCms()
+  const { actions, config } = useCms()
   const confirm = useConfirm()
   const formatDate = useFormatDate()
   const [visible, setVisible] = useState(false)
@@ -103,6 +104,20 @@ const VersionHistory = ({ entryId, documentId, canDiscard, replace, sections, fl
     }))
     .filter(section => section.changes.length > 0)
 
+  const today = dayOf(new Date(), config.timeZone)
+  const yesterday = dayOf(new Date(Date.now() - 24 * 60 * 60 * 1000), config.timeZone)
+  const dayTitle = (version: VersionItemType) => {
+    const day = dayOf(version.createdAt, config.timeZone)
+    return day === today ? t('editor.history.today') : day === yesterday ? t('editor.history.yesterday') : formatDate(version.createdAt, 'longDate')
+  }
+  const days = (versions ?? []).reduce<{ key: string, versions: VersionItemType[] }[]>((groups, version) => {
+    const key = dayOf(version.createdAt, config.timeZone)
+    const last = groups[groups.length - 1]
+    if (last?.key === key) last.versions.push(version)
+    else groups.push({ key, versions: [version] })
+    return groups
+  }, [])
+
   const askDiscard = () => confirm({
     header: t('editor.history.discardHeader'),
     message: t('editor.history.discardMessage', { scope }),
@@ -139,55 +154,62 @@ const VersionHistory = ({ entryId, documentId, canDiscard, replace, sections, fl
           ) : versions.length === 0 ? (
             <EmptyState compact icon='pi pi-history' title={t('editor.history.empty')} description={t('editor.history.emptyHelp')} />
           ) : (
-            <ul className='VersionHistory__List'>
-              {versions.map(version => (
-                <li key={version.id} className='VersionHistory__Item'>
-                  <div>
-                    <p className='VersionHistory__Reason'>{t(`editor.history.reasons.${version.reason}`)}</p>
-                    <p className='VersionHistory__Meta'>
-                      {formatDate(version.createdAt)}
-                      {version.createdBy ? ` · ${version.createdBy}` : ''}
-                    </p>
-                  </div>
-                  <div className='VersionHistory__Actions'>
-                    <CustomButton
-                      type='button'
-                      variant='ghost'
-                      size='sm'
-                      aria-expanded={preview?.versionId === version.id}
-                      onClick={() => togglePreview(version)}
-                    >
-                      {t('editor.history.showChanges')}
-                    </CustomButton>
-                    <CustomButton type='button' variant='ghost' size='sm' onClick={() => askRestore(version)}>
-                      {isPage ? t('editor.history.restoreAll') : t('editor.history.restore')}
-                    </CustomButton>
-                  </div>
-                  {preview?.versionId === version.id && (
-                    <div className='VersionHistory__Preview'>
-                      {preview.diff === null ? (
-                        <div aria-busy='true' className='flex justify-center py-2'><Loader /></div>
-                      ) : preview.diff.length === 0 ? (
-                        <p className='VersionHistory__Meta'>{t('editor.history.same')}</p>
-                      ) : isPage ? (
-                        <ul className='VersionHistory__SectionList'>
-                          {sectionsOf(preview.diff).map(section => (
-                            <li key={section.key} className='VersionHistory__Section'>
-                              <div className='VersionHistory__SectionHeader'>
-                                <span>{section.label}</span>
-                                <CustomButton type='button' variant='secondary' size='xs' onClick={() => askRestoreSection(version, section)}>
-                                  {t('editor.history.restoreSection')}
-                                </CustomButton>
-                              </div>
-                              <DiffList diff={section.changes} />
-                            </li>
-                          ))}
-                        </ul>
-                      ) : (
-                        <DiffList diff={preview.diff} />
-                      )}
-                    </div>
-                  )}
+            <ul className='VersionHistory__Days'>
+              {days.map(day => (
+                <li key={day.key} className='VersionHistory__Day'>
+                  <h3 className='VersionHistory__DayTitle'>{dayTitle(day.versions[0])}</h3>
+                  <ul className='VersionHistory__List'>
+                    {day.versions.map(version => (
+                      <li key={version.id} className='VersionHistory__Item'>
+                        <div>
+                          <p className='VersionHistory__Reason'>{t(`editor.history.reasons.${version.reason}`)}</p>
+                          <p className='VersionHistory__Meta'>
+                            {formatDate(version.createdAt, 'time')}
+                            {version.createdBy ? ` · ${version.createdBy}` : ''}
+                          </p>
+                        </div>
+                        <div className='VersionHistory__Actions'>
+                          <CustomButton
+                            type='button'
+                            variant='ghost'
+                            size='sm'
+                            aria-expanded={preview?.versionId === version.id}
+                            onClick={() => togglePreview(version)}
+                          >
+                            {t('editor.history.showChanges')}
+                          </CustomButton>
+                          <CustomButton type='button' variant='ghost' size='sm' onClick={() => askRestore(version)}>
+                            {isPage ? t('editor.history.restoreAll') : t('editor.history.restore')}
+                          </CustomButton>
+                        </div>
+                        {preview?.versionId === version.id && (
+                          <div className='VersionHistory__Preview'>
+                            {preview.diff === null ? (
+                              <div aria-busy='true' className='flex justify-center py-2'><Loader /></div>
+                            ) : preview.diff.length === 0 ? (
+                              <p className='VersionHistory__Meta'>{t('editor.history.same')}</p>
+                            ) : isPage ? (
+                              <ul className='VersionHistory__SectionList'>
+                                {sectionsOf(preview.diff).map(section => (
+                                  <li key={section.key} className='VersionHistory__Section'>
+                                    <div className='VersionHistory__SectionHeader'>
+                                      <span>{section.label}</span>
+                                      <CustomButton type='button' variant='secondary' size='xs' onClick={() => askRestoreSection(version, section)}>
+                                        {t('editor.history.restoreSection')}
+                                      </CustomButton>
+                                    </div>
+                                    <DiffList diff={section.changes} />
+                                  </li>
+                                ))}
+                              </ul>
+                            ) : (
+                              <DiffList diff={preview.diff} />
+                            )}
+                          </div>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
                 </li>
               ))}
             </ul>
