@@ -164,6 +164,7 @@ const core = {
     notice: '{name} {reason}.',
     deleted: 'Un contenido elegido ya no existe: no va a aparecer en el sitio.',
     incomplete: '{name} no se publica hasta completar sus campos: no va a aparecer en el sitio.',
+    notSelected: '{name} no está marcado para publicar: no va a aparecer en el sitio.',
     usedLive: '{name} lo usa y sigue en el sitio: va a quedar sin este contenido.'
   },
   collection: {

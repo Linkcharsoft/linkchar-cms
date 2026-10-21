@@ -5,7 +5,7 @@ import { changedSections } from '../core/pages'
 import { panelPaths } from '../core/paths'
 import { BUILD_CONFIRMATION_TIMEOUT_MS } from '../core/publish'
 import { documentReferences } from '../core/references'
-import { referenceWarnings } from '../core/relations'
+import { referenceWarnings, relationIssue, relationName } from '../core/relations'
 import { canPublish } from '../core/roles'
 import { resolveText } from '../core/text'
 import { entryPath, entryUrls, publishUrls } from '../core/urls'
@@ -19,6 +19,7 @@ import type { CmsContextType } from './context'
 import type { MissingItemType } from './incomplete'
 import type { MessageKeyType } from '../core/i18n/types'
 import type { BuildErrorCodeType, BuildEventStatusType, BuildEventType, BuildStatusType } from '../core/publish'
+import type { SelectionDependencyType } from '../core/publishSelection'
 import type { DocumentStatusType } from '../core/status'
 
 export type { MissingItemType } from './incomplete'
@@ -46,6 +47,10 @@ export interface PendingChangeType {
   sections: { label: string, href: string }[]
   // Picked items (author, category…) that won't be on the site after this publish. They don't block it.
   warnings: string[]
+  // Picked items that come out only if they are also ticked; the panel warns when they are not.
+  pendingRefs: SelectionDependencyType[]
+  // For a removal: live documents that stop using it only if their pending publish is ticked too.
+  fixedUsers: SelectionDependencyType[]
 }
 
 export interface PublishRecordType {
@@ -135,7 +140,9 @@ export const getPendingChanges = async (ctx: CmsContextType): Promise<PendingCha
         ? changedSections(ctx.config, described.entry.fields, row.data, published.find(live => live.id === described.id)?.data)
           .map(({ key, label }) => ({ label: resolveText(label, texts), href: paths.page(row.type!, key) }))
         : [],
-      warnings: []
+      warnings: [],
+      pendingRefs: [],
+      fixedUsers: []
     }
   }))
 
@@ -155,7 +162,14 @@ const addReferenceWarnings = async (ctx: CmsContextType, changes: PendingChangeT
   const comesOut = (id: string) => changes.find(change => change.id === id)?.problems.length === 0
   const { t } = translatorFor(ctx.config)
 
-  for (const change of changes) change.warnings = referenceWarnings(references.get(change.id) ?? [], refs, comesOut, t)
+  for (const change of changes) {
+    const ids = references.get(change.id) ?? []
+    change.warnings = referenceWarnings(ids, refs, comesOut, t)
+    change.pendingRefs = ids.flatMap(id => {
+      const issue = refs[id] ? relationIssue(refs[id], t) : null
+      return issue && !issue.missing && comesOut(id) ? [{ id, name: relationName(refs[id], true) }] : []
+    })
+  }
 }
 
 // Live pages that still pick an item being removed lose it, unless they go out without it in the same publish.
@@ -171,9 +185,10 @@ const addUsageWarnings = async (ctx: CmsContextType, changes: PendingChangeType[
     && !rows.some(row => row.document_id === documentId && row.target_id === targetId && !row.published)
 
   for (const removal of removals) {
-    const live = rows.filter(row => row.target_id === removal.id && row.published && !leaving.has(row.document_id)
-      && !goesOutWithout(row.document_id, removal.id))
-    removal.warnings.push(...describeUsage(ctx, live).map(place => t('relations.usedLive', { name: place.label })))
+    const live = rows.filter(row => row.target_id === removal.id && row.published && !leaving.has(row.document_id))
+    const [fixed, stuck] = [live.filter(row => goesOutWithout(row.document_id, removal.id)), live.filter(row => !goesOutWithout(row.document_id, removal.id))]
+    removal.warnings.push(...describeUsage(ctx, stuck).map(place => t('relations.usedLive', { name: place.label })))
+    removal.fixedUsers = describeUsage(ctx, fixed).map(place => ({ id: place.documentId, name: place.label }))
   }
 }
 

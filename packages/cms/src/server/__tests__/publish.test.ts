@@ -88,6 +88,16 @@ describe('getPendingChanges', () => {
     expect(change.problems).toEqual(['Título (Inglés)', 'Texto alternativo de Imagen (Inglés)'])
   })
 
+  it('names the picked items that go out only if they are ticked too', async () => {
+    db.tables.documents.push(
+      document(1, 'posts', { ...completePost('Casa', 'casa'), author: ID(5) }),
+      document(5, 'team', { name: 'Bruno' }, { key: null })
+    )
+    const [change] = (await getPendingChanges(ctx)).filter(item => item.id === ID(1))
+    expect(change.warnings).toEqual([])
+    expect(change.pendingRefs).toEqual([{ id: ID(5), name: '"Bruno" (integrante)' }])
+  })
+
   it('warns about picked items that will not be on the site', async () => {
     db.tables.documents.push(
       document(1, 'posts', { ...completePost('Casa', 'casa'), author: ID(5) }),
@@ -131,7 +141,9 @@ describe('getPendingChanges', () => {
         document(2, 'posts', completePost('Otra', 'otra'))
       )
       db.tables.published_documents.push(live(1, post), live(2, { ...completePost('Otra', 'otra'), author: ID(5) }))
-      expect((await removal()).warnings).toEqual([])
+      const change = await removal()
+      expect(change.warnings).toEqual([])
+      expect(change.fixedUsers).toEqual([{ id: ID(2), name: 'Blog › Otra' }])
     })
   })
 })

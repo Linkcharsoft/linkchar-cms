@@ -5,6 +5,8 @@ import PublishPanel from '../PublishPanel'
 import type { PendingChangeType, PublishRecordType } from '../../../../server/publish'
 
 vi.mock('next/navigation', () => ({ useRouter: () => ({ refresh: vi.fn(), push: vi.fn() }) }))
+// The confirmation dialog lives in the panel providers; here accepting is immediate.
+vi.mock('../../../primitives/ConfirmAction/ConfirmAction', () => ({ useConfirm: () => ({ accept }: { accept: () => void }) => accept() }))
 
 const change = (overrides: Partial<PendingChangeType>): PendingChangeType => ({
   id: 'a',
@@ -23,6 +25,8 @@ const change = (overrides: Partial<PendingChangeType>): PendingChangeType => ({
   urlChanges: [],
   sections: [],
   warnings: [],
+  pendingRefs: [],
+  fixedUsers: [],
   ...overrides
 })
 
@@ -90,6 +94,35 @@ describe('PublishPanel', () => {
     expect(buttons).toHaveLength(1)
     fireEvent.click(buttons[0])
     await waitFor(() => expect(retryPublish).toHaveBeenCalledWith(1))
+  })
+
+  it('publishes only the ticked changes and shows what leaving one out means', async () => {
+    const publishChanges = vi.fn(async () => ({ ok: true as const, published: 1, removed: 0, buildStatus: 'building' as const }))
+    renderPanel(<PublishPanel
+      changes={[
+        change({ id: 'a', title: 'Casa', pendingRefs: [{ id: 'c', name: '"Reseñas" (categoría)' }] }),
+        change({ id: 'c', title: 'Reseñas', entryLabel: 'Categorías' }),
+        change({ id: 'b', title: 'Rota', status: 'changed', problems: ['Título'], missing: [missingTitle] })
+      ]}
+      history={[]}
+      canPublish
+    />, { actions: { publishChanges } as never })
+
+    expect(screen.getAllByRole('checkbox')).toHaveLength(2)
+    expect(screen.getByRole('button', { name: /Publicar cambios \(2\)/ })).toBeTruthy()
+    fireEvent.click(screen.getByLabelText('Incluir "Reseñas" en esta publicación'))
+    expect(screen.getByRole('button', { name: /Publicar cambios \(1\)/ })).toBeTruthy()
+    expect(screen.getByText('"Reseñas" (categoría) no está marcado para publicar: no va a aparecer en el sitio.')).toBeTruthy()
+
+    fireEvent.click(screen.getByRole('button', { name: /Publicar cambios \(1\)/ }))
+    await waitFor(() => expect(publishChanges).toHaveBeenCalledWith({ publish: [{ id: 'a', revision: 1 }], remove: [] }))
+  })
+
+  it('needs at least one ticked change', () => {
+    renderPanel(<PublishPanel changes={[change({ id: 'a', title: 'Casa' })]} history={[]} canPublish />)
+    fireEvent.click(screen.getByLabelText('Incluir "Casa" en esta publicación'))
+    expect(screen.getByRole('button', { name: /Publicar cambios/ }).hasAttribute('disabled')).toBe(true)
+    expect(screen.getByText('Marcá al menos un cambio para publicar.')).toBeTruthy()
   })
 
   it('offers no retry without permission, and marks a retry in the history', () => {

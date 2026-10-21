@@ -51,6 +51,10 @@ const lists = {
     publish: 'Publish changes',
     publishCount: 'Publish changes ({count})',
     cannotPublish: 'Your user can edit but not publish. An administrator can publish these changes or give you permission.',
+    include: 'Include "{title}" in this publish',
+    selectAll: 'Select all',
+    selectNone: 'Clear selection',
+    noneSelected: 'Tick at least one change to publish.',
     groups: {
       new: 'New on the site',
       changed: 'With changes',

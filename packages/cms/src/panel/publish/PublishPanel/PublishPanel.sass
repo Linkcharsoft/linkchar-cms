@@ -29,8 +29,27 @@
     flex-direction: column
     gap: 4px
 
+  &__GroupHead
+    display: flex
+    flex-wrap: wrap
+    align-items: center
+    justify-content: space-between
+    gap: 8px
+
   &__GroupTitle
     @apply cms-text-semibold-14 text-cms-ink-700
+
+  &__GroupActions
+    display: flex
+    gap: 4px
+
+  &__Select
+    display: flex
+    flex-shrink: 0
+    padding-top: 2px
+
+  &__Item--Skipped &__ItemTitle
+    @apply text-cms-ink-600 line-through
 
   &__List
     display: flex

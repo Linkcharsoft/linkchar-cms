@@ -2,10 +2,12 @@
 import './PublishPanel.sass'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import { Checkbox } from 'primereact/checkbox'
 import { Tag } from 'primereact/tag'
 import { classNames } from 'primereact/utils'
 import { Fragment, useEffect, useState } from 'react'
 import { publishDisplayStatus } from '../../../core/publish'
+import { selectionWarnings } from '../../../core/publishSelection'
 import { useCms, useFormatDate, useT } from '../../client/context'
 import { useConfirm } from '../../primitives/ConfirmAction/ConfirmAction'
 import CustomButton from '../../primitives/CustomButton/CustomButton'
@@ -36,15 +38,32 @@ const GROUPS = [
 
 const changeId = (id: string) => `change-${id}`
 
-const ChangeItem = ({ change, highlighted }: { change: PendingChangeType, highlighted: boolean }) => {
+const selectId = (id: string) => `select-${id}`
+
+interface ChangeItemProps {
+  change: PendingChangeType
+  highlighted: boolean
+  warnings: string[]
+  // Only changes the publish can take are ticked; incomplete ones show why they are not.
+  checked: boolean | null
+  onToggle: () => void
+}
+
+const ChangeItem = ({ change, highlighted, warnings, checked, onToggle }: ChangeItemProps) => {
   const { t } = useT()
   const formatDate = useFormatDate()
   const meta = [change.entryLabel !== change.title && change.entryLabel, change.updatedBy, formatDate(change.updatedAt, 'shortDateTime')]
   const missing = [...new Map(change.missing.map(item => [item.label, item])).values()]
 
   return (
-    <li id={changeId(change.id)} className={classNames('PublishPanel__Item', { 'PublishPanel__Item--Highlight': highlighted })}>
+    <li id={changeId(change.id)} className={classNames('PublishPanel__Item', { 'PublishPanel__Item--Highlight': highlighted, 'PublishPanel__Item--Skipped': checked === false })}>
       <div className='PublishPanel__ItemMain'>
+        {checked !== null && (
+          <span className='PublishPanel__Select'>
+            <Checkbox inputId={selectId(change.id)} checked={checked} onChange={onToggle} />
+            <label htmlFor={selectId(change.id)} className='sr-only'>{t('publishPanel.include', { title: change.title })}</label>
+          </span>
+        )}
         <Link href={change.href as Route} className='PublishPanel__ItemTitle'>{change.title}</Link>
         <span className='PublishPanel__Meta'>{meta.filter(Boolean).join(' · ')}</span>
       </div>
@@ -80,7 +99,7 @@ const ChangeItem = ({ change, highlighted }: { change: PendingChangeType, highli
           </span>
         </p>
       )}
-      {change.warnings.map(warning => (
+      {warnings.map(warning => (
         <p key={warning} className='PublishPanel__Warning'>
           <i className='pi pi-exclamation-triangle' aria-hidden='true' />
           {warning}
@@ -176,11 +195,17 @@ const PublishPanel = ({ changes, history, canPublish, highlight }: Props) => {
   const notify = useNotify()
   const confirm = useConfirm()
   const [publishing, setPublishing] = useState(false)
+  // Ticked by default: the ids the user left out of this publish.
+  const [excluded, setExcluded] = useState<ReadonlySet<string>>(new Set())
 
+  const takeable = (change: PendingChangeType) => change.action === 'unpublish' || change.problems.length === 0
   const ready = changes.filter(change => change.action === 'publish' && change.problems.length === 0)
   const removals = changes.filter(change => change.action === 'unpublish')
   const incomplete = changes.length - ready.length - removals.length
   const total = ready.length + removals.length
+  const selected = new Set(changes.filter(change => takeable(change) && !excluded.has(change.id)).map(change => change.id))
+  const selectedReady = ready.filter(change => selected.has(change.id))
+  const selectedRemovals = removals.filter(change => selected.has(change.id))
   const building = history[0] && publishDisplayStatus(history[0].buildStatus, history[0].requestedAt) === 'building'
 
   useEffect(() => {
@@ -193,11 +218,27 @@ const PublishPanel = ({ changes, history, canPublish, highlight }: Props) => {
     return () => clearInterval(interval)
   }, [building, router])
 
+  const toggle = (id: string) => setExcluded(previous => {
+    const next = new Set(previous)
+    if (next.has(id)) next.delete(id)
+    else next.add(id)
+    return next
+  })
+
+  const setGroup = (items: PendingChangeType[], included: boolean) => setExcluded(previous => {
+    const next = new Set(previous)
+    for (const change of items) {
+      if (included) next.delete(change.id)
+      else next.add(change.id)
+    }
+    return next
+  })
+
   const publish = async () => {
     setPublishing(true)
     const result = await actions.publishChanges({
-      publish: ready.map(({ id, revision }) => ({ id, revision })),
-      remove: removals.map(change => change.id)
+      publish: selectedReady.map(({ id, revision }) => ({ id, revision })),
+      remove: selectedRemovals.map(change => change.id)
     })
     setPublishing(false)
 
@@ -207,6 +248,7 @@ const PublishPanel = ({ changes, history, canPublish, highlight }: Props) => {
       return
     }
 
+    setExcluded(new Set())
     notify(result.buildStatus === 'failed'
       ? { severity: 'warn', summary: t('publishPanel.done'), detail: t('publishPanel.buildNotStarted'), life: 8000 }
       : { severity: 'success', summary: t('publishPanel.done'), detail: t('publishPanel.eta') })
@@ -229,8 +271,8 @@ const PublishPanel = ({ changes, history, canPublish, highlight }: Props) => {
     header: t('publishPanel.title'),
     message: (
       <div className='PublishPanel__Confirm'>
-        <ConfirmList items={ready} title={t('publishPanel.confirm.publishes')} />
-        <ConfirmList items={removals} title={t('publishPanel.confirm.removes')} />
+        <ConfirmList items={selectedReady} title={t('publishPanel.confirm.publishes')} />
+        <ConfirmList items={selectedRemovals} title={t('publishPanel.confirm.removes')} />
         <p>{t('publishPanel.eta')}</p>
       </div>
     ),
@@ -251,22 +293,41 @@ const PublishPanel = ({ changes, history, canPublish, highlight }: Props) => {
             <h2 id='pending-title' className='PublishPanel__CardTitle'>{t('publishPanel.pending')}</h2>
             <p className='PublishPanel__Meta'>{changes.length === 0 ? t('publishPanel.allLive') : summary}</p>
           </div>
-          <CustomButton type='button' onClick={askPublish} loading={publishing} disabled={!canPublish || total === 0} data-tour='publish-button'>
+          <CustomButton type='button' onClick={askPublish} loading={publishing} disabled={!canPublish || selected.size === 0} data-tour='publish-button'>
             <i className='pi pi-send' aria-hidden='true' />
-            {total > 0 ? t('publishPanel.publishCount', { count: total }) : t('publishPanel.publish')}
+            {selected.size > 0 ? t('publishPanel.publishCount', { count: selected.size }) : t('publishPanel.publish')}
           </CustomButton>
         </div>
 
         {!canPublish && <Notice icon='pi pi-lock'>{t('publishPanel.cannotPublish')}</Notice>}
+        {canPublish && total > 0 && selected.size === 0 && <Notice tone='warning'>{t('publishPanel.noneSelected')}</Notice>}
 
         {GROUPS.map(group => {
           const items = changes.filter(group.filter)
           if (items.length === 0) return null
+          const selectable = items.filter(takeable)
           return (
             <div key={group.id} className='PublishPanel__Group'>
-              <p className='PublishPanel__GroupTitle'>{t(`publishPanel.groups.${group.id}`)}</p>
+              <div className='PublishPanel__GroupHead'>
+                <p className='PublishPanel__GroupTitle'>{t(`publishPanel.groups.${group.id}`)}</p>
+                {selectable.length > 1 && (
+                  <span className='PublishPanel__GroupActions'>
+                    <CustomButton type='button' variant='ghost' size='xs' onClick={() => setGroup(selectable, true)}>{t('publishPanel.selectAll')}</CustomButton>
+                    <CustomButton type='button' variant='ghost' size='xs' onClick={() => setGroup(selectable, false)}>{t('publishPanel.selectNone')}</CustomButton>
+                  </span>
+                )}
+              </div>
               <ul className='PublishPanel__List'>
-                {items.map(change => <ChangeItem key={change.id} change={change} highlighted={change.id === highlight} />)}
+                {items.map(change => (
+                  <ChangeItem
+                    key={change.id}
+                    change={change}
+                    highlighted={change.id === highlight}
+                    warnings={selectionWarnings(change, selected, t)}
+                    checked={takeable(change) ? selected.has(change.id) : null}
+                    onToggle={() => toggle(change.id)}
+                  />
+                ))}
               </ul>
             </div>
           )

@@ -48,6 +48,10 @@ const lists = {
     publish: 'Publicar cambios',
     publishCount: 'Publicar cambios ({count})',
     cannotPublish: 'Tu usuario puede editar pero no publicar. Un administrador puede publicar estos cambios o darte permiso.',
+    include: 'Incluir "{title}" en esta publicación',
+    selectAll: 'Marcar todos',
+    selectNone: 'Desmarcar todos',
+    noneSelected: 'Marcá al menos un cambio para publicar.',
     groups: {
       new: 'Nuevos en el sitio',
       changed: 'Con cambios',

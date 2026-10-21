@@ -48,6 +48,30 @@ test('publishes the pending changes and follows the build', async ({ page }) => 
   console.expectClean()
 })
 
+test('publishes only the ticked changes', async ({ page }) => {
+  const doc = (text: string) => ({ type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text }] }] })
+  const faq = (question: string) => ({ type: 'faq', visible: true, data: { question: { es: question, en: `${question} (en)` }, answer: { es: doc('Sí'), en: doc('Yes') } } })
+  const { data: rows } = await admin.from('documents').insert([faq('E2E ¿Se publica?'), faq('E2E ¿Se queda?')]).select('id, data')
+  const [goes, stays] = rows!.map(row => ({ id: row.id, question: (row.data as { question: { es: string } }).question.es }))
+
+  await signIn(page, QA.super.email)
+  await page.goto('/dashboard/publicar')
+  await page.waitForLoadState('networkidle')
+  await page.getByLabel(`Incluir "${stays.question}" en esta publicación`).click()
+  await page.locator('[data-tour=publish-button]').click()
+  const dialog = page.locator('.ConfirmAction')
+  await expect(dialog).toContainText(goes.question)
+  await expect(dialog).not.toContainText(stays.question)
+  await dialog.getByRole('button', { name: 'Publicar' }).click()
+  await toast(page, 'Cambios publicados')
+  await expect(page.locator('[data-tour=publish-pending]')).toContainText(stays.question)
+  await expect(page.locator('[data-tour=publish-pending]')).not.toContainText(goes.question)
+  await expect(page.getByTestId('build-status')).toBeHidden({ timeout: 30_000 })
+
+  await admin.from('published_documents').delete().in('id', [goes.id, stays.id])
+  await admin.from('documents').delete().in('id', [goes.id, stays.id])
+})
+
 test('an editor without permission sees the changes but cannot publish', async ({ page }) => {
   await signIn(page, QA.editor.email)
   await page.goto('/dashboard/publicar')
