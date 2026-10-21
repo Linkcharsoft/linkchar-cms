@@ -1,3 +1,4 @@
+export { default as DraftRefresh } from './DraftRefresh'
 export { imageProps } from './image'
 export { default as JsonLd } from './JsonLd'
 export { default as RichText } from './RichText'

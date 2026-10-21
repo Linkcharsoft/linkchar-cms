@@ -48,6 +48,25 @@ test.describe('page editor', () => {
     console.expectClean()
   })
 
+  test('the preview shows each autosave and leaves Draft Mode from its exit link', async ({ page }) => {
+    await signIn(page, QA.super.email)
+    await page.goto('/dashboard/paginas/home')
+    await page.waitForLoadState('networkidle')
+    await page.getByRole('button', { name: 'Vista previa' }).click()
+    const frame = page.frameLocator('.PreviewPane iframe')
+    await expect(frame.getByTestId('hero-title')).toBeVisible()
+
+    const title = page.locator('#cms-hero-title')
+    await title.fill('E2E Vista previa al día')
+    await title.blur()
+    await autosaved(page)
+    await expect(frame.getByTestId('hero-title')).toHaveText('E2E Vista previa al día')
+
+    await frame.getByRole('link', { name: 'Vista previa con borradores · Salir' }).click()
+    await expect(frame.getByTestId('hero-title')).not.toHaveText('E2E Vista previa al día')
+    await expect(frame.getByRole('link', { name: 'Vista previa con borradores · Salir' })).toHaveCount(0)
+  })
+
   test('lists what blocks publishing and opens the field', async ({ page }) => {
     await signIn(page, QA.super.email)
     await page.goto('/dashboard/paginas/home')

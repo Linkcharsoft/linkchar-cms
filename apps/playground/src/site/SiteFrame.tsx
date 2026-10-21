@@ -1,4 +1,6 @@
 import { entryPath, languageName, localePrefix } from '@linkcharsoft/cms/core'
+import { DraftRefresh } from '@linkcharsoft/cms/site'
+import { draftMode } from 'next/headers'
 import Link from 'next/link'
 import cmsConfig from '../../cms.config'
 import type { LocaleType } from '@linkcharsoft/cms/core'
@@ -17,8 +19,9 @@ const NAV = {
   en: { home: 'Home', about: 'Studio', blog: 'Blog' }
 } satisfies Record<LocaleType, Record<string, string>>
 
-const SiteFrame = ({ locale, urls, children }: Props) => {
+const SiteFrame = async ({ locale, urls, children }: Props) => {
   const { schema } = cmsConfig
+  const { isEnabled: draft } = await draftMode()
   const links = [
     { href: entryPath(cmsConfig, schema.home, { locale }), label: NAV[locale].home },
     { href: entryPath(cmsConfig, schema.about, { locale }), label: NAV[locale].about },
@@ -41,6 +44,7 @@ const SiteFrame = ({ locale, urls, children }: Props) => {
         ))}
       </header>
       <main id='main'>{children}</main>
+      {draft && <DraftRefresh locale={locale} />}
     </>
   )
 }

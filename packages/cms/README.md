@@ -329,7 +329,17 @@ export default PostPage
 
 **App structure.** The panel's root layout (`src/app/(cms)/layout.tsx`) renders its own `<html>`, so the site lives in route groups with their own root layout: `src/app/(es)/layout.tsx` with `page.tsx`, `blog/…` for the default locale and `src/app/(en)/layout.tsx` with `en/page.tsx`, `en/blog/…` for the others. Shared screens (`src/screens/*`) take the locale as a prop.
 
-In Draft Mode (the panel preview) with a panel session the readers return drafts. Otherwise they read the published copy without touching cookies, so the pages stay static and each publish rebuilds the site.
+In Draft Mode (the panel preview) with an active panel user the readers return drafts. Otherwise they read the published copy without touching cookies, so the pages stay static and each publish rebuilds the site.
+
+**Preview.** Render `DraftRefresh` in Draft Mode from the site's layout or frame: it refreshes the page after each autosave, scrolls to the section being edited and shows the exit link (`/api/cms/disable-draft`). `locale` picks the language of the link; `label` and `className` replace its text and look.
+
+```tsx
+import { DraftRefresh } from '@linkcharsoft/cms/site'
+import { draftMode } from 'next/headers'
+
+// inside an async layout or frame component
+{(await draftMode()).isEnabled && <DraftRefresh locale={locale} />}
+```
 
 ## Next config
 
