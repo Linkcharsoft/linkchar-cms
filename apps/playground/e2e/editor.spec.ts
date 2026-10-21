@@ -60,6 +60,17 @@ test.describe('page editor', () => {
     await expect(page.locator('#cms-hero-cover')).toBeFocused()
   })
 
+  test('on a phone the preview opens below the form and comes into view', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 })
+    await signIn(page, QA.super.email)
+    await page.goto('/dashboard/paginas/home')
+    await page.waitForLoadState('networkidle')
+    await page.getByRole('button', { name: 'Vista previa' }).click()
+    const pane = page.locator('.PreviewPane')
+    await expect(pane).toBeInViewport()
+    expect(await page.locator('form[data-tour=form] + .PreviewPane').count()).toBe(1)
+  })
+
   test('opens a section from its link and marks the outline', async ({ page }) => {
     await signIn(page, QA.super.email)
     await page.goto('/dashboard/paginas/home#services')

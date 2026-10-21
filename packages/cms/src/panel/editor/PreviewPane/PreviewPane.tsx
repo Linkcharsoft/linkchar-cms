@@ -39,6 +39,7 @@ const PreviewPane = ({ path, savedAt, anchor, language }: Props) => {
   // The redirect from the draft route keeps the hash, so the first load already opens on the section.
   const src = useMemo(() => withHash(draftUrl(path), anchorRef.current), [path])
   const viewport = useRef<HTMLDivElement>(null)
+  const root = useRef<HTMLDivElement>(null)
   const [box, setBox] = useState({ width: 0, height: 0 })
   const width = PREVIEW_DEVICES[device].width
   // Wider devices are rendered at their real width and scaled down to fit, like a zoomed-out browser.
@@ -54,6 +55,11 @@ const PreviewPane = ({ path, savedAt, anchor, language }: Props) => {
     return () => observer.disconnect()
   }, [])
 
+  // Below xl the pane sits under the form, out of view when it opens.
+  useEffect(() => {
+    if (!window.matchMedia('(min-width: 1280px)').matches) root.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }, [])
+
   useEffect(() => {
     if (savedAt) frame.current?.contentWindow?.postMessage({ type: 'cms:refresh' }, window.location.origin)
   }, [savedAt])
@@ -65,7 +71,7 @@ const PreviewPane = ({ path, savedAt, anchor, language }: Props) => {
   }, [anchor])
 
   return (
-    <div className='PreviewPane'>
+    <div className='PreviewPane' ref={root}>
       <div className='PreviewPane__Toolbar'>
         <SelectButton
           value={device}
