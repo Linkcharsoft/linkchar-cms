@@ -11,6 +11,8 @@ interface EntryOptions {
   path?: EntryPathType
   // id of the element the preview scrolls to (header, footer…).
   anchor?: string
+  // Where the preview opens an entry that has no URL of its own (a footer previewed on the home page).
+  previewPath?: EntryPathType
 }
 
 interface EntryBase<F extends FieldsRecord> extends EntryOptions {

@@ -71,6 +71,16 @@ describe('defineCmsConfig', () => {
   })
 })
 
+describe('previewPath', () => {
+  it('lets entries share a preview location and rejects :slug in it', () => {
+    const footer = singleton('Pie', { text: text({ label: 'Texto' }) }, { previewPath: '/', anchor: 'pie' })
+    const menu = singleton('Menú', { text: text({ label: 'Texto' }) }, { previewPath: '/' })
+    expect(() => defineCmsConfig({ schema: { home: schema.home, footer, menu } })).not.toThrow()
+    const broken = singleton('Pie', { text: text({ label: 'Texto' }) }, { previewPath: '/blog/:slug' })
+    expect(() => defineCmsConfig({ schema: { footer: broken } })).toThrow('footer.previewPath "/blog/:slug" can\'t use :slug')
+  })
+})
+
 describe('entries', () => {
   const config = defineCmsConfig({ schema })
 

@@ -166,6 +166,9 @@ const checkSchema = (ctx: CheckContextType) => {
     checkFields(ctx, entry.fields, id)
     const [problem] = pathProblems(id, entry, ctx.locales, ctx.defaultLocale, urls)
     if (problem) throw new CmsConfigError(problem)
+    // A preview location is not a URL the entry owns: no :slug, and other entries may share it.
+    const [previewProblem] = pathProblems(id, { kind: 'singleton', path: entry.previewPath }, ctx.locales, ctx.defaultLocale, new Map(), 'previewPath')
+    if (previewProblem) throw new CmsConfigError(previewProblem)
     if (entry.kind !== 'collection') continue
     const keys = dataFields(entry.fields).map(([key]) => key)
     if (!keys.includes(entry.titleField)) throw new CmsConfigError(`${id}.titleField "${entry.titleField}" is not one of its fields.`)

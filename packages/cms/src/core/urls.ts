@@ -87,28 +87,29 @@ export const alternates = (config: CmsConfigType, urls: Record<string, string>, 
 const PATTERN = /^\/((?:[a-z0-9]+(?:-[a-z0-9]+)*\/)*(?:[a-z0-9]+(?:-[a-z0-9]+)*|:slug))?$/
 
 // Problems of one entry's path for defineCmsConfig, as messages; patterns are collected to catch two entries on one URL.
-export const pathProblems = (id: string, entry: PathOwnerType, locales: readonly string[], defaultLocale: string, taken: Map<string, string>) => {
+export const pathProblems = (id: string, entry: PathOwnerType, locales: readonly string[], defaultLocale: string, taken: Map<string, string>, option = 'path') => {
   if (!entry.path) return []
   const problems: string[] = []
+  const name = `${id}.${option}`
   if (typeof entry.path !== 'string' && !locales.every(locale => Object.hasOwn(entry.path as object, locale))) {
-    problems.push(`${id}.path needs one pattern per locale (${locales.join(', ')}).`)
+    problems.push(`${name} needs one pattern per locale (${locales.join(', ')}).`)
   }
   for (const locale of locales) {
     const pattern = pathPattern(entry, locale)
     if (!pattern) continue
     if (!PATTERN.test(pattern)) {
-      problems.push(`${id}.path "${pattern}" must start with / and use lowercase segments, with :slug only at the end.`)
+      problems.push(`${name} "${pattern}" must start with / and use lowercase segments, with :slug only at the end.`)
       continue
     }
     const hasSlug = pattern.endsWith(SLUG)
-    if (entry.kind === 'collection' && (!hasSlug || !entry.slugField)) problems.push(`${id}.path "${pattern}" needs :slug at the end and a slugField.`)
-    if (entry.kind !== 'collection' && hasSlug) problems.push(`${id}.path "${pattern}" can't use :slug: only collections have one page per document.`)
+    if (entry.kind === 'collection' && (!hasSlug || !entry.slugField)) problems.push(`${name} "${pattern}" needs :slug at the end and a slugField.`)
+    if (entry.kind !== 'collection' && hasSlug) problems.push(`${name} "${pattern}" can't use :slug: only collections have one page per document.`)
     if (locale === defaultLocale && locales.some(other => other !== defaultLocale && (pattern === `/${other}` || pattern.startsWith(`/${other}/`)))) {
-      problems.push(`${id}.path "${pattern}" starts with another locale's prefix.`)
+      problems.push(`${name} "${pattern}" starts with another locale's prefix.`)
     }
     const key = `${locale} ${pattern}`
     const owner = taken.get(key)
-    if (owner && owner !== id) problems.push(`${id}.path "${pattern}" is also the path of ${owner}.`)
+    if (owner && owner !== id) problems.push(`${name} "${pattern}" is also the path of ${owner}.`)
     taken.set(key, id)
   }
   return [...new Set(problems)]

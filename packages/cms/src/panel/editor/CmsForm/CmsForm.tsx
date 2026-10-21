@@ -318,8 +318,8 @@ const CmsForm = ({
   const issues = [...new Set([...known.map(item => item.path), ...errorPaths(formik.errors)])]
   const extra = listed.length - MAX_MISSING_LISTED
   const shownStatus = status === 'published' && edited ? 'changed' : status
-  const previewPath = entryPath(config, entry, { locale, slug: slugsOf(config, entry, formik.values)[locale] })
-  const showActions = toolbar || documentId || entry.path
+  const previewPath = entryPath(config, entry.previewPath ? { kind: 'singleton', path: entry.previewPath } : entry, { locale, slug: slugsOf(config, entry, formik.values)[locale] })
+  const showActions = toolbar || documentId || entry.path || entry.previewPath
   const showPreview = previewOpen && !!previewPath
 
   return (
