@@ -71,7 +71,14 @@ export const withCms = (nextConfig = {}, options = {}) => {
     redirects: async () => {
       const own = nextConfig.redirects ? await nextConfig.redirects() : []
       if (options.redirects === false || isTypegen() || !supabaseUrl || !publishableKey) return own
-      return [...own, ...(await readRedirects(supabaseUrl, publishableKey))]
+      try {
+        return [...own, ...(await readRedirects(supabaseUrl, publishableKey))]
+      } catch (error) {
+        // A build never ships without the published 301s; `next dev` keeps running while the database is off.
+        if (process.env.NODE_ENV === 'production') throw error
+        console.warn(`${error instanceof Error ? error.message : String(error)} Running without the published redirects.`)
+        return own
+      }
     }
   }
 }

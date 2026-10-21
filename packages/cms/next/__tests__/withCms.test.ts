@@ -26,6 +26,18 @@ describe('withCms', () => {
     expect(await config.redirects?.()).toEqual(own)
   })
 
+  it('keeps next dev running when the redirects cannot be read', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+    const own = [{ source: '/viejo', destination: '/', permanent: true }]
+    try {
+      const config = withCms({ redirects: async () => own }, { supabaseUrl: 'http://127.0.0.1:9', publishableKey: 'key' })
+      expect(await config.redirects?.()).toEqual(own)
+      expect(warn).toHaveBeenCalledWith(expect.stringContaining('Running without the published redirects'))
+    } finally {
+      warn.mockRestore()
+    }
+  })
+
   it('skips the database while next typegen runs', async () => {
     const argv = process.argv
     process.argv = [...argv, 'typegen']
