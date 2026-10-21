@@ -17,6 +17,7 @@ const shell = {
   },
   shell: {
     brandTag: 'Panel',
+    skipToContent: 'Skip to content',
     tagline: 'Content panel',
     openMenu: 'Open menu',
     closeMenu: 'Close menu',

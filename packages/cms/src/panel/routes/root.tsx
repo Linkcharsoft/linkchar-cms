@@ -26,6 +26,7 @@ export const rootLayout = (cms: CmsServerType, CmsClient: ComponentType<CmsClien
     return (
       <html lang={cms.config.panelLocale}>
         <body className={['CmsRoot', className].filter(Boolean).join(' ')}>
+          <a href='#main' className='CmsSkipLink'>{t('shell.skipToContent')}</a>
           <CmsClient supabaseUrl={url} publishableKey={publishableKey}>{children}</CmsClient>
         </body>
       </html>

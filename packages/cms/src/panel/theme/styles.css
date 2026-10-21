@@ -34,6 +34,22 @@
 }
 
 @layer components {
+  .CmsSkipLink {
+    position: absolute;
+    top: -100px;
+    left: 16px;
+    z-index: 60;
+    padding: 10px 14px;
+    border-radius: 8px;
+    background: var(--cms-primary);
+    color: var(--cms-on-primary);
+    font-weight: 600;
+  }
+
+  .CmsSkipLink:focus {
+    top: 16px;
+  }
+
   .CmsContainer {
     max-width: 1140px;
     margin: 0 auto;

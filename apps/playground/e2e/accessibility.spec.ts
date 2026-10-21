@@ -23,6 +23,16 @@ test('the sign-in screen has no serious accessibility issues', async ({ page }) 
   expect(await violations(page)).toEqual([])
 })
 
+test('the first Tab reaches a link that jumps to the content', async ({ page }) => {
+  await signIn(page, QA.super.email)
+  await page.keyboard.press('Tab')
+  await expect(page.getByRole('link', { name: 'Saltar al contenido' })).toBeFocused()
+  await page.keyboard.press('Enter')
+  await expect(page).toHaveURL(/#main$/)
+  await page.keyboard.press('Tab')
+  expect(await page.evaluate(() => document.activeElement?.closest('#main') !== null)).toBe(true)
+})
+
 test('the panel screens have no serious accessibility issues', async ({ page }) => {
   const { data: post } = await admin.from('documents').insert({ type: 'posts', data: { title: { es: 'E2E Accesible', en: '' } } }).select('id').single()
 
