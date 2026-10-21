@@ -1,5 +1,17 @@
 # @linkcharsoft/cms
 
+## 0.7.0
+
+### Minor Changes
+
+- fdcdd1e: Entries that live inside another page can be previewed: `previewPath: '/'` (with `anchor`) on a singleton or page tells the panel where to open the preview without giving the entry a URL of its own, so several entries may share it and it never reaches the sitemap, the redirects or `publish_site`. `defineCmsConfig` checks it like a path, except for uniqueness.
+
+### Patch Changes
+
+- b2db206: `@tiptap/core` is a declared dependency of the package, so the rich text editor always types against the tiptap version the package ships. A project with an older `@tiptap/core` of its own used to break the package's `RichTextEditor` in `tsc`.
+- e8cad00: The package's `redirect()` calls type-check in projects with `typedRoutes: true`: they used to fail the project's `tsc` because the paths were plain strings.
+- 7d1537c: `withCms` keeps `next dev` running when the published redirects cannot be read (the local Supabase is off): it warns and starts without them. A production build still fails, as before.
+
 ## 0.6.2
 
 ### Patch Changes
