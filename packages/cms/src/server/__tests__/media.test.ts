@@ -1,7 +1,7 @@
 import cmsConfig from '@playground/cms.config'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { buildMediaPath } from '../../core/media'
-import { describeUsage, listMedia, purgeExpiredMedia, purgeMedia, registerMedia, trashMedia, updateMedia } from '../media'
+import { describeUsage, findMediaByHash, listMedia, purgeExpiredMedia, purgeMedia, registerMedia, trashMedia, updateMedia } from '../media'
 import { createFakeDb, fakeContext, signIn } from './fakeSupabase'
 import type { CmsContextType } from '../context'
 import type { RegisterMediaInputType } from '../media'
@@ -129,6 +129,23 @@ describe('trash and purge', () => {
     const later = { ...ctx, now: () => new Date(Date.parse('2026-10-05T00:00:00Z') + 31 * DAY) }
     expect(await purgeExpiredMedia(later)).toBe(1)
     expect(db.tables.media.map(row => row.id)).toEqual([ID(1), ID(2), ID(4)])
+  })
+})
+
+describe('file hashes', () => {
+  const hash = 'ab'.repeat(32)
+
+  it('stores a valid hash on upload and drops anything else', async () => {
+    expect((await registerMedia(ctx, upload({ hash }))).ok).toBe(true)
+    expect((await registerMedia(ctx, upload({ hash: 'not-a-hash' }))).ok).toBe(true)
+    expect(db.tables.media.slice(-2).map(row => row.hash)).toEqual([hash, null])
+  })
+
+  it('finds the oldest live file with the same bytes', async () => {
+    db.tables.media.push(file(5, { hash, created_at: '2026-10-06T00:00:00Z' }), file(4, { hash, created_at: '2026-10-04T00:00:00Z' }), file(6, { hash, deleted_at: '2026-10-07T00:00:00Z' }))
+    expect((await findMediaByHash(ctx, hash))?.id).toBe(ID(4))
+    expect(await findMediaByHash(ctx, 'cd'.repeat(32))).toBeNull()
+    expect(await findMediaByHash(ctx, 'xyz')).toBeNull()
   })
 })
 

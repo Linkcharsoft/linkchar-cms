@@ -202,6 +202,7 @@ export type Database = {
           focal_x: number | null;
           focal_y: number | null;
           folder: string;
+          hash: string | null;
           height: number | null;
           id: string;
           mime: string;
@@ -222,6 +223,7 @@ export type Database = {
           focal_x?: number | null;
           focal_y?: number | null;
           folder?: string;
+          hash?: string | null;
           height?: number | null;
           id?: string;
           mime: string;
@@ -241,6 +243,7 @@ export type Database = {
           focal_x?: number | null;
           focal_y?: number | null;
           folder?: string;
+          hash?: string | null;
           height?: number | null;
           id?: string;
           mime?: string;

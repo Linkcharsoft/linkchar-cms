@@ -56,7 +56,7 @@ const ACTIONS = {
     return media.describeUsage(ctx, await documents.getDocumentUsageRows(ctx, [id]))
   },
   registerMedia: media.registerMedia, updateMedia: media.updateMedia, getMediaUsage: media.getUsageOf, trashMedia: media.trashMedia,
-  restoreMedia: media.restoreMedia, purgeMedia: media.purgeMedia, searchMedia: media.searchMedia,
+  restoreMedia: media.restoreMedia, purgeMedia: media.purgeMedia, searchMedia: media.searchMedia, findMediaByHash: media.findMediaByHash,
   publishChanges, retryPublish, getPublishStatus,
   inviteUser, updateUserAccess, setUserActive, resendInvite, deleteInvite, resetUserMfa,
   updateProfile, updateAvatar, changePassword, recordMfaChange, markTourSeen, resetTours,

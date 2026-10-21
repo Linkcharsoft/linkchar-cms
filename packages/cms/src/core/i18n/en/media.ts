@@ -49,6 +49,10 @@ const media = {
       inputLabel: 'Choose files to upload',
       remove: 'Remove {name}',
       missingAlt: 'To upload, fill in the alt text of every image.',
+      checking: 'Checking whether it is already in the library…',
+      duplicate: 'Already in the library as "{name}".',
+      useExisting: 'Use the existing file',
+      uploadAnyway: 'Upload anyway',
       submit: { one: 'Upload file', other: 'Upload {count} files' },
       rejected: '{name}: {reason}',
       errors: {

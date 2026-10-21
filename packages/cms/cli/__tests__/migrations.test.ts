@@ -73,7 +73,7 @@ describe('syncMigrations', () => {
     expect(PACKAGE_SUPABASE).toMatch(/supabase[\\/]$/)
     expect(report.migrations.map(change => change.file)).toContain('20261020000000_cms_base.sql')
     expect(report.tests.map(change => change.file)).toEqual(
-      ['accounts.test.sql', 'content.test.sql', 'document_usage.test.sql', 'locale_slugs.test.sql', 'media_usage.test.sql', 'publish.test.sql', 'redirects.test.sql', 'rls.test.sql']
+      ['accounts.test.sql', 'content.test.sql', 'document_usage.test.sql', 'locale_slugs.test.sql', 'media_hash.test.sql', 'media_usage.test.sql', 'publish.test.sql', 'redirects.test.sql', 'rls.test.sql']
     )
   })
 })

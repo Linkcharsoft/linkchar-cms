@@ -103,11 +103,15 @@ const MediaLibrary = ({
     })
   }
 
+  // A reused library file may already be on screen: it is not added twice.
   const onUploaded = (uploaded: MediaItemType[]) => {
     setShowUploader(false)
-    setItems(current => [...uploaded, ...current])
-    setTotal(current => current + uploaded.length)
-    if (mode === 'pick') setSelected(current => (multiple ? [...current, ...uploaded] : uploaded.slice(-1)))
+    setItems(current => {
+      const fresh = uploaded.filter(item => !current.some(entry => entry.id === item.id))
+      setTotal(total => total + fresh.length)
+      return [...fresh, ...current]
+    })
+    if (mode === 'pick') setSelected(current => (multiple ? [...current, ...uploaded.filter(item => !current.some(entry => entry.id === item.id))] : uploaded.slice(-1)))
   }
 
   const toolbarActions = (

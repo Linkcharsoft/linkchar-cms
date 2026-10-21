@@ -168,7 +168,11 @@ export interface RegisterMediaInputType {
   width: number | null
   height: number | null
   blurDataUrl: string | null
+  // SHA-256 of the file as uploaded; optional so older clients keep working.
+  hash?: string | null
 }
+
+const HASH = /^[0-9a-f]{64}$/
 
 export interface UpdateMediaInputType {
   alt: LocalizedTextType
@@ -220,7 +224,8 @@ export const registerMedia = async (ctx: CmsContextType, input: RegisterMediaInp
       size: input.size,
       width: image ? input.width : null,
       height: image ? input.height : null,
-      blur_data_url: image ? input.blurDataUrl : null
+      blur_data_url: image ? input.blurDataUrl : null,
+      hash: typeof input.hash === 'string' && HASH.test(input.hash) ? input.hash : null
     }).select('*').single()
 
     if (data) {
@@ -235,6 +240,14 @@ export const registerMedia = async (ctx: CmsContextType, input: RegisterMediaInp
   const { data: owner } = await admin.from('media').select('id').eq('path', input.path).maybeSingle()
   if (!owner && isFolder(ctx, input.folder) && isPathInFolder(input.path, input.folder)) await admin.storage.from(MEDIA_BUCKET).remove([input.path])
   return { ok: false, error: problem ?? 'errors.media.registerFailed' }
+}
+
+// The library file with these bytes, if any, so the uploader can offer it instead of a copy.
+export const findMediaByHash = async (ctx: CmsContextType, hash: string): Promise<MediaItemType | null> => {
+  await requireRole(ctx, 'editor')
+  if (!HASH.test(hash)) return null
+  const { data } = await ctx.db.from('media').select('*').eq('hash', hash).is('deleted_at', null).order('created_at').limit(1).maybeSingle()
+  return data ? toMediaItem(ctx, data) : null
 }
 
 export const updateMedia = async (ctx: CmsContextType, id: string, input: UpdateMediaInputType): Promise<MediaResultType> => {

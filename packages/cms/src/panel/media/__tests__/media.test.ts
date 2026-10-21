@@ -1,6 +1,13 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { sha256Hex } from '../hashBlob'
 import { fitWithin } from '../processImage'
 import uploadToStorage, { UploadError } from '../uploadToStorage'
+
+describe('sha256Hex', () => {
+  it('hashes the file bytes as lowercase hex', async () => {
+    expect(await sha256Hex(new Blob(['hola']))).toBe('b221d9dbb083a7f33428d7c2a3c3198ae925614d70210e28716ccaa7cd4ddb79')
+  })
+})
 
 describe('fitWithin', () => {
   it('keeps images that already fit', () => {

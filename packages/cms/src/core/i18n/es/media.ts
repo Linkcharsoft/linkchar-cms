@@ -46,6 +46,10 @@ const media = {
       inputLabel: 'Elegir archivos para subir',
       remove: 'Quitar {name}',
       missingAlt: 'Para subir, completá el texto alternativo de cada imagen.',
+      checking: 'Revisando si ya está en la librería…',
+      duplicate: 'Ya existe en la librería como "{name}".',
+      useExisting: 'Usar el archivo existente',
+      uploadAnyway: 'Subir igual',
       submit: { one: 'Subir archivo', other: 'Subir {count} archivos' },
       rejected: '{name}: {reason}',
       errors: {

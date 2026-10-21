@@ -5,6 +5,8 @@ import { signIn, watchConsole } from './support/panel'
 
 const ALT = 'E2E Fachada del estudio al atardecer'
 
+test.describe.configure({ mode: 'serial' })
+
 test.afterAll(async () => {
   const { data } = await admin.from('media').select('id, path').like('alt->>es', 'E2E%')
   if (!data?.length) return
@@ -29,4 +31,19 @@ test('uploads an image with its alt text and finds it in the library', async ({ 
   const { data } = await admin.from('media').select('alt, mime, width').like('alt->>es', 'E2E%')
   expect(data?.[0]).toMatchObject({ alt: { es: ALT }, mime: 'image/webp', width: 160 })
   console.expectClean()
+})
+
+test('offers the file already in the library when the same one is uploaded again', async ({ page }) => {
+  await signIn(page, QA.super.email)
+  await page.goto('/dashboard/media')
+  await page.waitForLoadState('networkidle')
+
+  await page.locator('[data-tour=media-upload]').click()
+  await page.getByLabel('Elegir archivos para subir').setInputFiles(join(__dirname, 'fixtures', 'studio.png'))
+  await expect(page.getByText(`Ya existe en la librería como "${ALT}".`)).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Subir archivo' })).toBeDisabled()
+  await page.getByRole('button', { name: 'Usar el archivo existente' }).click()
+  await expect(page.locator('.MediaGrid').getByRole('button', { name: new RegExp(ALT) })).toHaveCount(1)
+  const { count } = await admin.from('media').select('id', { count: 'exact', head: true }).like('alt->>es', 'E2E%')
+  expect(count).toBe(1)
 })

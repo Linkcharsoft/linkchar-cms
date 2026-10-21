@@ -14,6 +14,7 @@ import { useText } from '../../fields/fieldUtils'
 import CustomButton from '../../primitives/CustomButton/CustomButton'
 import InputContainer from '../../primitives/InputContainer/InputContainer'
 import Notice from '../../primitives/Notice/Notice'
+import { sha256Hex } from '../hashBlob'
 import processImage from '../processImage'
 import uploadToStorage, { UploadError } from '../uploadToStorage'
 import type { MediaItemType } from '../../../core/media'
@@ -30,9 +31,12 @@ interface QueueItemType {
   file: File
   previewUrl: string | null
   alt: string
-  status: 'ready' | 'uploading' | 'done' | 'error'
+  // checking: hashing and asking the library; duplicate: the same bytes are already there.
+  status: 'checking' | 'ready' | 'duplicate' | 'uploading' | 'done' | 'error'
   progress: number
   error: string | null
+  hash: string | null
+  existing: MediaItemType | null
 }
 
 // Raw photos are compressed before upload; this only guards the browser against huge files.
@@ -72,6 +76,8 @@ const MediaUploader = ({ defaultFolder, accept = 'any', onUploaded }: Props) => 
   const [rejected, setRejected] = useState<string[]>([])
   const [isDragging, setIsDragging] = useState(false)
   const [isUploading, setIsUploading] = useState(false)
+  // Library files the user chose instead of uploading a copy; handed over with the uploads.
+  const [reused, setReused] = useState<MediaItemType[]>([])
   const inputRef = useRef<HTMLInputElement>(null)
   const previewUrls = useRef<string[]>([])
   const folderOptions = config.mediaFolders.map(option => ({ value: option.value, label: text(option.label) }))
@@ -80,6 +86,13 @@ const MediaUploader = ({ defaultFolder, accept = 'any', onUploaded }: Props) => 
     : t('media.texts.alt')
 
   useEffect(() => () => previewUrls.current.forEach(url => URL.revokeObjectURL(url)), [])
+
+  useEffect(() => {
+    if (queue.length === 0 && reused.length > 0) {
+      setReused([])
+      onUploaded(reused)
+    }
+  }, [queue, reused])
 
   const remove = (key: string) => setQueue(current => current.filter(item => {
     if (item.key === key && item.previewUrl) URL.revokeObjectURL(item.previewUrl)
@@ -107,16 +120,33 @@ const MediaUploader = ({ defaultFolder, accept = 'any', onUploaded }: Props) => 
         file,
         previewUrl: isImageMime(file.type) ? trackPreview(URL.createObjectURL(file)) : null,
         alt: '',
-        status: 'ready' as const,
+        status: 'checking' as const,
         progress: 0,
-        error: null
+        error: null,
+        hash: null,
+        existing: null
       }]
     })
     setRejected(errors)
     setQueue(current => [...current, ...added])
+    added.forEach(item => void check(item))
+  }
+
+  // A failed lookup never blocks an upload: the file just goes up as new.
+  const check = async (item: QueueItemType) => {
+    const hash = await sha256Hex(item.file).catch(() => null)
+    const existing = hash ? await actions.findMediaByHash(hash).catch(() => null) : null
+    patch(item.key, { hash, existing, status: existing ? 'duplicate' : 'ready' })
+  }
+
+  const keepExisting = (item: QueueItemType) => {
+    const found = item.existing
+    if (found) setReused(current => (current.some(entry => entry.id === found.id) ? current : [...current, found]))
+    remove(item.key)
   }
 
   const pending = queue.filter(item => item.status === 'ready' || item.status === 'error')
+  const checking = queue.some(item => item.status === 'checking')
   const missingAlt = pending.some(item => isImageMime(item.file.type) && !item.alt.trim())
 
   // HEIC and other formats a browser can't decode fail here: surfaced as a readable error.
@@ -147,7 +177,8 @@ const MediaUploader = ({ defaultFolder, accept = 'any', onUploaded }: Props) => 
         size: processed.blob.size,
         width: processed.width,
         height: processed.height,
-        blurDataUrl: processed.blurDataUrl
+        blurDataUrl: processed.blurDataUrl,
+        hash: item.hash
       })
       if (!result.ok) throw new ReadableError(translate(result.error, { max: MAX_MB }))
 
@@ -178,8 +209,10 @@ const MediaUploader = ({ defaultFolder, accept = 'any', onUploaded }: Props) => 
     }
 
     setIsUploading(false)
+    const results = [...uploaded, ...reused]
+    setReused([])
     setQueue(current => current.filter(item => item.status !== 'done'))
-    if (uploaded.length) onUploaded(uploaded)
+    if (results.length) onUploaded(results)
   }
 
   const onDrop = (event: DragEvent<HTMLDivElement>) => {
@@ -267,6 +300,16 @@ const MediaUploader = ({ defaultFolder, accept = 'any', onUploaded }: Props) => 
                         />
                       </InputContainer>
                     )}
+                    {item.status === 'checking' && <p className='MediaUploader__Meta'>{t('media.uploader.checking')}</p>}
+                    {item.status === 'duplicate' && item.existing && (
+                      <div className='MediaUploader__Duplicate'>
+                        <p>{t('media.uploader.duplicate', { name: item.existing.alt[config.defaultLocale] || item.existing.filename })}</p>
+                        <div className='MediaUploader__DuplicateActions'>
+                          <CustomButton type='button' size='xs' onClick={() => keepExisting(item)}>{t('media.uploader.useExisting')}</CustomButton>
+                          <CustomButton type='button' size='xs' variant='secondary' onClick={() => patch(item.key, { status: 'ready' })}>{t('media.uploader.uploadAnyway')}</CustomButton>
+                        </div>
+                      </div>
+                    )}
                     {item.status === 'uploading' && <ProgressBar value={Math.round(item.progress * 100)} className='MediaUploader__Progress' />}
                     {item.error && <p role='alert' className='MediaUploader__Error'>{item.error}</p>}
                   </div>
@@ -287,7 +330,7 @@ const MediaUploader = ({ defaultFolder, accept = 'any', onUploaded }: Props) => 
 
           <div className='MediaUploader__Footer'>
             {missingAlt && <p className='MediaUploader__Blocked'>{t('media.uploader.missingAlt')}</p>}
-            <CustomButton type='button' disabled={missingAlt || pending.length === 0 || !folder} loading={isUploading} onClick={uploadAll}>
+            <CustomButton type='button' disabled={missingAlt || pending.length === 0 || !folder || checking} loading={isUploading} onClick={uploadAll}>
               <i className='pi pi-upload' aria-hidden='true' />
               {t('media.uploader.submit', { count: pending.length })}
             </CustomButton>

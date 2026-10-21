@@ -24,6 +24,7 @@ export const trashMedia = cms.actions.trashMedia
 export const restoreMedia = cms.actions.restoreMedia
 export const purgeMedia = cms.actions.purgeMedia
 export const searchMedia = cms.actions.searchMedia
+export const findMediaByHash = cms.actions.findMediaByHash
 export const publishChanges = cms.actions.publishChanges
 export const retryPublish = cms.actions.retryPublish
 export const getPublishStatus = cms.actions.getPublishStatus
