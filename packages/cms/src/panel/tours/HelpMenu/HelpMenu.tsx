@@ -7,6 +7,7 @@ import { useEffect, useEffectEvent, useMemo, useRef, useState } from 'react'
 import { useCms, useT } from '../../client/context'
 import CustomButton from '../../primitives/CustomButton/CustomButton'
 import { useNotify } from '../../providers/notify'
+import { isEditing } from '../focus'
 import { buildTours, tourAnchor, tourForPath } from '../tours'
 import type { TourType } from '../tours'
 import type { DriveStep } from 'driver.js'
@@ -76,6 +77,7 @@ const HelpMenu = ({ seenTours }: Props) => {
       : current && !seen.has(current.id) ? current : null
     if (!tour) return
     const timer = setTimeout(() => {
+      if (!requested && isEditing(document.activeElement)) return
       setRequested(null)
       startOnArrival(tour)
     }, START_DELAY)

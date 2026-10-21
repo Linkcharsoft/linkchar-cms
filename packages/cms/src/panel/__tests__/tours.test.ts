@@ -6,6 +6,7 @@ import { defineCmsConfig } from '../../core/config'
 import { collection } from '../../core/define'
 import { text } from '../../core/kinds/strings'
 import { buildPanelNav } from '../shell/navigation'
+import { isEditing } from '../tours/focus'
 import { buildTours, TOUR_IDS, tourAnchor, tourForPath } from '../tours/tours'
 
 const tours = buildTours(cmsConfig)
@@ -79,5 +80,21 @@ describe('guided tours', () => {
 
   it('build attribute selectors', () => {
     expect(tourAnchor('nav')).toBe('[data-tour="nav"]')
+  })
+})
+
+describe('isEditing', () => {
+  const element = (tag: string, inForm = false) => ({
+    matches: (selector: string) => selector.split(', ').some(part => part.startsWith(tag)),
+    closest: (selector: string) => (inForm && selector === '[data-tour="form"]' ? {} : null)
+  })
+
+  it('is true inside fields and the editor form, false elsewhere', () => {
+    expect(isEditing(null)).toBe(false)
+    expect(isEditing(element('a'))).toBe(false)
+    expect(isEditing(element('input'))).toBe(true)
+    expect(isEditing(element('textarea'))).toBe(true)
+    expect(isEditing(element('[contenteditable]'))).toBe(true)
+    expect(isEditing(element('button', true))).toBe(true)
   })
 })
