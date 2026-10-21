@@ -32,6 +32,14 @@ describe('MediaUploader', () => {
     await waitFor(() => expect(onUploaded).toHaveBeenCalledWith([existing]))
   })
 
+  it('keeps the upload button for the file while its duplicate waits for a decision', async () => {
+    renderPanel(<MediaUploader onUploaded={vi.fn()} />, { actions: { findMediaByHash: async () => existing } as never })
+    pick()
+    await screen.findByText(/Ya existe en la librería/)
+    const upload = screen.getByRole('button', { name: 'Subir archivo' }) as HTMLButtonElement
+    expect(upload.disabled).toBe(true)
+  })
+
   it('lets the file go up anyway', async () => {
     renderPanel(<MediaUploader onUploaded={vi.fn()} />, { actions: { findMediaByHash: async () => existing } as never })
     pick()

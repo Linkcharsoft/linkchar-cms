@@ -146,6 +146,7 @@ const MediaUploader = ({ defaultFolder, accept = 'any', onUploaded }: Props) => 
   }
 
   const pending = queue.filter(item => item.status === 'ready' || item.status === 'error')
+  const queued = queue.filter(item => item.status !== 'done')
   const checking = queue.some(item => item.status === 'checking')
   const missingAlt = pending.some(item => isImageMime(item.file.type) && !item.alt.trim())
 
@@ -332,7 +333,7 @@ const MediaUploader = ({ defaultFolder, accept = 'any', onUploaded }: Props) => 
             {missingAlt && <p className='MediaUploader__Blocked'>{t('media.uploader.missingAlt')}</p>}
             <CustomButton type='button' disabled={missingAlt || pending.length === 0 || !folder || checking} loading={isUploading} onClick={uploadAll}>
               <i className='pi pi-upload' aria-hidden='true' />
-              {t('media.uploader.submit', { count: pending.length })}
+              {t('media.uploader.submit', { count: queued.length })}
             </CustomButton>
           </div>
         </>
