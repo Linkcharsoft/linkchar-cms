@@ -83,7 +83,8 @@ const core = {
       target_missing: 'Falta configurar cómo se actualiza el sitio.',
       hook_refused: 'El servicio que actualiza el sitio rechazó el pedido.',
       hook_unreachable: 'No pudimos iniciar la actualización del sitio.',
-      build_failed: 'Falló la actualización del sitio.'
+      build_failed: 'Falló la actualización del sitio.',
+      build_cancelled: 'La actualización del sitio se canceló antes de terminar.'
     },
     media: {
       altRequired: 'El texto alternativo es obligatorio para las imágenes.',

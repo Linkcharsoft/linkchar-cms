@@ -9,7 +9,7 @@ const env = process.env
 // Without a build hook (local development) publishing runs against the mock build.
 const publishTarget = env.CMS_BUILD_HOOK_URL
   ? amplify({ hookUrl: env.CMS_BUILD_HOOK_URL, webhookSecret: env.CMS_BUILD_WEBHOOK_SECRET })
-  : mockBuild({ result: env.CMS_MOCK_BUILD_RESULT === 'failed' ? 'failed' : 'success', seconds: Number(env.CMS_MOCK_BUILD_SECONDS) || 15 })
+  : mockBuild({ result: env.CMS_MOCK_BUILD_RESULT === 'failed' || env.CMS_MOCK_BUILD_RESULT === 'cancelled' ? env.CMS_MOCK_BUILD_RESULT : 'success', seconds: Number(env.CMS_MOCK_BUILD_SECONDS) || 15 })
 
 export const cms = createCmsServer({
   config: cmsConfig,

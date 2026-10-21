@@ -86,7 +86,8 @@ const core = {
       target_missing: 'How the site gets updated is not configured yet.',
       hook_refused: 'The service that updates the site refused the request.',
       hook_unreachable: 'We could not start updating the site.',
-      build_failed: 'Updating the site failed.'
+      build_failed: 'Updating the site failed.',
+      build_cancelled: 'Updating the site was cancelled before it finished.'
     },
     media: {
       altRequired: 'Images need an alternative text.',

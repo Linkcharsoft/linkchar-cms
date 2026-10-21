@@ -13,7 +13,8 @@ export interface AmplifyOptionsType {
 const EVENT_STATUSES: Record<string, BuildEventStatusType> = {
   STARTED: 'started',
   SUCCEED: 'succeeded',
-  FAILED: 'failed'
+  FAILED: 'failed',
+  CANCELLED: 'cancelled'
 }
 
 // Amplify's "Amplify Deployment Status Change" event, as EventBridge delivers it.

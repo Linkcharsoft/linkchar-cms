@@ -5,7 +5,7 @@ export type { BuildEventType }
 
 export type TriggerResultType =
   | { ok: true, jobId: string | null }
-  | { ok: false, code: Exclude<BuildErrorCodeType, 'build_failed'>, detail?: string }
+  | { ok: false, code: Exclude<BuildErrorCodeType, 'build_failed' | 'build_cancelled'>, detail?: string }
 
 export interface TriggerContextType {
   // Applies a build status change, as the webhook would; targets that report in-process (the mock) use it.

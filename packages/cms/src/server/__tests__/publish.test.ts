@@ -287,6 +287,12 @@ describe('applyBuildEvent', () => {
     expect(db.tables.publish_log[0]).toMatchObject({ build_status: 'failed', error_code: 'build_failed' })
   })
 
+  it('marks a cancelled build as failed with its own reason', async () => {
+    db.tables.publish_log.push(logRow(5, { job_id: '48', build_status: 'building' }))
+    expect(await applyBuildEvent(ctx, { jobId: '48', status: 'cancelled' })).toBe(true)
+    expect(db.tables.publish_log[0]).toMatchObject({ build_status: 'failed', error_code: 'build_cancelled', finished_at: at(0) })
+  })
+
   it('ignores events nobody is waiting for', async () => {
     db.tables.publish_log.push(logRow(9, { job_id: '47', build_status: 'success' }))
     expect(await applyBuildEvent(ctx, { jobId: '99', status: 'succeeded' })).toBe(false)

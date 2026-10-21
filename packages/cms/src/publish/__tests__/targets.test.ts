@@ -68,6 +68,7 @@ describe('parseAmplifyEvent', () => {
     expect(parseAmplifyEvent(event({ appId: 'a', branchName: 'main', jobId: '12', jobStatus: 'STARTED' }))).toEqual({ jobId: '12', status: 'started' })
     expect(parseAmplifyEvent(event({ jobId: '12', jobStatus: 'SUCCEED' }))).toEqual({ jobId: '12', status: 'succeeded' })
     expect(parseAmplifyEvent(event({ jobId: '12', jobStatus: 'FAILED' }))).toEqual({ jobId: '12', status: 'failed' })
+    expect(parseAmplifyEvent(event({ jobId: '12', jobStatus: 'CANCELLED' }))).toEqual({ jobId: '12', status: 'cancelled' })
   })
 
   it('rejects malformed or unknown events', () => {
@@ -75,7 +76,7 @@ describe('parseAmplifyEvent', () => {
     expect(parseAmplifyEvent('SUCCEED')).toBeNull()
     expect(parseAmplifyEvent({ jobId: '12', jobStatus: 'SUCCEED' })).toBeNull()
     expect(parseAmplifyEvent(event({ jobId: '', jobStatus: 'SUCCEED' }))).toBeNull()
-    expect(parseAmplifyEvent(event({ jobId: '12', jobStatus: 'CANCELLED' }))).toBeNull()
+    expect(parseAmplifyEvent(event({ jobId: '12', jobStatus: 'PROVISIONING' }))).toBeNull()
     expect(parseAmplifyEvent(event({ jobId: 12, jobStatus: 'SUCCEED' }))).toBeNull()
   })
 })

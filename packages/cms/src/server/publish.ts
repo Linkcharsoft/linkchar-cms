@@ -21,7 +21,7 @@ import type { CmsContextType } from './context'
 import type { FieldsRecord } from '../core/fields'
 import type { MessageKeyType } from '../core/i18n/types'
 import type { MissingContentType } from '../core/missing'
-import type { BuildErrorCodeType, BuildEventType, BuildStatusType } from '../core/publish'
+import type { BuildErrorCodeType, BuildEventStatusType, BuildEventType, BuildStatusType } from '../core/publish'
 import type { DocumentStatusType } from '../core/status'
 import type { LocalizedTextType } from '../core/text'
 
@@ -275,6 +275,8 @@ const setBuildStatus = async (ctx: CmsContextType, publishId: number, values: Bu
   if (error) ctx.logger.error('[publish] status update failed:', error.code ?? error.message)
 }
 
+const FAILURE_CODES: Partial<Record<BuildEventStatusType, BuildErrorCodeType>> = { failed: 'build_failed', cancelled: 'build_cancelled' }
+
 // The oldest open publish owns a job nobody claimed yet, as long as it is recent: an old one that never heard
 // back must not take the next publish's events.
 export const applyBuildEvent = async (ctx: CmsContextType, { jobId, status }: BuildEventType) => {
@@ -297,7 +299,7 @@ export const applyBuildEvent = async (ctx: CmsContextType, { jobId, status }: Bu
     await setBuildStatus(ctx, row.id, {
       build_status: status === 'succeeded' ? 'success' : 'failed',
       job_id: jobId,
-      error_code: status === 'failed' ? 'build_failed' : null,
+      error_code: FAILURE_CODES[status] ?? null,
       error_detail: null,
       finished_at: ctx.now().toISOString()
     })

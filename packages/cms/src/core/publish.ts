@@ -4,7 +4,7 @@ export type BuildStatusType = 'pending' | 'building' | 'success' | 'failed'
 
 export type PublishDisplayStatusType = 'building' | 'success' | 'failed' | 'unconfirmed'
 
-export type BuildEventStatusType = 'started' | 'succeeded' | 'failed'
+export type BuildEventStatusType = 'started' | 'succeeded' | 'failed' | 'cancelled'
 
 export interface BuildEventType {
   jobId: string
@@ -12,7 +12,7 @@ export interface BuildEventType {
 }
 
 // Stored in publish_log.error_code; the panel translates them (errors.build.*).
-export type BuildErrorCodeType = 'target_missing' | 'hook_refused' | 'hook_unreachable' | 'build_failed'
+export type BuildErrorCodeType = 'target_missing' | 'hook_refused' | 'hook_unreachable' | 'build_failed' | 'build_cancelled'
 
 const DOCUMENT_STATUSES: readonly DocumentStatusType[] = ['hidden', 'new', 'published', 'changed', 'unpublishing']
 
