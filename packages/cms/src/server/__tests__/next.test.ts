@@ -162,6 +162,14 @@ describe('createCmsServer', () => {
     expect(metadata).toMatchObject({ description: 'Mental health', openGraph: { description: 'Mental health', locale: 'en' } })
   })
 
+  it('hands the project the request client and, with the secret key, the admin one', async () => {
+    signIn(db, { id: 'u1' })
+    const cms = createCmsServer({ config, supabase })
+    expect((await (await cms.supabase()).from('profiles').select('id')).data).toMatchObject([{ id: 'u1' }])
+    expect((await cms.supabaseAdmin().from('profiles').select('id')).data).toMatchObject([{ id: 'u1' }])
+    expect(() => createCmsServer({ config, supabase: { ...supabase, secretKey: undefined } }).supabaseAdmin()).toThrow('Missing the Supabase secret key')
+  })
+
   it('reports through the project logger, console by default', async () => {
     const logger = { error: vi.fn() }
     expect((await createCmsServer({ config, supabase, logger }).context()).logger).toBe(logger)

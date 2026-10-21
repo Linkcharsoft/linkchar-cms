@@ -1,10 +1,15 @@
 import type { Database } from './database'
-import type { CmsConfigType } from '../core/config'
+import type { CmsConfigType, Register } from '../core/config'
 import type { CmsLoggerType } from '../core/logger'
 import type { PublishTargetType } from '../publish/types'
 import type { SupabaseClient } from '@supabase/supabase-js'
 
 export type CmsClientType = SupabaseClient<Database>
+
+// The project's generated types (its own tables next to the CMS ones), registered as `database`; the package's otherwise.
+export type ProjectDatabaseOf<R> = R extends { database: infer D } ? D : Database
+
+export type ProjectClientType = SupabaseClient<ProjectDatabaseOf<Register>>
 
 export type ProfileType = Database['public']['Tables']['profiles']['Row']
 

@@ -24,7 +24,7 @@ import { acceptInvite, completeSecondFactor, login, logout, requestPasswordReset
 import { purgeDocument, restoreDocument } from './trash'
 import { deleteInvite, inviteUser, listPanelUsers, resendInvite, resetUserMfa, setUserActive, updateUserAccess } from './users'
 import { discardChanges, getVersionDiff, listVersions, restoreVersion } from './versions'
-import type { CmsClientType, CmsContextType } from './context'
+import type { CmsClientType, CmsContextType, ProjectClientType } from './context'
 import type { Database } from './database'
 import type { CmsConfigType } from '../core/config'
 import type { CmsLoggerType } from '../core/logger'
@@ -230,6 +230,9 @@ export const createCmsServer = ({ config, supabase, publishTarget = null, logger
     site,
     updateSession,
     proxy,
+    // For the project's own tables: the request's session client (RLS applies) and, after requireRole, the secret-key one.
+    supabase: async () => (await context()).db as unknown as ProjectClientType,
+    supabaseAdmin: () => admin() as unknown as ProjectClientType,
     // What the browser needs to talk to Supabase itself (uploads, MFA): public values only.
     browserSupabase: () => {
       const { url, publishableKey } = credentials()

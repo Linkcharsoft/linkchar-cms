@@ -277,7 +277,7 @@ export const textContext = (config: CmsConfigType, locale = config.panelLocale):
   ({ locale, defaultLocale: config.defaultLocale, translator: translatorFor(config, locale) })
 
 // Projects register their config so the package types follow their schema:
-// declare module '@linkcharsoft/cms/core' { interface Register { config: typeof cmsConfig } }
+// declare module '@linkcharsoft/cms/core' { interface Register { config: typeof cmsConfig, database: Database } }
 export interface Register {}
 
 export type RegisteredConfigType = Register extends { config: infer C extends CmsConfigType } ? C : CmsConfigType

@@ -152,7 +152,9 @@ supabase db push
 supabase test db                                # the package suites land in supabase/tests/cms
 ```
 
-`sync` never rewrites a file it already copied; a migration the project edited shows as `!` in its output and stays as it is. The project's own migrations go with later timestamps. The base migration (`20261020000000_cms_base.sql`) holds roles, content, media (alt text and caption per locale), logs, publishing, checkpoints and `media_usage`; later ones add per-locale slugs, `document_usage`, `publish_log.retry_of` and `media.hash`.
+`sync` never rewrites a file it already copied; a migration the project edited shows as `!` in its output and stays as it is. The project's own migrations go with later timestamps.
+
+**Project tables.** Generate the project's types (`supabase gen types typescript --local > src/types/supabase.ts`, which includes the CMS tables) and register them next to the config: `interface Register { config: typeof cmsConfig, database: Database }`. Then `await cms.supabase()` is the request's session client (RLS applies) and `cms.supabaseAdmin()` the secret-key one, both typed with the project's tables; call `cms.queries.requireRole()` first, as in [Extensions](#extensions). The package's own code keeps its own types, so stale project types never break it. The base migration (`20261020000000_cms_base.sql`) holds roles, content, media (alt text and caption per locale), logs, publishing, checkpoints and `media_usage`; later ones add per-locale slugs, `document_usage`, `publish_log.retry_of` and `media.hash`.
 
 ## Supabase
 
