@@ -4,7 +4,7 @@ export interface WithCmsOptionsType {
   // Default to NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY.
   supabaseUrl?: string
   publishableKey?: string
-  // false skips the redirects publishing left (they are read at build time).
+  // false skips the redirects publishing left (they are read at build time; `next typegen` always skips them).
   redirects?: boolean
 }
 

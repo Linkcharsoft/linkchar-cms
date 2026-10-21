@@ -40,6 +40,9 @@ export const readRedirects = async (supabaseUrl, publishableKey, fetcher = getJs
   return rows.map(row => ({ source: literal(row.from_path), destination: row.to_path, permanent: row.status === 301 }))
 }
 
+// `next typegen` loads the config with the build phase but only writes route types: nothing to read from the database for.
+const isTypegen = (argv = process.argv) => argv.includes('typegen')
+
 /**
  * @param {import('next').NextConfig} [nextConfig]
  * @param {import('./index').WithCmsOptionsType} [options]
@@ -67,7 +70,7 @@ export const withCms = (nextConfig = {}, options = {}) => {
     },
     redirects: async () => {
       const own = nextConfig.redirects ? await nextConfig.redirects() : []
-      if (options.redirects === false || !supabaseUrl || !publishableKey) return own
+      if (options.redirects === false || isTypegen() || !supabaseUrl || !publishableKey) return own
       return [...own, ...(await readRedirects(supabaseUrl, publishableKey))]
     }
   }

@@ -25,6 +25,17 @@ describe('withCms', () => {
     const config = withCms({ redirects: async () => own }, { supabaseUrl: undefined, publishableKey: undefined })
     expect(await config.redirects?.()).toEqual(own)
   })
+
+  it('skips the database while next typegen runs', async () => {
+    const argv = process.argv
+    process.argv = [...argv, 'typegen']
+    try {
+      const config = withCms({}, { supabaseUrl: 'http://127.0.0.1:9', publishableKey: 'key' })
+      expect(await config.redirects?.()).toEqual([])
+    } finally {
+      process.argv = argv
+    }
+  })
 })
 
 describe('readRedirects', () => {
