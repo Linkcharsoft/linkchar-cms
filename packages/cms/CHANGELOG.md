@@ -1,5 +1,35 @@
 # @linkcharsoft/cms
 
+## 0.6.0
+
+### Minor Changes
+
+- 0690617: A build cancelled in Amplify now ends the publish as failed with its own reason, `build_cancelled` ("La actualización del sitio se canceló antes de terminar."), so the panel offers "Reintentar" instead of leaving it "sin confirmar" for 30 minutes. The webhook used to answer 400 to `CANCELLED` events. `mockBuild({ result: 'cancelled' })` reproduces it locally.
+- 83bcaa0: The header's "Publicar" counter shows the changes the next publish takes, like the publish screen; incomplete documents no longer count, and when every pending change is incomplete the button stays secondary and explains it ("2 cambios incompletos: no salen hasta completarlos"). The overview's pending count follows the same rule, and the header refreshes its count each time the editor saves. New query `getPendingCounts()` returning `{ ready, incomplete }`; `getPublishStatus()` returns `{ latest, counts }` instead of `{ latest, pendingCount }`; `DashboardLayout` takes `pendingCounts`.
+- 83bcaa0: A document that missing content keeps out of the publication now reads "Incompleto" instead of "Listo para publicar" or "Cambios sin publicar": in the editor header, in the collection tables (with its own filter), in the pages list and in the overview. New in `@linkcharsoft/cms/core`: `DocumentDisplayStatusType`, `displayStatus(status, incomplete)` and `isDisplayStatus`. `CollectionItemType.status`, `PageListItemType.status` and `CollectionQueryType.status` take the display status, and `getDocumentState` returns `incomplete`. Filtering a table by "Incompleto", "Listo para publicar" or "Cambios sin publicar" reads up to 200 candidates and pages them in memory, because the database view doesn't know about missing content.
+- 2d3d393: Uploading a file that is already in the library says so ("Ya existe en la librería como …") and offers that file instead of a copy, or "Subir igual"; the upload button waits for that decision. The panel hashes the file as picked (SHA-256) and asks the new action `findMediaByHash`; `registerMedia` stores the hash in the new nullable column `media.hash`. Files uploaded before this release have no hash and are never matched.
+  
+  To update a project: run `linkchar-cms migrations sync` and `supabase db push` (new migration `20261023000000_media_hash.sql` and pgTAP suite `media_hash.test.sql`), and `linkchar-cms routes` so `src/cms/actions.ts` exports `findMediaByHash`.
+- 69fe5a5: Publicar lets the user choose which changes go out: every change the publish can take has a checkbox, ticked by default, with "Marcar todos" / "Desmarcar todos" per group. Leaving one out updates the button, the confirmation and the warnings: a picked item that was unticked ("'Reseñas' (categoría) no está marcado para publicar") or a live page that keeps using a removed item because its fix was unticked. Pending changes carry `pendingRefs` and `fixedUsers` for that, and `selectionWarnings(change, selected, t)` in `@linkcharsoft/cms/core` computes the warnings of a selection.
+- 5f2bff1: `createCmsServer({ logger })` takes where the server reports the failures it swallows (best-effort writes, the build hook, activity rows): `{ error(message, detail?) }`, the console by default. The context carries it as `ctx.logger`, publish targets receive it in their trigger context, and `logActivity` now takes the context instead of a client.
+  
+  To update a project: nothing, unless it builds contexts or publish targets by hand; those get `logger` as a new field.
+- fc54172: `cms.site.sitemap()` now fails with a clear message when the config has no `site.url`. Without it the sitemap came out with relative URLs, which search engines reject, and nothing said so.
+  
+  To update a project: set `site: { url: 'https://acme.com' }` in `cms.config.ts` (the playground reads it from `NEXT_PUBLIC_SITE_URL`).
+
+### Patch Changes
+
+- 4628555: The version history groups versions by day ("Hoy", "Ayer", then the date) in the site's time zone and shows the time of each one, so a long history reads at a glance. New `dayOf(value, timeZone)` in `@linkcharsoft/cms/core`.
+- 7061d24: `mediaItemFrom` (a `media` row into a `MediaItemType`) now lives in `@linkcharsoft/cms/core` with the structural `MediaRowLikeType`, so the site readers no longer import a value from the server layer. `@linkcharsoft/cms/server` keeps exporting it.
+- bbea0fd: Mi cuenta shows the password rules under the new password field ("Al menos 10 caracteres, con letras y números.") before someone tries one that fails them.
+- 1f59a82: On screens narrower than 1280 px the preview opens below the form and scrolls into view, instead of pushing the fields a full screen down in a scaled desktop frame. On wide screens nothing changes: form on the left, preview on the right.
+- dd3e686: A draft created with "Nuevo …" and never touched disappears after a day: opening a collection list removes its untouched drafts (revision 1, still the schema defaults, never published, picked nowhere), so the lists and Publish stop filling with "Artículo sin título". New query `purgeUntouchedDrafts(entryId)`.
+- e83a0af: The panel starts with a "Saltar al contenido" link, visible when it receives the focus, so keyboard users reach the content without tabbing through the menu. Every panel screen already has the `main` landmark it jumps to.
+- 4f2e71f: The overview warns about hidden collection drafts nobody touched for two weeks ("'Casa' lleva 20 días como borrador sin publicar. Publicalo o mandalo a la papelera."), five at most, oldest first. New query `getStaleDrafts(limit)` and alert code `stale`; `overviewAlerts` takes them as its fifth argument.
+- 1e2c775: Guided tours no longer start while a field has the focus (typing into a new document used to end up in the guide's popover, and closing it marked the guide as seen). The guide waits for the next screen, and "Ver la guía de esta pantalla" in Ayuda still opens it.
+- 1739cdf: `withCms` no longer reads the redirects while `next typegen` runs, so `pnpm type-check` (and the pre-commit hook) work with the local Supabase stopped. `next build` still reads them and fails if it can't.
+
 ## 0.5.0
 
 ### Minor Changes
