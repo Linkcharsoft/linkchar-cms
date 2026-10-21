@@ -38,6 +38,7 @@ const admin = {
     currentPassword: 'Contraseña actual',
     newPassword: 'Contraseña nueva',
     confirmNewPassword: 'Repetí la contraseña nueva',
+    newPasswordHelp: 'Al menos {min} caracteres, con letras y números.',
     signOutOthers: 'Cerrar la sesión en los demás dispositivos',
     changePassword: 'Cambiar contraseña',
     passwordChanged: 'Contraseña actualizada',

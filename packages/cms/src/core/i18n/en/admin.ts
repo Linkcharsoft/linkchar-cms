@@ -41,6 +41,7 @@ const admin = {
     currentPassword: 'Current password',
     newPassword: 'New password',
     confirmNewPassword: 'Repeat the new password',
+    newPasswordHelp: 'At least {min} characters, with letters and numbers.',
     signOutOthers: 'Sign out of all other devices',
     changePassword: 'Change password',
     passwordChanged: 'Password updated',
