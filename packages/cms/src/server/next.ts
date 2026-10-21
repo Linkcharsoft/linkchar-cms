@@ -5,6 +5,7 @@ import { cookies, draftMode } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { NextResponse } from 'next/server'
 import { cache } from 'react'
+import { consoleLogger } from '../core/logger'
 import { panelPaths } from '../core/paths'
 import { createSiteReaders } from '../site/readers'
 import { documentJsonLd, documentMetadata } from '../site/seo'
@@ -26,6 +27,7 @@ import { discardChanges, getVersionDiff, listVersions, restoreVersion } from './
 import type { CmsClientType, CmsContextType } from './context'
 import type { Database } from './database'
 import type { CmsConfigType } from '../core/config'
+import type { CmsLoggerType } from '../core/logger'
 import type { PublishTargetType } from '../publish/types'
 import type { SiteDocumentType } from '../site/types'
 import type { NextRequest } from 'next/server'
@@ -35,6 +37,7 @@ export interface CmsServerOptionsType {
   // From the project's environment; checked on first use so the site builds without them.
   supabase: { url: string | undefined, publishableKey: string | undefined, secretKey: string | undefined }
   publishTarget?: PublishTargetType | null
+  logger?: CmsLoggerType
 }
 
 type BoundType<F> = F extends (ctx: CmsContextType, ...args: infer A) => Promise<infer R> ? (...args: A) => Promise<R> : never
@@ -70,7 +73,7 @@ const QUERIES = {
   listPages, getPendingChanges, getPendingCount, getPublishHistory, getLatestPublish, listPanelUsers, listActivity, purgeExpiredActivity
 }
 
-export const createCmsServer = ({ config, supabase, publishTarget = null }: CmsServerOptionsType) => {
+export const createCmsServer = ({ config, supabase, publishTarget = null, logger = consoleLogger }: CmsServerOptionsType) => {
   const credentials = () => {
     const { url, publishableKey, secretKey } = supabase
     if (!url || !publishableKey) throw new Error('[@linkcharsoft/cms] Missing the Supabase URL or publishable key')
@@ -94,7 +97,8 @@ export const createCmsServer = ({ config, supabase, publishTarget = null }: CmsS
     anonymous: () => detached(credentials().publishableKey),
     publishTarget,
     revalidate: (path, type) => revalidatePath(path, type),
-    now: () => new Date()
+    now: () => new Date(),
+    logger
   })
 
   // One per request: the profile read by requireRole is shared by everything that request renders.

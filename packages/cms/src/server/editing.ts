@@ -135,7 +135,7 @@ export const saveDocument = async (ctx: CmsContextType, input: SaveDocumentInput
     const query = ctx.db.from('documents').select('id, data, revision, updated_at').eq('type', entryId).is('deleted_at', null)
     const { data: row, error: readError } = await (id ? query.eq('id', id) : query.eq('key', entryId)).maybeSingle()
     if (readError) {
-      console.error('[documents] read before save failed:', readError.code ?? readError.message)
+      ctx.logger.error('[documents] read before save failed:', readError.code ?? readError.message)
       return { status: 'error', error: 'errors.documents.saveFailed' }
     }
     if (!row && id) return { status: 'error', error: 'errors.documents.gone' }
@@ -175,7 +175,7 @@ export const saveDocument = async (ctx: CmsContextType, input: SaveDocumentInput
 
     if (result.error) {
       if (result.error.code !== UNIQUE_VIOLATION) {
-        console.error('[documents] save failed:', result.error.code ?? result.error.message)
+        ctx.logger.error('[documents] save failed:', result.error.code ?? result.error.message)
         return { status: 'error', error: 'errors.documents.saveFailed' }
       }
       // Another save took the default locale's slug between the check and the write.

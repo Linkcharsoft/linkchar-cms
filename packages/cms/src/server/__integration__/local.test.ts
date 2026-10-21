@@ -46,7 +46,8 @@ const signedIn = async (email: string): Promise<CmsContextType> => {
     anonymous: () => client(PUBLISHABLE_KEY),
     publishTarget: mockBuild({ seconds: 1 }),
     revalidate: () => {},
-    now: () => new Date()
+    now: () => new Date(),
+    logger: console
   }
 }
 

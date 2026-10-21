@@ -37,7 +37,7 @@ const isAuthorized = (secret: string | undefined, header: string | null) =>
 export const amplify = ({ hookUrl, webhookSecret, timeoutMs = 10_000 }: AmplifyOptionsType): PublishTargetType => ({
   name: 'amplify',
 
-  trigger: async () => {
+  trigger: async ({ logger }) => {
     if (!hookUrl) return { ok: false, code: 'target_missing' }
     try {
       const response = await fetch(hookUrl, { method: 'POST', signal: AbortSignal.timeout(timeoutMs) })
@@ -45,7 +45,7 @@ export const amplify = ({ hookUrl, webhookSecret, timeoutMs = 10_000 }: AmplifyO
       const body = await response.json().catch(() => null) as { jobId?: unknown } | null
       return { ok: true, jobId: typeof body?.jobId === 'string' ? body.jobId : null }
     } catch (error) {
-      console.error('[publish] build hook failed:', error instanceof Error ? error.message : error)
+      logger.error('[publish] build hook failed:', error instanceof Error ? error.message : error)
       return { ok: false, code: 'hook_unreachable' }
     }
   },

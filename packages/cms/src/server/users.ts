@@ -100,7 +100,7 @@ export const inviteUser = async (ctx: CmsContextType, values: unknown): Promise<
     return { error: 'errors.users.forbidden' }
   }
 
-  await logActivity(ctx.db, 'user.invite', null, { userId: data.user.id, email: value.email, role: value.role })
+  await logActivity(ctx, 'user.invite', null, { userId: data.user.id, email: value.email, role: value.role })
   return {}
 }
 
@@ -114,7 +114,7 @@ export const updateUserAccess = async (ctx: CmsContextType, id: string, values: 
   const { error } = await ctx.db.from('profiles').update(accessColumns(value)).eq('id', id)
   if (error) return { error: error.code === '42501' ? 'errors.users.forbidden' : 'errors.users.saveFailed' }
 
-  await logActivity(ctx.db, 'user.update', null, { userId: id, email: context.email, role: value.role, canPublish: value.canPublish })
+  await logActivity(ctx, 'user.update', null, { userId: id, email: context.email, role: value.role, canPublish: value.canPublish })
   return {}
 }
 
@@ -127,9 +127,9 @@ export const setUserActive = async (ctx: CmsContextType, id: string, active: boo
 
   // The ban also kills refresh tokens: a deactivated user is out before their current session expires.
   const { error: banError } = await ctx.admin().auth.admin.updateUserById(id, { ban_duration: active ? 'none' : BAN_FOREVER })
-  if (banError) console.error('[users] ban update failed:', banError.code ?? banError.message)
+  if (banError) ctx.logger.error('[users] ban update failed:', banError.code ?? banError.message)
 
-  await logActivity(ctx.db, active ? 'user.reactivate' : 'user.deactivate', null, { userId: id, email: context.email })
+  await logActivity(ctx, active ? 'user.reactivate' : 'user.deactivate', null, { userId: id, email: context.email })
   return {}
 }
 
@@ -141,7 +141,7 @@ export const resendInvite = async (ctx: CmsContextType, id: string): Promise<Ses
   const { error } = await ctx.admin().auth.admin.inviteUserByEmail(context.email, { data: { name: context.target.name } })
   if (error) return { error: inviteError(error.code) }
 
-  await logActivity(ctx.db, 'user.invite_resend', null, { userId: id, email: context.email })
+  await logActivity(ctx, 'user.invite_resend', null, { userId: id, email: context.email })
   return {}
 }
 
@@ -153,7 +153,7 @@ export const deleteInvite = async (ctx: CmsContextType, id: string): Promise<Ses
   const { error } = await ctx.admin().auth.admin.deleteUser(id)
   if (error) return { error: 'errors.users.deleteInviteFailed' }
 
-  await logActivity(ctx.db, 'user.invite_delete', null, { email: context.email })
+  await logActivity(ctx, 'user.invite_delete', null, { email: context.email })
   return {}
 }
 
@@ -166,6 +166,6 @@ export const resetUserMfa = async (ctx: CmsContextType, id: string): Promise<Ses
   const results = await Promise.all(factors.map(factor => admin.auth.admin.mfa.deleteFactor({ id: factor.id, userId: id })))
   if (results.some(result => result.error)) return { error: 'errors.users.mfaResetFailed' }
 
-  await logActivity(ctx.db, 'user.mfa_reset', null, { userId: id, email: context.email, devices: factors.length })
+  await logActivity(ctx, 'user.mfa_reset', null, { userId: id, email: context.email, devices: factors.length })
   return {}
 }

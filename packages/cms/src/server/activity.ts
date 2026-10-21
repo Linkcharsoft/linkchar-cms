@@ -6,19 +6,19 @@ import { resolveText } from '../core/text'
 import { requireRole } from './auth'
 import { asRecord } from './context'
 import { describeDocument } from './publish'
-import type { CmsClientType, CmsContextType } from './context'
+import type { CmsContextType } from './context'
 import type { Json } from './database'
 import type { ActivityActionType, ActivityGroupType } from '../core/activity'
 
 // Best effort: a failed log entry never blocks the editor's action.
 export const logActivity = async (
-  client: CmsClientType,
+  ctx: CmsContextType,
   action: ActivityActionType,
   documentId: string | null,
   details: Record<string, Json> = {}
 ) => {
-  const { error } = await client.from('activity_log').insert({ action, document_id: documentId, details })
-  if (error) console.error('[activity] insert failed:', error.code ?? error.message)
+  const { error } = await ctx.db.from('activity_log').insert({ action, document_id: documentId, details })
+  if (error) ctx.logger.error('[activity] insert failed:', error.code ?? error.message)
 }
 
 export const ACTIVITY_PAGE_SIZE = 25
@@ -31,7 +31,7 @@ export const purgeExpiredActivity = async (ctx: CmsContextType) => {
   const limit = ctx.now()
   limit.setMonth(limit.getMonth() - RETENTION_MONTHS)
   const { error } = await ctx.admin().from('activity_log').delete().lt('created_at', limit.toISOString())
-  if (error) console.error('[activity] purge failed:', error.code ?? error.message)
+  if (error) ctx.logger.error('[activity] purge failed:', error.code ?? error.message)
 }
 
 export interface ActivityQueryType {
@@ -88,7 +88,7 @@ export const listActivity = async (ctx: CmsContextType, query: ActivityQueryType
     request.order('created_at', { ascending: false }).range(start, start + ACTIVITY_PAGE_SIZE - 1),
     ctx.db.from('profiles').select('id, name').order('name')
   ])
-  if (error) console.error('[activity] list failed:', error.code ?? error.message)
+  if (error) ctx.logger.error('[activity] list failed:', error.code ?? error.message)
 
   const items = (data ?? []).map((row): ActivityRowType => {
     const details = asRecord(row.details)

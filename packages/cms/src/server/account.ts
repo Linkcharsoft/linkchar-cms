@@ -17,7 +17,7 @@ export const updateProfile = async (ctx: CmsContextType, values: unknown): Promi
   const { error } = await ctx.db.from('profiles').update({ name: value.name }).eq('id', user.id)
   if (error) return { error: 'errors.account.nameFailed' }
 
-  await logActivity(ctx.db, 'profile.update', null, { name: value.name })
+  await logActivity(ctx, 'profile.update', null, { name: value.name })
   return {}
 }
 
@@ -35,7 +35,7 @@ export const updateAvatar = async (ctx: CmsContextType, avatar: string | null): 
   }
   if (error) return { error: 'errors.account.photoFailed' }
 
-  await logActivity(ctx.db, 'profile.update', null, { photo: avatar ? 'changed' : 'removed' })
+  await logActivity(ctx, 'profile.update', null, { photo: avatar ? 'changed' : 'removed' })
   return {}
 }
 
@@ -59,14 +59,14 @@ export const changePassword = async (ctx: CmsContextType, values: unknown): Prom
 
   if (value.signOutOthers) await ctx.db.auth.signOut({ scope: 'others' })
 
-  await logActivity(ctx.db, 'auth.password_change', null, { signOutOthers: value.signOutOthers })
+  await logActivity(ctx, 'auth.password_change', null, { signOutOthers: value.signOutOthers })
   return {}
 }
 
 // MFA runs in the browser (Supabase Auth API); this only records it once the change is done.
 export const recordMfaChange = async (ctx: CmsContextType, change: 'enroll' | 'unenroll', device: string): Promise<SessionResultType> => {
   await requireRole(ctx)
-  await logActivity(ctx.db, change === 'enroll' ? 'auth.mfa_enroll' : 'auth.mfa_unenroll', null, { device: String(device).slice(0, 60) })
+  await logActivity(ctx, change === 'enroll' ? 'auth.mfa_enroll' : 'auth.mfa_unenroll', null, { device: String(device).slice(0, 60) })
   return {}
 }
 

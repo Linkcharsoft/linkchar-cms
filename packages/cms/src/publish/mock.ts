@@ -10,10 +10,10 @@ export const mockBuild = ({ result = 'success', seconds = 15 }: MockBuildOptions
   name: 'mock',
   revalidateOnPublish: true,
 
-  trigger: async ({ report }) => {
+  trigger: async ({ report, logger }) => {
     const jobId = `mock-${Date.now()}`
     const send = (status: 'started' | 'succeeded' | 'failed') =>
-      report({ jobId, status }).catch(error => console.error('[mock-build] report failed:', error))
+      report({ jobId, status }).catch(error => logger.error('[mock-build] report failed:', error))
 
     setTimeout(() => send('started'), 1000)
     setTimeout(() => send(result === 'failed' ? 'failed' : 'succeeded'), Math.max(seconds, 1) * 1000 + 100)

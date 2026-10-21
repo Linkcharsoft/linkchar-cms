@@ -287,5 +287,6 @@ export const fakeContext = (db: FakeDbType, config: CmsConfigType = defineCmsCon
   anonymous: () => fakeClient(db),
   publishTarget: null,
   revalidate: vi.fn(),
-  now: () => new Date()
+  now: () => new Date(),
+  logger: { error: vi.fn() }
 })

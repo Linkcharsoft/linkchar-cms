@@ -293,6 +293,15 @@ describe('applyBuildEvent', () => {
   })
 })
 
+describe('publish targets', () => {
+  it('report through the context logger', async () => {
+    db.tables.publish_log.push(logRow(1))
+    ctx = { ...ctx, publishTarget: target(async ({ logger }) => { logger.error('[test] hook noted'); return { ok: true, jobId: null } }) }
+    expect(await triggerBuild(ctx, 1)).toBe('building')
+    expect(ctx.logger.error).toHaveBeenCalledWith('[test] hook noted')
+  })
+})
+
 describe('getPublishHistory', () => {
   it('names who published and each item, and leaves purged ones without a title', async () => {
     db.tables.documents.push(document(1, 'posts', completePost('Casa', 'casa')))

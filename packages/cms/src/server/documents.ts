@@ -145,7 +145,7 @@ export const purgeExpiredDocuments = async (ctx: CmsContextType) => {
   if (ids.length === 0) return 0
 
   const { error } = await admin.from('documents').delete().in('id', ids)
-  if (error) console.error('[documents] purge failed:', error.code ?? error.message)
+  if (error) ctx.logger.error('[documents] purge failed:', error.code ?? error.message)
   return error ? 0 : ids.length
 }
 

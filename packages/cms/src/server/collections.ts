@@ -39,11 +39,11 @@ export const createDocument = async (ctx: CmsContextType, entryId: string): Prom
   const data = buildDefaults(ctx.config, entry.fields) as DataRecord
   const { data: created, error } = await insertDocument(ctx, entryId, entry, data, await nextSortOrder(ctx, entryId, entry.orderable))
   if (error) {
-    console.error('[documents] create failed:', error.code ?? error.message)
+    ctx.logger.error('[documents] create failed:', error.code ?? error.message)
     return fail('errors.documents.createFailed')
   }
 
-  await logActivity(ctx.db, 'document.create', created.id, { type: entryId })
+  await logActivity(ctx, 'document.create', created.id, { type: entryId })
   throw new CmsRedirect(panelPaths(ctx.config).document(entryId, created.id))
 }
 
@@ -61,11 +61,11 @@ export const createRelated = async (ctx: CmsContextType, entryId: string, title:
 
   const { data: created, error } = await insertDocument(ctx, entryId, entry, data, await nextSortOrder(ctx, entryId, entry.orderable))
   if (error) {
-    console.error('[documents] create related failed:', error.code ?? error.message)
+    ctx.logger.error('[documents] create related failed:', error.code ?? error.message)
     return null
   }
 
-  await logActivity(ctx.db, 'document.create', created.id, { type: entryId })
+  await logActivity(ctx, 'document.create', created.id, { type: entryId })
   ctx.revalidate(panelPaths(ctx.config).collection(entryId))
   return {
     id: created.id,
@@ -106,11 +106,11 @@ export const duplicateDocument = async (ctx: CmsContextType, entryId: string, id
 
   const { data: created, error } = await insertDocument(ctx, entryId, entry, data, source.sort_order + 1)
   if (error) {
-    console.error('[documents] duplicate failed:', error.code ?? error.message)
+    ctx.logger.error('[documents] duplicate failed:', error.code ?? error.message)
     return fail('errors.documents.createFailed')
   }
 
-  await logActivity(ctx.db, 'document.duplicate', created.id, { type: entryId, from: id })
+  await logActivity(ctx, 'document.duplicate', created.id, { type: entryId, from: id })
   throw new CmsRedirect(panelPaths(ctx.config).document(entryId, created.id))
 }
 
@@ -123,7 +123,7 @@ export const trashDocument = async (ctx: CmsContextType, entryId: string, id: st
     .eq('id', id).eq('type', entryId).is('deleted_at', null).select('id').maybeSingle()
   if (error || !data) return fail('errors.documents.updateFailed')
 
-  await logActivity(ctx.db, 'document.trash', id, { type: entryId })
+  await logActivity(ctx, 'document.trash', id, { type: entryId })
   ctx.revalidate(panelPaths(ctx.config).collection(entryId))
   return { ok: true }
 }
@@ -138,7 +138,7 @@ export const setDocumentVisibility = async (ctx: CmsContextType, entryId: string
     .eq('id', id).eq('type', entryId).is('deleted_at', null).select('id').maybeSingle()
   if (error || !data) return fail('errors.documents.updateFailed')
 
-  await logActivity(ctx.db, visible ? 'document.show' : 'document.hide', id, { type: entryId })
+  await logActivity(ctx, visible ? 'document.show' : 'document.hide', id, { type: entryId })
   ctx.revalidate(panelPaths(ctx.config).collection(entryId))
   return { ok: true }
 }

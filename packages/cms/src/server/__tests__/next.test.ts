@@ -104,4 +104,10 @@ describe('createCmsServer', () => {
   it('hands the browser only the public Supabase settings', () => {
     expect(createCmsServer({ config, supabase }).browserSupabase()).toEqual({ url: supabase.url, publishableKey: 'pk' })
   })
+
+  it('reports through the project logger, console by default', async () => {
+    const logger = { error: vi.fn() }
+    expect((await createCmsServer({ config, supabase, logger }).context()).logger).toBe(logger)
+    expect((await createCmsServer({ config, supabase }).context()).logger.error).toBeTypeOf('function')
+  })
 })

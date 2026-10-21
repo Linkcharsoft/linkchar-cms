@@ -1,5 +1,6 @@
 import type { Database } from './database'
 import type { CmsConfigType } from '../core/config'
+import type { CmsLoggerType } from '../core/logger'
 import type { PublishTargetType } from '../publish/types'
 import type { SupabaseClient } from '@supabase/supabase-js'
 
@@ -19,6 +20,7 @@ export interface CmsContextType {
   publishTarget: PublishTargetType | null
   revalidate: (path: string, type?: 'page' | 'layout') => void
   now: () => Date
+  logger: CmsLoggerType
 }
 
 // Thrown by the server layer to send the user elsewhere (sign-in, the new document); the Next binding redirects.

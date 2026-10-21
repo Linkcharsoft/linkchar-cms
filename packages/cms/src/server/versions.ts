@@ -79,7 +79,7 @@ const replaceDraft = async (
   if (error) return { status: 'error', error: 'errors.versions.failed' }
   if (!updated) return { status: 'conflict' }
 
-  await logActivity(ctx.db, reason === 'restore' ? 'document.restore' : 'document.discard', documentId, { type: entryId, ...(section ? { section } : {}) })
+  await logActivity(ctx, reason === 'restore' ? 'document.restore' : 'document.discard', documentId, { type: entryId, ...(section ? { section } : {}) })
   return { status: 'replaced', data, revision: updated.revision }
 }
 

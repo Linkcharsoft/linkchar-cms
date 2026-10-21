@@ -148,12 +148,12 @@ export const purgeExpiredMedia = async (ctx: CmsContextType) => {
 
   const { error } = await admin.from('media').delete().in('id', unused.map(row => row.id))
   if (error) {
-    console.error('[media] purge rows failed:', error.code ?? error.message)
+    ctx.logger.error('[media] purge rows failed:', error.code ?? error.message)
     return 0
   }
 
   const { error: storageError } = await admin.storage.from(MEDIA_BUCKET).remove(unused.map(row => row.path))
-  if (storageError) console.error('[media] purge storage failed:', storageError.message)
+  if (storageError) ctx.logger.error('[media] purge storage failed:', storageError.message)
   return unused.length
 }
 
@@ -224,10 +224,10 @@ export const registerMedia = async (ctx: CmsContextType, input: RegisterMediaInp
     }).select('*').single()
 
     if (data) {
-      await logActivity(ctx.db, 'media.upload', null, { mediaId: data.id, path: data.path })
+      await logActivity(ctx, 'media.upload', null, { mediaId: data.id, path: data.path })
       return { ok: true, item: toMediaItem(ctx, data) }
     }
-    console.error('[media] register failed:', error?.code ?? error?.message)
+    ctx.logger.error('[media] register failed:', error?.code ?? error?.message)
   }
 
   // Service role (editors can't delete objects), only for orphans: a crafted path must not hit another file.
@@ -275,7 +275,7 @@ const setTrashed = async (ctx: CmsContextType, id: string, trashed: boolean): Pr
 
   const { data } = await ctx.db.from('media').update({ deleted_at: trashed ? ctx.now().toISOString() : null })
     .eq('id', id).select('id').maybeSingle()
-  if (data && trashed) await logActivity(ctx.db, 'media.trash', null, { mediaId: id })
+  if (data && trashed) await logActivity(ctx, 'media.trash', null, { mediaId: id })
   return data ? { ok: true } : { ok: false, usage: [] }
 }
 
@@ -297,8 +297,8 @@ export const purgeMedia = async (ctx: CmsContextType, id: string): Promise<Media
   if (error) return { ok: false, usage: [] }
 
   const { error: storageError } = await ctx.db.storage.from(MEDIA_BUCKET).remove([row.path])
-  if (storageError) console.error('[media] purge storage failed:', storageError.message)
-  await logActivity(ctx.db, 'media.purge', null, { mediaId: id, path: row.path })
+  if (storageError) ctx.logger.error('[media] purge storage failed:', storageError.message)
+  await logActivity(ctx, 'media.purge', null, { mediaId: id, path: row.path })
   return { ok: true }
 }
 

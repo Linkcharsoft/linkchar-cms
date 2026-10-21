@@ -13,7 +13,7 @@ export const restoreDocument = async (ctx: CmsContextType, id: string): Promise<
   if (error?.code === UNIQUE_VIOLATION) return { ok: false, error: 'errors.trash.slugTaken' }
   if (error || !data) return { ok: false, error: 'errors.trash.restoreFailed' }
 
-  await logActivity(ctx.db, 'document.untrash', id, { type: data.type })
+  await logActivity(ctx, 'document.untrash', id, { type: data.type })
   ctx.revalidate(panelPaths(ctx.config).trash)
   return { ok: true }
 }
@@ -30,7 +30,7 @@ export const purgeDocument = async (ctx: CmsContextType, id: string): Promise<Ac
   const { error } = await ctx.db.from('documents').delete().eq('id', id)
   if (error) return { ok: false, error: 'errors.trash.purgeFailed' }
 
-  await logActivity(ctx.db, 'document.purge', null, { id, type: row.type })
+  await logActivity(ctx, 'document.purge', null, { id, type: row.type })
   ctx.revalidate(panelPaths(ctx.config).trash)
   return { ok: true }
 }

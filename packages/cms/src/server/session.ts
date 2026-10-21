@@ -40,7 +40,7 @@ export const login = async (ctx: CmsContextType, values: unknown): Promise<Sessi
   // With MFA the session has no role until the second step (RLS), so the login is logged after the code.
   if (needsSecondFactor(data.user.factors, 'aal1')) return { redirectTo: paths.mfaVerify }
 
-  await logActivity(ctx.db, 'auth.login', null)
+  await logActivity(ctx, 'auth.login', null)
   return { redirectTo: paths.home }
 }
 
@@ -50,7 +50,7 @@ export const requestPasswordReset = async (ctx: CmsContextType, values: unknown)
   if (!value) return { error: 'errors.invalidData' }
 
   const { error } = await ctx.db.auth.resetPasswordForEmail(value.email)
-  if (error) console.error('[auth] resetPasswordForEmail:', error.code ?? error.message)
+  if (error) ctx.logger.error('[auth] resetPasswordForEmail:', error.code ?? error.message)
   return {}
 }
 
@@ -84,7 +84,7 @@ export const acceptInvite = async (ctx: CmsContextType, values: unknown): Promis
 // Called by the browser right after it verified the code (the session cookies are already aal2).
 export const completeSecondFactor = async (ctx: CmsContextType): Promise<SessionResultType> => {
   await requireRole(ctx)
-  await logActivity(ctx.db, 'auth.login', null, { mfa: true })
+  await logActivity(ctx, 'auth.login', null, { mfa: true })
   return { redirectTo: panelPaths(ctx.config).home }
 }
 

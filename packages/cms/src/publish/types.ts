@@ -1,3 +1,4 @@
+import type { CmsLoggerType } from '../core/logger'
 import type { BuildErrorCodeType, BuildEventType } from '../core/publish'
 
 export type { BuildEventType }
@@ -9,6 +10,7 @@ export type TriggerResultType =
 export interface TriggerContextType {
   // Applies a build status change, as the webhook would; targets that report in-process (the mock) use it.
   report: (event: BuildEventType) => Promise<unknown>
+  logger: CmsLoggerType
 }
 
 export type WebhookResultType = BuildEventType | 'unauthorized' | 'invalid'

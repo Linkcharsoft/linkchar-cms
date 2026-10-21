@@ -272,7 +272,7 @@ const setBuildStatus = async (ctx: CmsContextType, publishId: number, values: Bu
   // The "started" event can beat the hook response; it must not be overwritten.
   if (onlyIfPending) request = request.eq('build_status', 'pending')
   const { error } = await request
-  if (error) console.error('[publish] status update failed:', error.code ?? error.message)
+  if (error) ctx.logger.error('[publish] status update failed:', error.code ?? error.message)
 }
 
 // The oldest open publish owns a job nobody claimed yet, as long as it is recent: an old one that never heard
@@ -314,7 +314,7 @@ export const triggerBuild = async (ctx: CmsContextType, publishId: number): Prom
 
   if (!ctx.publishTarget) return fail('target_missing')
 
-  const result = await ctx.publishTarget.trigger({ report: event => applyBuildEvent(ctx, event) })
+  const result = await ctx.publishTarget.trigger({ report: event => applyBuildEvent(ctx, event), logger: ctx.logger })
   if (!result.ok) return fail(result.code, result.detail)
 
   await setBuildStatus(ctx, publishId, { build_status: 'building', ...(result.jobId ? { job_id: result.jobId } : {}) }, true)
@@ -364,7 +364,7 @@ export const publishChanges = async (ctx: CmsContextType, selection: PublishSele
   })
 
   if (error) {
-    if (!RPC_ERRORS[error.code]) console.error('[publish] publish_site failed:', error.code ?? error.message)
+    if (!RPC_ERRORS[error.code]) ctx.logger.error('[publish] publish_site failed:', error.code ?? error.message)
     return { ok: false, error: RPC_ERRORS[error.code] ?? 'errors.publish.failed' }
   }
 
@@ -392,11 +392,11 @@ export const retryPublish = async (ctx: CmsContextType, publishId: number): Prom
     retry_of: failed.id
   }).select('id').single()
   if (error) {
-    console.error('[publish] retry failed:', error.code ?? error.message)
+    ctx.logger.error('[publish] retry failed:', error.code ?? error.message)
     return { ok: false, error: 'errors.publish.failed' }
   }
 
-  await logActivity(ctx.db, 'site.retry', null, { publishId: retry.id, retryOf: failed.id })
+  await logActivity(ctx, 'site.retry', null, { publishId: retry.id, retryOf: failed.id })
   const buildStatus = await triggerBuild(ctx, retry.id)
   return { ok: true, published: 0, removed: 0, buildStatus }
 }

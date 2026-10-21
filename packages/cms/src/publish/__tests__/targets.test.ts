@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { amplify, parseAmplifyEvent } from '../amplify'
 import { mockBuild } from '../mock'
 
@@ -10,11 +10,7 @@ const webhook = (body: unknown, authorization?: string) => new Request('http://l
   body: typeof body === 'string' ? body : JSON.stringify(body)
 })
 
-const report = async () => {}
-
-beforeEach(() => {
-  vi.spyOn(console, 'error').mockImplementation(() => {})
-})
+const triggerContext = () => ({ report: async () => {}, logger: { error: vi.fn() } })
 
 afterEach(() => {
   vi.restoreAllMocks()
@@ -25,24 +21,26 @@ describe('amplify trigger', () => {
   const target = amplify({ hookUrl: 'https://hooks.example/build', webhookSecret: 's3cret' })
 
   it('needs a build hook', async () => {
-    expect(await amplify({ hookUrl: undefined, webhookSecret: 's' }).trigger({ report })).toEqual({ ok: false, code: 'target_missing' })
+    expect(await amplify({ hookUrl: undefined, webhookSecret: 's' }).trigger(triggerContext())).toEqual({ ok: false, code: 'target_missing' })
   })
 
   it('keeps the status code when the hook refuses', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('no', { status: 500 }))
-    expect(await target.trigger({ report })).toEqual({ ok: false, code: 'hook_refused', detail: '500' })
+    expect(await target.trigger(triggerContext())).toEqual({ ok: false, code: 'hook_refused', detail: '500' })
   })
 
-  it('fails gracefully when the hook is unreachable', async () => {
+  it('fails gracefully when the hook is unreachable, and tells the logger', async () => {
     vi.spyOn(globalThis, 'fetch').mockRejectedValue(new Error('timeout'))
-    expect(await target.trigger({ report })).toEqual({ ok: false, code: 'hook_unreachable' })
+    const context = triggerContext()
+    expect(await target.trigger(context)).toEqual({ ok: false, code: 'hook_unreachable' })
+    expect(context.logger.error).toHaveBeenCalledWith('[publish] build hook failed:', 'timeout')
   })
 
   it('returns the Amplify job, when the hook says it', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(Response.json({ jobId: '42' }))
-    expect(await target.trigger({ report })).toEqual({ ok: true, jobId: '42' })
+    expect(await target.trigger(triggerContext())).toEqual({ ok: true, jobId: '42' })
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('ok'))
-    expect(await target.trigger({ report })).toEqual({ ok: true, jobId: null })
+    expect(await target.trigger(triggerContext())).toEqual({ ok: true, jobId: null })
   })
 })
 
@@ -86,7 +84,7 @@ describe('mockBuild', () => {
   it('reports the start and then the result', async () => {
     vi.useFakeTimers()
     const reported = vi.fn(async () => {})
-    const result = await mockBuild({ result: 'failed', seconds: 5 }).trigger({ report: reported })
+    const result = await mockBuild({ result: 'failed', seconds: 5 }).trigger({ report: reported, logger: { error: vi.fn() } })
     expect(result).toMatchObject({ ok: true, jobId: expect.stringMatching(/^mock-/) })
 
     await vi.advanceTimersByTimeAsync(1000)
