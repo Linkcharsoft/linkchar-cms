@@ -25,14 +25,13 @@ jobs:
           scope: '@linkcharsoft'
       - run: pnpm install --frozen-lockfile
       - run: pnpm verify
-      # With pending changesets it opens the version PR; once that is merged, it publishes the new version.
-      # `pnpm release` pushes the version tags itself: changesets/action@v1 misses the tags changesets 3 creates.
-      - uses: changesets/action@v1
+      # With pending changesets it opens the version PR; once that is merged, it publishes the new version and pushes its tag.
+      - uses: changesets/action@v2
         with:
-          version: pnpm changeset version
-          publish: pnpm release
-          commit: '[ CHORE ] Version packages'
-          title: '[ CHORE ] Version packages'
+          version-script: pnpm changeset version
+          publish-script: pnpm release
+          commit-message: '[ CHORE ] Version packages'
+          pr-title: '[ CHORE ] Version packages'
+          github-token: ${{ secrets.GITHUB_TOKEN }}
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
