@@ -1,3 +1,4 @@
+import { isRecord } from './kinds/shared'
 import { isBlank } from './locales'
 import type { CmsConfigType } from './config'
 import type { LocalizedTextType } from './text'
@@ -66,6 +67,47 @@ export interface MediaItemType {
   createdAt: string
   deletedAt: string | null
 }
+
+// The columns of a `media` row that become an item; the generated Row type of the server satisfies it.
+export interface MediaRowLikeType {
+  id: string
+  path: string
+  filename: string
+  folder: string
+  alt: unknown
+  caption: unknown
+  mime: string
+  size: number
+  width: number | null
+  height: number | null
+  focal_x: number | null
+  focal_y: number | null
+  blur_data_url: string | null
+  created_at: string
+  deleted_at: string | null
+}
+
+const texts = (value: unknown): LocalizedTextType =>
+  (isRecord(value) ? Object.fromEntries(Object.entries(value).filter((entry): entry is [string, string] => typeof entry[1] === 'string')) : {})
+
+export const mediaItemFrom = (supabaseUrl: string, row: MediaRowLikeType): MediaItemType => ({
+  id: row.id,
+  path: row.path,
+  url: mediaPublicUrl(supabaseUrl, row.path),
+  filename: row.filename,
+  folder: row.folder,
+  alt: texts(row.alt),
+  caption: texts(row.caption),
+  mime: row.mime,
+  size: row.size,
+  width: row.width,
+  height: row.height,
+  focalX: row.focal_x,
+  focalY: row.focal_y,
+  blurDataUrl: row.blur_data_url,
+  createdAt: row.created_at,
+  deletedAt: row.deleted_at
+})
 
 // Locales whose alt text is still empty while the default locale has one: what publishing asks for.
 export const missingAltLocales = (config: Pick<CmsConfigType, 'locales' | 'defaultLocale'>, alt: LocalizedTextType): string[] =>

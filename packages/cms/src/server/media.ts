@@ -1,6 +1,6 @@
 import { textContext } from '../core/config'
 import { getEntry } from '../core/entries'
-import { isImageMime, isPathInFolder, MAX_MEDIA_BYTES, MEDIA_BUCKET, MEDIA_MIME_TYPES, mediaPublicUrl } from '../core/media'
+import { isImageMime, isPathInFolder, MAX_MEDIA_BYTES, MEDIA_BUCKET, MEDIA_MIME_TYPES, mediaItemFrom } from '../core/media'
 import { pageSections } from '../core/pages'
 import { panelPaths } from '../core/paths'
 import { resolveText } from '../core/text'
@@ -30,27 +30,7 @@ export const MEDIA_PAGE_SIZE = 40
 const TRASH_RETENTION_DAYS = 30
 const TEXT_MAX = 300
 
-const texts = (value: unknown): LocalizedTextType =>
-  Object.fromEntries(Object.entries(asRecord(value)).filter((entry): entry is [string, string] => typeof entry[1] === 'string'))
-
-export const mediaItemFrom = (supabaseUrl: string, row: MediaRowType): MediaItemType => ({
-  id: row.id,
-  path: row.path,
-  url: mediaPublicUrl(supabaseUrl, row.path),
-  filename: row.filename,
-  folder: row.folder,
-  alt: texts(row.alt),
-  caption: texts(row.caption),
-  mime: row.mime,
-  size: row.size,
-  width: row.width,
-  height: row.height,
-  focalX: row.focal_x,
-  focalY: row.focal_y,
-  blurDataUrl: row.blur_data_url,
-  createdAt: row.created_at,
-  deletedAt: row.deleted_at
-})
+export { mediaItemFrom } from '../core/media'
 
 export const toMediaItem = (ctx: CmsContextType, row: MediaRowType) => mediaItemFrom(ctx.supabaseUrl, row)
 
