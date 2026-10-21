@@ -326,6 +326,14 @@ export default PostPage
 - Every document carries `urls` with its URL in each locale, for the language switch.
 - `sitemap()` lists every published URL with its languages: `export default () => cms.site.sitemap()` in `src/app/sitemap.ts`. It throws when the config has no `site.url`; `absoluteUrl` alone still returns relative paths.
 - `metadata(document)` gives the title with `site.titleTemplate`, the canonical URL, hreflang and Open Graph; `site.url` makes them absolute.
+- `jsonLd(document)` gives a `WebPage` or `Article` node for one page. For the site as a whole, `@linkcharsoft/cms/site` has schema.org helpers that take the site's name, origin and locale: `organization`, `website`, `breadcrumbs`, `blogPosting`, `openingHoursSpecification` (from an `openingHours` field) and `jsonLdGraph`, which joins them (and `jsonLd()` nodes) in one script:
+
+```tsx
+import { breadcrumbs, jsonLdGraph, JsonLd, organization, website } from '@linkcharsoft/cms/site'
+
+const site = { name: 'Norte', url: 'https://norte.com', locale: 'es', email: contact.email, sameAs: [contact.instagram] }
+<JsonLd data={jsonLdGraph(organization(site), website(site), breadcrumbs(site, [{ name: 'Inicio', path: '/' }]), cms.site.jsonLd(home))} />
+```
 
 **App structure.** The panel's root layout (`src/app/(cms)/layout.tsx`) renders its own `<html>`, so the site lives in route groups with their own root layout: `src/app/(es)/layout.tsx` with `page.tsx`, `blog/…` for the default locale and `src/app/(en)/layout.tsx` with `en/page.tsx`, `en/blog/…` for the others. Shared screens (`src/screens/*`) take the locale as a prop.
 
