@@ -26,6 +26,7 @@ const shell = {
     someone: 'Usuario',
     publish: 'Publicar',
     pendingChanges: { one: '{count} cambio pendiente', other: '{count} cambios pendientes' },
+    incompleteChanges: { one: '{count} cambio incompleto: no sale hasta completarlo', other: '{count} cambios incompletos: no salen hasta completarlos' },
     loading: 'Cargando…'
   }
 } as const

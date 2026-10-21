@@ -48,6 +48,7 @@ export const pageEditorRoute = (cms: CmsServerType) => {
             isSuperadmin={profile.role === 'superadmin'}
             title={resolveText(entry.label, textContext(cms.config))}
             status={state?.status}
+            incomplete={state?.incomplete}
             references={references}
             initialLocale={locale}
           />

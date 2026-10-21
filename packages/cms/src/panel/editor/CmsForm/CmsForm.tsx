@@ -12,6 +12,7 @@ import { changedKeys, pickKeys, rebase, sameContent } from '../../../core/merge'
 import { countByLocale, missingContent } from '../../../core/missing'
 import { pageSections } from '../../../core/pages'
 import { visibleFields } from '../../../core/permissions'
+import { displayStatus } from '../../../core/status'
 import { entryPath, slugsOf } from '../../../core/urls'
 import { validateContent } from '../../../core/validation'
 import { fieldLabel } from '../../../core/walk'
@@ -58,6 +59,8 @@ interface Props {
   title: string
   // Publication status when the page loaded; null while the content was never saved.
   status?: DocumentStatusType | null
+  // Whether missing content kept it out of the publication when the page loaded; the editor re-checks after each save.
+  incomplete?: boolean
   toolbar?: ReactNode
   references?: ResolvedReferencesType
   // Language being edited, from `?locale=`; the default one otherwise.
@@ -73,7 +76,7 @@ const toNested = <V,>(errors: ContentErrorsType, value: (message: string) => V) 
 
 // The schema is resolved here: it holds functions and RegExps, which can't cross the server → client boundary.
 const CmsForm = ({
-  entryId, documentId, initialData, initialRevision, publishedData = null, isSuperadmin, title, status = null, toolbar,
+  entryId, documentId, initialData, initialRevision, publishedData = null, isSuperadmin, title, status = null, incomplete = false, toolbar,
   references = EMPTY_REFERENCES, initialLocale
 }: Props) => {
   const { t } = useT()
@@ -92,7 +95,7 @@ const CmsForm = ({
   const [locale, setLocale] = useState(initialLocale && config.locales.includes(initialLocale) ? initialLocale : config.defaultLocale)
   const [conflict, setConflict] = useState<{ data: DataRecord, updatedAt: string, keys: string[] } | null>(null)
   const [remounts, setRemounts] = useState<Record<string, number>>({})
-  const [missing, setMissing] = useState<MissingContentType[]>([])
+  const [missing, setMissing] = useState<MissingContentType[] | null>(null)
   const [anchor, setAnchor] = useState<string | null>(entry?.anchor ?? null)
   const [edited, setEdited] = useState(false)
   const [previewOpen, setPreviewOpen] = useState(false)
@@ -293,7 +296,9 @@ const CmsForm = ({
     const name = item.kind === 'alt' ? t('validation.altOf', { field: label(item.field) }) : label(item.field)
     return multilingual && item.locale && item.locale !== locale ? `${name} (${languageName(item.locale, config.panelLocale)})` : name
   }
-  const counts = countByLocale(config, missing)
+  const known = missing ?? []
+  const isIncomplete = missing ? missing.length > 0 : incomplete
+  const counts = countByLocale(config, known)
   const localeOption = (option: { value: string, label: string } | null) => option && (
     <span className='CmsForm__LocaleOption'>
       {option.label}
@@ -307,8 +312,8 @@ const CmsForm = ({
   const shownTitle = entry.kind === 'collection' ? documentTitle(entry, formik.values, textCtx) : title
   // What can be filled in the language on screen comes first.
   const here = (item: MissingContentType) => !item.locale || item.locale === locale
-  const listed = [...new Map([...missing.filter(here), ...missing.filter(item => !here(item))].map(item => [missingLabel(item), item])).entries()]
-  const issues = [...new Set([...missing.map(item => item.path), ...errorPaths(formik.errors)])]
+  const listed = [...new Map([...known.filter(here), ...known.filter(item => !here(item))].map(item => [missingLabel(item), item])).entries()]
+  const issues = [...new Set([...known.map(item => item.path), ...errorPaths(formik.errors)])]
   const extra = listed.length - MAX_MISSING_LISTED
   const shownStatus = status === 'published' && edited ? 'changed' : status
   const previewPath = entryPath(config, entry, { locale, slug: slugsOf(config, entry, formik.values)[locale] })
@@ -325,7 +330,7 @@ const CmsForm = ({
             title={shownTitle}
             meta={(
               <>
-                {shownStatus && <Tag value={t(`documentStatus.${shownStatus}`)} severity={DOCUMENT_SEVERITIES[shownStatus]} />}
+                {shownStatus && <Tag value={t(`documentStatus.${displayStatus(shownStatus, isIncomplete)}`)} severity={DOCUMENT_SEVERITIES[displayStatus(shownStatus, isIncomplete)]} />}
                 <AutosaveStatus status={autosave.status} savedAt={autosave.savedAt} />
                 {multilingual && (
                   <Dropdown
@@ -413,7 +418,7 @@ const CmsForm = ({
                           <PageFields
                             fields={fields}
                             published={publishedData}
-                            missing={missing}
+                            missing={known}
                             remounts={remounts}
                             compact={showPreview}
                             onAnchorChange={onAnchorChange}

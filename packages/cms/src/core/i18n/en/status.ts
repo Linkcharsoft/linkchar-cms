@@ -5,6 +5,7 @@ const status = {
   documentStatus: {
     hidden: 'Draft',
     new: 'Ready to publish',
+    incomplete: 'Incomplete',
     published: 'Published',
     changed: 'Unpublished changes',
     unpublishing: 'Removed on publish'

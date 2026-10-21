@@ -5,6 +5,7 @@ import { Tag } from 'primereact/tag'
 import { collectionNewLabel } from '../../../core/entries'
 import { publishDisplayStatus } from '../../../core/publish'
 import { useCms, useFormatDate, usePaths, useT, useTextContext } from '../../client/context'
+import { DOCUMENT_SEVERITIES } from '../../lists/documentStatus'
 import CustomButton from '../../primitives/CustomButton/CustomButton'
 import DashboardPageHeader from '../../primitives/DashboardPageHeader/DashboardPageHeader'
 import EmptyState from '../../primitives/EmptyState/EmptyState'
@@ -13,7 +14,6 @@ import { useNotify } from '../../providers/notify'
 import { navItems } from '../../shell/navigation'
 import type { OverviewAlertType } from '../../../core/alerts'
 import type { SchemaEntry } from '../../../core/define'
-import type { DocumentStatusType } from '../../../core/status'
 import type { PageListItemType } from '../../../server/pages'
 import type { PublishRecordType } from '../../../server/publish'
 import type { Route } from 'next'
@@ -34,14 +34,6 @@ interface Props {
   alerts: OverviewAlertType[]
   // Sent here from a screen the user's role can't open.
   forbidden?: boolean
-}
-
-const STATUS_SEVERITIES: Record<DocumentStatusType, 'secondary' | 'info' | 'success' | 'warning' | 'danger'> = {
-  hidden: 'secondary',
-  new: 'info',
-  published: 'success',
-  changed: 'warning',
-  unpublishing: 'danger'
 }
 
 const OverviewPage = ({ drafts, pendingCount, latest, pages, alerts, forbidden = false }: Props) => {
@@ -144,7 +136,7 @@ const OverviewPage = ({ drafts, pendingCount, latest, pages, alerts, forbidden =
                     <Link href={page.href as Route} className='OverviewPage__Row'>
                       <span className='OverviewPage__ItemTitle'>{page.label}</span>
                       {page.status
-                        ? <Tag value={t(`documentStatus.${page.status}`)} severity={STATUS_SEVERITIES[page.status]} />
+                        ? <Tag value={t(`documentStatus.${page.status}`)} severity={DOCUMENT_SEVERITIES[page.status]} />
                         : <Tag value={t('overview.noContent')} severity='secondary' />}
                     </Link>
                   </li>

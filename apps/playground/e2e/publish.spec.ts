@@ -22,6 +22,8 @@ test('publishes the pending changes and follows the build', async ({ page }) => 
   await autosaved(page)
   await page.getByText('Mostrar en el sitio').click()
   await toast(page, 'Se va a mostrar en el sitio')
+  await expect(page.getByText('Incompleto', { exact: true })).toBeVisible()
+  await expect(page.getByTestId('publish-count')).toHaveCount(0)
 
   await page.getByTestId('editor-locale').click()
   await page.getByRole('option', { name: 'Inglés' }).click()
@@ -29,6 +31,8 @@ test('publishes the pending changes and follows the build', async ({ page }) => 
   await page.locator('.ProseMirror').first().click()
   await page.keyboard.type('Yes, renovations and extensions too.')
   await autosaved(page)
+  await expect(page.getByText('Listo para publicar', { exact: true })).toBeVisible()
+  await expect(page.getByTestId('publish-count')).toBeVisible()
 
   await page.goto('/dashboard/publicar')
   await page.waitForLoadState('networkidle')

@@ -1,11 +1,12 @@
-import type { DocumentStatusType } from '../../core/status'
+import type { DocumentDisplayStatusType } from '../../core/status'
 
-export const DOCUMENT_SEVERITIES: Record<DocumentStatusType, 'secondary' | 'info' | 'success' | 'warning' | 'danger'> = {
+export const DOCUMENT_SEVERITIES: Record<DocumentDisplayStatusType, 'secondary' | 'info' | 'success' | 'warning' | 'danger'> = {
   hidden: 'secondary',
   new: 'info',
+  incomplete: 'warning',
   published: 'success',
   changed: 'warning',
   unpublishing: 'danger'
 }
 
-export const DOCUMENT_STATUS_LIST = Object.keys(DOCUMENT_SEVERITIES) as DocumentStatusType[]
+export const DOCUMENT_STATUS_LIST = Object.keys(DOCUMENT_SEVERITIES) as DocumentDisplayStatusType[]

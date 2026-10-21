@@ -50,6 +50,7 @@ export const documentEditorRoute = (cms: CmsServerType) => {
             isSuperadmin={profile.role === 'superadmin'}
             title={documentTitle(entry, data, ctx)}
             status={state?.status}
+            incomplete={state?.incomplete}
             references={references}
             initialLocale={locale}
             toolbar={<DocumentActions key='actions' entryId={entryId} documentId={document.id} visible={state?.visible} canHide={!entry.referenceOnly} />}

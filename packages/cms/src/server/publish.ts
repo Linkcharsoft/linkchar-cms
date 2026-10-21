@@ -1,8 +1,6 @@
 import { textContext, translatorFor } from '../core/config'
 import { withDefaults } from '../core/defaults'
 import { entryIds, getEntry } from '../core/entries'
-import { languageName } from '../core/i18n/translator'
-import { missingContent } from '../core/missing'
 import { changedSections } from '../core/pages'
 import { panelPaths } from '../core/paths'
 import { BUILD_CONFIRMATION_TIMEOUT_MS } from '../core/publish'
@@ -11,30 +9,19 @@ import { referenceWarnings } from '../core/relations'
 import { canPublish } from '../core/roles'
 import { resolveText } from '../core/text'
 import { entryPath, entryUrls, publishUrls } from '../core/urls'
-import { fieldLabel } from '../core/walk'
 import { logActivity } from './activity'
 import { requireRole } from './auth'
 import { authorNames } from './authors'
 import { getDocumentUsageRows, getRelationLabels, titleOf } from './documents'
+import { incompleteIds, mediaAltOf, missingItems } from './incomplete'
 import { describeUsage } from './media'
 import type { CmsContextType } from './context'
-import type { FieldsRecord } from '../core/fields'
+import type { MissingItemType } from './incomplete'
 import type { MessageKeyType } from '../core/i18n/types'
-import type { MissingContentType } from '../core/missing'
 import type { BuildErrorCodeType, BuildEventStatusType, BuildEventType, BuildStatusType } from '../core/publish'
 import type { DocumentStatusType } from '../core/status'
-import type { LocalizedTextType } from '../core/text'
 
-// One thing that keeps a document out of the publication, with the data path the editor opens.
-export interface MissingItemType {
-  path: string
-  // The language it is missing in; null for values shared by every language.
-  locale: string | null
-  kind: 'field' | 'alt'
-  label: string
-  // The field in the editor, in that language.
-  href: string
-}
+export type { MissingItemType } from './incomplete'
 
 export interface PendingChangeType {
   id: string
@@ -91,41 +78,6 @@ export const describeDocument = (ctx: CmsContextType, row: StatusRowType) => {
     title: entry.kind === 'collection' ? titleOf(ctx, entry, row.data) : entryLabel,
     href: row.deleted_at ? paths.trash : paths.entry(entry.kind, row.type, row.id)
   }
-}
-
-type MediaAltType = (id: string) => LocalizedTextType | undefined
-
-const missingItems = async (
-  ctx: CmsContextType, fields: FieldsRecord, data: unknown, mediaAlt: MediaAltType, hrefOf: (item: MissingContentType) => string
-): Promise<MissingItemType[]> => {
-  const { config } = ctx
-  const texts = textContext(config)
-  const { t } = translatorFor(config)
-  const named = (label: string, locale: string | null) =>
-    (locale && locale !== config.defaultLocale ? `${label} (${languageName(locale, config.panelLocale)})` : label)
-
-  return (await missingContent(config, fields, data, { mediaAlt })).map(item => {
-    const label = fieldLabel(fields, item.field, texts)
-    return {
-      path: item.path,
-      locale: item.locale,
-      kind: item.kind,
-      label: named(item.kind === 'alt' ? t('validation.altOf', { field: label }) : label, item.locale),
-      href: hrefOf(item)
-    }
-  })
-}
-
-// Alt texts of every file the pending documents use, for the missing translations check.
-const mediaAltOf = async (ctx: CmsContextType, documents: { type: string | null, data: unknown }[]): Promise<MediaAltType> => {
-  const ids = [...new Set(documents.flatMap(({ type, data }) => {
-    const entry = type ? getEntry(ctx.config, type) : null
-    return entry ? documentReferences(ctx.config, entry.fields, withDefaults(ctx.config, entry.fields, data)).media : []
-  }))]
-  if (ids.length === 0 || ctx.config.locales.length < 2) return () => undefined
-  const { data } = await ctx.db.from('media').select('id, alt').in('id', ids)
-  const alts = new Map((data ?? []).map(row => [row.id, row.alt as LocalizedTextType]))
-  return id => alts.get(id)
 }
 
 const asPaths = (value: unknown): Record<string, string> =>
@@ -225,10 +177,29 @@ const addUsageWarnings = async (ctx: CmsContextType, changes: PendingChangeType[
   }
 }
 
+export interface PendingCountsType {
+  // Changes the next publish takes: ready documents and removals.
+  ready: number
+  // Pending documents that missing content keeps out.
+  incomplete: number
+}
+
+const COUNT_LIMIT = 200
+
+export const getPendingCounts = async (ctx: CmsContextType): Promise<PendingCountsType> => {
+  const { data, count } = await ctx.db.from('document_status').select('id, type, data, status', { count: 'exact' })
+    .eq('pending', true).in('type', entryIds(ctx.config)).limit(COUNT_LIMIT)
+  const rows = data ?? []
+  const total = count ?? rows.length
+  // The header asks on every navigation: past the limit, checking each document would cost more than it tells.
+  if (total > COUNT_LIMIT) return { ready: total, incomplete: 0 }
+  const incomplete = await incompleteIds(ctx, rows)
+  return { ready: total - incomplete.size, incomplete: incomplete.size }
+}
+
 export const getPendingCount = async (ctx: CmsContextType) => {
-  const { count } = await ctx.db.from('document_status').select('id', { count: 'exact', head: true })
-    .eq('pending', true).in('type', entryIds(ctx.config))
-  return count ?? 0
+  const counts = await getPendingCounts(ctx)
+  return counts.ready + counts.incomplete
 }
 
 type LogItemType = { id: string, type: string, action: 'publish' | 'unpublish' }
@@ -405,6 +376,6 @@ export const retryPublish = async (ctx: CmsContextType, publishId: number): Prom
 
 export const getPublishStatus = async (ctx: CmsContextType) => {
   await requireRole(ctx, 'editor')
-  const [latest, pendingCount] = await Promise.all([getLatestPublish(ctx), getPendingCount(ctx)])
-  return { latest, pendingCount }
+  const [latest, counts] = await Promise.all([getLatestPublish(ctx), getPendingCounts(ctx)])
+  return { latest, counts }
 }

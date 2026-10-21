@@ -24,7 +24,7 @@ export const overviewRoute = (cms: CmsServerType) => {
     return (
       <OverviewPage
         drafts={drafts}
-        pendingCount={changes.length}
+        pendingCount={changes.filter(change => change.action === 'unpublish' || change.problems.length === 0).length}
         latest={latest}
         pages={pages}
         alerts={overviewAlerts(cms.config, latest, changes)}

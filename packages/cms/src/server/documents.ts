@@ -3,15 +3,17 @@ import { documentTitle, entryIds, getCollection, getEntry } from '../core/entrie
 import { fieldLocalize } from '../core/locales'
 import { panelPaths } from '../core/paths'
 import { isDocumentStatus } from '../core/publish'
+import { displayStatus } from '../core/status'
 import { resolveText } from '../core/text'
 import { dataFields } from '../core/walk'
+import { incompleteIds } from './incomplete'
 import type { CmsContextType } from './context'
 import type { Database } from './database'
 import type { UsageRowType } from './media'
 import type { CollectionEntry, SchemaEntry } from '../core/define'
 import type { LeafField } from '../core/kinds/registry'
 import type { RelationRefType } from '../core/relations'
-import type { DocumentStatusType } from '../core/status'
+import type { DocumentDisplayStatusType, DocumentStatusType } from '../core/status'
 
 export type DocumentRowType = Database['public']['Tables']['documents']['Row']
 
@@ -21,7 +23,7 @@ export interface CollectionItemType {
   href: string
   title: string
   slug: string | null
-  status: DocumentStatusType
+  status: DocumentDisplayStatusType
   visible: boolean
   sortOrder: number
   updatedAt: string
@@ -32,11 +34,14 @@ export type CollectionSortType = 'updated' | 'title' | 'manual'
 export interface CollectionQueryType {
   search?: string
   sort?: CollectionSortType
-  status?: DocumentStatusType
+  status?: DocumentDisplayStatusType
   page?: number
 }
 
 export const COLLECTION_PAGE_SIZE = 20
+// "Incompleto" is not a column of the view: those filters read the candidates and pick in memory, up to this many.
+const DERIVED_STATUS_LIMIT = 200
+const DERIVED_STATUSES: readonly DocumentDisplayStatusType[] = ['new', 'changed', 'incomplete']
 
 export interface TrashItemType {
   id: string
@@ -87,33 +92,38 @@ export const listCollection = async (ctx: CmsContextType, entryId: string, query
   const from = (page - 1) * COLLECTION_PAGE_SIZE
   const title = titleColumn(ctx, entry)
 
+  const derived = !!query.status && DERIVED_STATUSES.includes(query.status)
   let request = ctx.db.from('document_status').select(LIST_COLUMNS, { count: 'exact' })
     .eq('type', entryId).is('deleted_at', null)
 
-  if (query.status) request = request.eq('status', query.status)
+  if (query.status) request = derived ? request.in('status', query.status === 'incomplete' ? ['new', 'changed'] : [query.status]) : request.eq('status', query.status)
   if (query.search?.trim()) request = request.ilike(title, `%${escapeLike(query.search.trim())}%`)
 
   request = sort === 'manual'
     ? request.order('sort_order').order('created_at')
     : sort === 'title' ? request.order(title) : request.order('updated_at', { ascending: false })
 
-  const { data, count } = await request.range(from, from + COLLECTION_PAGE_SIZE - 1)
+  const { data, count } = derived ? await request.limit(DERIVED_STATUS_LIMIT) : await request.range(from, from + COLLECTION_PAGE_SIZE - 1)
+  const rows = data ?? []
+  const incomplete = await incompleteIds(ctx, rows.map(row => ({ id: row.id, type: entryId, data: row.data, status: row.status })))
   const paths = panelPaths(ctx.config)
 
   // The view's columns are nullable in the generated types, but they mirror non-null table columns.
-  const items: CollectionItemType[] = (data ?? []).map(row => ({
+  const items: CollectionItemType[] = rows.map(row => ({
     id: row.id!,
     entryId,
     href: paths.document(entryId, row.id!),
     title: titleOf(ctx, entry, row.data),
     slug: row.slug,
-    status: row.status as DocumentStatusType,
+    status: displayStatus(row.status as DocumentStatusType, incomplete.has(row.id!)),
     visible: row.visible ?? true,
     sortOrder: row.sort_order ?? 0,
     updatedAt: row.updated_at!
   }))
 
-  return { items, total: count ?? 0, page, sort }
+  if (!derived) return { items, total: count ?? 0, page, sort }
+  const matching = items.filter(item => item.status === query.status)
+  return { items: matching.slice(from, from + COLLECTION_PAGE_SIZE), total: matching.length, page, sort }
 }
 
 export const listTrash = async (ctx: CmsContextType): Promise<TrashItemType[]> => {
@@ -155,8 +165,10 @@ export const getPublishedData = async (ctx: CmsContextType, id: string) => {
 }
 
 export const getDocumentState = async (ctx: CmsContextType, id: string) => {
-  const { data } = await ctx.db.from('document_status').select('status, visible').eq('id', id).maybeSingle()
-  return data ? { status: data.status as DocumentStatusType, visible: data.visible ?? true } : null
+  const { data } = await ctx.db.from('document_status').select('type, data, status, visible').eq('id', id).maybeSingle()
+  if (!data) return null
+  const incomplete = (await incompleteIds(ctx, [{ id, type: data.type, data: data.data, status: data.status }])).has(id)
+  return { status: data.status as DocumentStatusType, visible: data.visible ?? true, incomplete }
 }
 
 export interface RelationOptionType extends RelationRefType {

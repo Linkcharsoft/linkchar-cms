@@ -19,7 +19,7 @@ describe('listPages', () => {
     const pages = await listPages(fakeContext(db, cmsConfig))
     expect(pages.map(page => page.id)).toEqual(['home', 'about', 'notFound'])
     expect(pages[0]).toMatchObject({
-      label: 'Inicio', path: '/', href: '/dashboard/paginas/home', status: 'new', updatedBy: 'Ana',
+      label: 'Inicio', path: '/', href: '/dashboard/paginas/home', status: 'incomplete', updatedBy: 'Ana',
       uses: [{ label: 'Proyectos', href: '/dashboard/colecciones/projects', count: 1 }]
     })
     expect(pages[1]).toMatchObject({ status: null, updatedAt: null })

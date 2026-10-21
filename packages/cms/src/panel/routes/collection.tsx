@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation'
 import { textContext } from '../../core/config'
 import { collectionNewLabel, getCollection } from '../../core/entries'
-import { isDocumentStatus } from '../../core/publish'
+import { isDisplayStatus } from '../../core/status'
 import { resolveText } from '../../core/text'
 import { COLLECTION_PAGE_SIZE } from '../../server/documents'
 import CollectionTable from '../lists/CollectionTable/CollectionTable'
@@ -42,7 +42,7 @@ export const collectionRoute = (cms: CmsServerType) => {
     const search = param(query.q) ?? ''
     const requestedSort = param(query.sort)
     const requestedStatus = param(query.status)
-    const status = isDocumentStatus(requestedStatus) ? requestedStatus : undefined
+    const status = isDisplayStatus(requestedStatus) ? requestedStatus : undefined
     const collectionQuery: CollectionQueryType = {
       search,
       sort: SORTS.find(sort => sort === requestedSort),

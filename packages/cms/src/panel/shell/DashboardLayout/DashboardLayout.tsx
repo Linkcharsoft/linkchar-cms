@@ -2,7 +2,7 @@ import './DashboardLayout.sass'
 import DashboardHeader from '../DashboardHeader/DashboardHeader'
 import DashboardSidebar from '../DashboardSidebar/DashboardSidebar'
 import type { RoleType } from '../../../core/roles'
-import type { PublishRecordType } from '../../../server/publish'
+import type { PendingCountsType, PublishRecordType } from '../../../server/publish'
 import type { NavGroupType } from '../navigation'
 import type { ReactNode } from 'react'
 
@@ -11,11 +11,11 @@ interface Props {
   brand: { name: string, logo?: string, footer?: string }
   user: { name: string, role: RoleType, avatar: string | null, seenTours: string[] }
   latestPublish: PublishRecordType | null
-  pendingCount: number
+  pendingCounts: PendingCountsType
   children: ReactNode
 }
 
-const DashboardLayout = ({ groups, brand, user, latestPublish, pendingCount, children }: Props) => (
+const DashboardLayout = ({ groups, brand, user, latestPublish, pendingCounts, children }: Props) => (
   <div className='DashboardLayout'>
     <DashboardSidebar groups={groups} brand={brand} />
 
@@ -26,7 +26,7 @@ const DashboardLayout = ({ groups, brand, user, latestPublish, pendingCount, chi
         avatar={user.avatar}
         seenTours={user.seenTours}
         latestPublish={latestPublish}
-        pendingCount={pendingCount}
+        pendingCounts={pendingCounts}
       />
       { children }
     </div>

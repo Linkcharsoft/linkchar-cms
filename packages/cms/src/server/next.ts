@@ -19,7 +19,7 @@ import { saveDocument } from './editing'
 import { confirmEmailLink, disableDraft, enableDraft, signOutTo } from './handlers'
 import * as media from './media'
 import { listPages } from './pages'
-import { applyBuildEvent, getLatestPublish, getPendingChanges, getPendingCount, getPublishHistory, getPublishStatus, publishChanges, retryPublish } from './publish'
+import { applyBuildEvent, getLatestPublish, getPendingChanges, getPendingCount, getPendingCounts, getPublishHistory, getPublishStatus, publishChanges, retryPublish } from './publish'
 import { acceptInvite, completeSecondFactor, login, logout, requestPasswordReset, updatePassword } from './session'
 import { purgeDocument, restoreDocument } from './trash'
 import { deleteInvite, inviteUser, listPanelUsers, resendInvite, resetUserMfa, setUserActive, updateUserAccess } from './users'
@@ -70,7 +70,7 @@ const QUERIES = {
   listTrash: documents.listTrash, purgeExpiredDocuments: documents.purgeExpiredDocuments, getPublishedData: documents.getPublishedData,
   getDocumentState: documents.getDocumentState, getRelationLabels: documents.getRelationLabels, getRecentDrafts: documents.getRecentDrafts,
   listMedia: media.listMedia, getMediaByIds: media.getMediaByIds, purgeExpiredMedia: media.purgeExpiredMedia,
-  listPages, getPendingChanges, getPendingCount, getPublishHistory, getLatestPublish, listPanelUsers, listActivity, purgeExpiredActivity
+  listPages, getPendingChanges, getPendingCount, getPendingCounts, getPublishHistory, getLatestPublish, listPanelUsers, listActivity, purgeExpiredActivity
 }
 
 export const createCmsServer = ({ config, supabase, publishTarget = null, logger = consoleLogger }: CmsServerOptionsType) => {

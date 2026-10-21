@@ -2,6 +2,7 @@ const status = {
   documentStatus: {
     hidden: 'Borrador',
     new: 'Listo para publicar',
+    incomplete: 'Incompleto',
     published: 'Publicado',
     changed: 'Cambios sin publicar',
     unpublishing: 'Se quita al publicar'

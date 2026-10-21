@@ -8,7 +8,7 @@ import type { ReactNode } from 'react'
 export const panelLayout = (cms: CmsServerType) => {
   const Layout = async ({ children }: { children: ReactNode }) => {
     const { user, profile } = await cms.queries.requireRole()
-    const [latestPublish, pendingCount] = await Promise.all([cms.queries.getLatestPublish(), cms.queries.getPendingCount()])
+    const [latestPublish, pendingCounts] = await Promise.all([cms.queries.getLatestPublish(), cms.queries.getPendingCounts()])
     const ctx = textContext(cms.config)
     const { name, logo, footer } = cms.config.branding
 
@@ -18,7 +18,7 @@ export const panelLayout = (cms: CmsServerType) => {
         brand={{ name, logo, footer: footer ? resolveText(footer, ctx) : undefined }}
         user={{ name: profile.name || user.email || ctx.translator.t('shell.someone'), role: profile.role, avatar: profile.avatar, seenTours: profile.seen_tours }}
         latestPublish={latestPublish}
-        pendingCount={pendingCount}
+        pendingCounts={pendingCounts}
       >
         {children}
       </DashboardLayout>

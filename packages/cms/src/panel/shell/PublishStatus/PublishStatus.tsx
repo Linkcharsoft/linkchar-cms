@@ -7,7 +7,7 @@ import { headerPublishStatus } from '../../../core/publish'
 import { useCms, usePaths, useT } from '../../client/context'
 import CustomButton from '../../primitives/CustomButton/CustomButton'
 import type { PublishDisplayStatusType } from '../../../core/publish'
-import type { PublishRecordType } from '../../../server/publish'
+import type { PendingCountsType, PublishRecordType } from '../../../server/publish'
 
 export const PUBLISH_SEVERITIES: Record<PublishDisplayStatusType, 'info' | 'success' | 'warning' | 'danger'> = {
   building: 'info',
@@ -18,15 +18,17 @@ export const PUBLISH_SEVERITIES: Record<PublishDisplayStatusType, 'info' | 'succ
 
 interface Props {
   latest: PublishRecordType | null
-  pendingCount: number
+  counts: PendingCountsType
 }
 
-type SnapshotType = { latest: PublishRecordType | null, pendingCount: number }
+type SnapshotType = { latest: PublishRecordType | null, counts: PendingCountsType }
 
 const POLL_INTERVAL_MS = 10_000
 
+const sameCounts = (a: PendingCountsType, b: PendingCountsType) => a.ready === b.ready && a.incomplete === b.incomplete
+
 // The panel layout doesn't re-render on client navigation, so the counter refreshes itself.
-const PublishStatus = ({ latest: initialLatest, pendingCount: initialCount }: Props) => {
+const PublishStatus = ({ latest: initialLatest, counts: initialCounts }: Props) => {
   const { t } = useT()
   const { actions } = useCms()
   const paths = usePaths()
@@ -34,12 +36,13 @@ const PublishStatus = ({ latest: initialLatest, pendingCount: initialCount }: Pr
   const [polled, setPolled] = useState<{ over: SnapshotType, snapshot: SnapshotType } | null>(null)
 
   // A poll only stands until the layout brings newer props, e.g. router.refresh() after publishing.
-  const { latest, pendingCount } = polled && polled.over.latest === initialLatest && polled.over.pendingCount === initialCount
+  const { latest, counts } = polled && polled.over.latest === initialLatest && sameCounts(polled.over.counts, initialCounts)
     ? polled.snapshot
-    : { latest: initialLatest, pendingCount: initialCount }
+    : { latest: initialLatest, counts: initialCounts }
 
   const shown = latest ? headerPublishStatus(latest.buildStatus, latest.requestedAt) : null
   const status = shown?.status ?? null
+  const onlyIncomplete = counts.ready === 0 && counts.incomplete > 0
 
   const label = () => {
     if (!shown) return ''
@@ -48,7 +51,7 @@ const PublishStatus = ({ latest: initialLatest, pendingCount: initialCount }: Pr
   }
 
   const refresh = useEffectEvent(async () => {
-    const over = { latest: initialLatest, pendingCount: initialCount }
+    const over = { latest: initialLatest, counts: initialCounts }
     setPolled({ over, snapshot: await actions.getPublishStatus() })
   })
 
@@ -76,12 +79,18 @@ const PublishStatus = ({ latest: initialLatest, pendingCount: initialCount }: Pr
           <Tag value={label()} severity={PUBLISH_SEVERITIES[shown.status]} aria-live='polite' data-testid='build-status' />
         </CustomButton>
       )}
-      <CustomButton href={paths.publish} size='sm' variant={pendingCount > 0 ? 'primary' : 'secondary'}>
+      <CustomButton
+        href={paths.publish}
+        size='sm'
+        variant={counts.ready > 0 ? 'primary' : 'secondary'}
+        tooltip={onlyIncomplete ? t('shell.incompleteChanges', { count: counts.incomplete }) : undefined}
+      >
         <i className='pi pi-send' aria-hidden='true' />
         <span className='PublishStatus__Label'>{t('shell.publish')}</span>
-        {pendingCount > 0 && (
-          <span className='PublishStatus__Count' aria-label={t('shell.pendingChanges', { count: pendingCount })}>{pendingCount}</span>
+        {counts.ready > 0 && (
+          <span className='PublishStatus__Count' aria-label={t('shell.pendingChanges', { count: counts.ready })} data-testid='publish-count'>{counts.ready}</span>
         )}
+        {onlyIncomplete && <span className='sr-only'>{t('shell.incompleteChanges', { count: counts.incomplete })}</span>}
       </CustomButton>
     </div>
   )

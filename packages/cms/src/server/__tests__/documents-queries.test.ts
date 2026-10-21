@@ -1,6 +1,6 @@
 import cmsConfig from '@playground/cms.config'
 import { beforeEach, describe, expect, it } from 'vitest'
-import { getRelationLabels, listCollection, listTrash, purgeExpiredDocuments, searchRelation, titleColumn } from '../documents'
+import { getDocumentState, getRelationLabels, listCollection, listTrash, purgeExpiredDocuments, searchRelation, titleColumn } from '../documents'
 import { createFakeDb, fakeContext, signIn } from './fakeSupabase'
 import type { FakeDbType } from './fakeSupabase'
 
@@ -8,6 +8,8 @@ const ID = (n: number) => `6f1c3b2a-2222-4c1d-9e0f-${String(n).padStart(12, '0')
 const DAY = 24 * 60 * 60 * 1000
 
 let db: FakeDbType
+
+const paragraph = (text: string) => ({ type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text }] }] })
 
 const post = (n: number, title: string, extra: Record<string, unknown> = {}) => ({
   id: ID(n), type: 'posts', key: null, slug: `post-${n}`, data: { title: { es: title, en: `Story ${n}` } }, revision: 1,
@@ -31,8 +33,26 @@ describe('listCollection', () => {
   it('lists live documents, newest first, with their status and editor link', async () => {
     const { items, total } = await listCollection(fakeContext(db, cmsConfig), 'posts')
     expect(total).toBe(2)
-    expect(items.map(item => [item.title, item.status])).toEqual([['Obra 100% sustentable', 'new'], ['Casa en el bosque', 'published']])
+    expect(items.map(item => [item.title, item.status])).toEqual([['Obra 100% sustentable', 'incomplete'], ['Casa en el bosque', 'published']])
     expect(items[0].href).toBe(`/dashboard/colecciones/posts/${ID(2)}`)
+  })
+
+  it('tells new documents with missing content apart from the ones ready to publish, and filters by both', async () => {
+    const ctx = fakeContext(db, cmsConfig)
+    db.tables.documents.push(post(5, 'Completa', {
+      data: { title: { es: 'Completa', en: 'Complete' }, slug: { es: 'completa', en: 'complete' }, body: { es: paragraph('Hola'), en: paragraph('Hi') } }
+    }))
+    expect((await listCollection(ctx, 'posts')).items.map(item => [item.id, item.status])).toEqual([[ID(5), 'new'], [ID(2), 'incomplete'], [ID(1), 'published']])
+    expect((await listCollection(ctx, 'posts', { status: 'incomplete' })).items.map(item => item.id)).toEqual([ID(2)])
+    const ready = await listCollection(ctx, 'posts', { status: 'new' })
+    expect(ready.items.map(item => item.id)).toEqual([ID(5)])
+    expect(ready.total).toBe(1)
+  })
+
+  it('says whether a document is incomplete', async () => {
+    const ctx = fakeContext(db, cmsConfig)
+    expect(await getDocumentState(ctx, ID(2))).toEqual({ status: 'new', visible: true, incomplete: true })
+    expect(await getDocumentState(ctx, ID(1))).toEqual({ status: 'published', visible: true, incomplete: false })
   })
 
   it('searches the title in the default locale, literally', async () => {

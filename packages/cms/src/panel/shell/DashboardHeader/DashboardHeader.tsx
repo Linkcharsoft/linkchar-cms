@@ -6,7 +6,7 @@ import HelpMenu from '../../tours/HelpMenu/HelpMenu'
 import AccountMenu from '../AccountMenu/AccountMenu'
 import PublishStatus from '../PublishStatus/PublishStatus'
 import type { RoleType } from '../../../core/roles'
-import type { PublishRecordType } from '../../../server/publish'
+import type { PendingCountsType, PublishRecordType } from '../../../server/publish'
 
 interface Props {
   name: string
@@ -14,10 +14,10 @@ interface Props {
   avatar: string | null
   seenTours: string[]
   latestPublish: PublishRecordType | null
-  pendingCount: number
+  pendingCounts: PendingCountsType
 }
 
-const DashboardHeader = ({ name, role, avatar, seenTours, latestPublish, pendingCount }: Props) => {
+const DashboardHeader = ({ name, role, avatar, seenTours, latestPublish, pendingCounts }: Props) => {
   const { t } = useT()
 
   return (
@@ -25,7 +25,7 @@ const DashboardHeader = ({ name, role, avatar, seenTours, latestPublish, pending
       <AccountMenu name={name} role={role} avatar={avatar} />
 
       <div className='DashboardHeader__Actions'>
-        <PublishStatus latest={latestPublish} pendingCount={pendingCount} />
+        <PublishStatus latest={latestPublish} counts={pendingCounts} />
 
         <HelpMenu seenTours={seenTours} />
 

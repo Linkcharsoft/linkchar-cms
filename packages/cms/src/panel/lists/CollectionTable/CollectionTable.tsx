@@ -16,7 +16,7 @@ import EmptyState from '../../primitives/EmptyState/EmptyState'
 import SearchInput from '../../primitives/SearchInput/SearchInput'
 import { useNotify } from '../../providers/notify'
 import { DOCUMENT_SEVERITIES, DOCUMENT_STATUS_LIST } from '../documentStatus'
-import type { DocumentStatusType } from '../../../core/status'
+import type { DocumentDisplayStatusType } from '../../../core/status'
 import type { CollectionItemType, CollectionSortType } from '../../../server/documents'
 import type { Route } from 'next'
 
@@ -30,7 +30,7 @@ interface Props {
   pageSize: number
   sort: CollectionSortType
   search: string
-  status: DocumentStatusType | null
+  status: DocumentDisplayStatusType | null
 }
 
 // PrimeReact shows an empty Dropdown for '', so "no filter" needs its own value.

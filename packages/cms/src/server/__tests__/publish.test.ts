@@ -2,7 +2,7 @@ import cmsConfig from '@playground/cms.config'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { withDefaults } from '../../core/defaults'
 import { mockBuild } from '../../publish/mock'
-import { applyBuildEvent, getPendingChanges, getPublishHistory, publishChanges, retryPublish, triggerBuild } from '../publish'
+import { applyBuildEvent, getPendingChanges, getPendingCounts, getPublishHistory, getPublishStatus, publishChanges, retryPublish, triggerBuild } from '../publish'
 import { createFakeDb, fakeContext, signIn } from './fakeSupabase'
 import type { PublishTargetType } from '../../publish/types'
 import type { CmsContextType, DataRecord } from '../context'
@@ -296,6 +296,26 @@ describe('applyBuildEvent', () => {
   it('ignores events nobody is waiting for', async () => {
     db.tables.publish_log.push(logRow(9, { job_id: '47', build_status: 'success' }))
     expect(await applyBuildEvent(ctx, { jobId: '99', status: 'succeeded' })).toBe(false)
+  })
+})
+
+describe('getPendingCounts', () => {
+  it('tells the changes ready to go out from the incomplete ones, as the publish screen does', async () => {
+    const home = withDefaults(cmsConfig, cmsConfig.schema.home.fields, {}) as DataRecord
+    db.tables.documents.push(
+      document(1, 'posts', completePost('Casa', 'casa'), { slug: 'casa', slugs: { es: 'casa', en: 'casa' } }),
+      document(2, 'posts', withDefaults(cmsConfig, cmsConfig.schema.posts.fields, {}) as DataRecord),
+      document(3, 'home', home),
+      document(4, 'posts', completePost('Vieja', 'vieja'), { slug: 'vieja', deleted_at: at(5) })
+    )
+    db.tables.published_documents.push({ id: ID(4), type: 'posts', key: null, slug: 'vieja', data: completePost('Vieja', 'vieja'), sort_order: 0 })
+
+    const changes = await getPendingChanges(ctx)
+    const ready = changes.filter(change => change.action === 'unpublish' || change.problems.length === 0).length
+    const incomplete = changes.length - ready
+    expect(incomplete).toBeGreaterThan(0)
+    expect(await getPendingCounts(ctx)).toEqual({ ready, incomplete })
+    expect(await getPublishStatus(ctx)).toEqual({ latest: null, counts: { ready, incomplete } })
   })
 })
 

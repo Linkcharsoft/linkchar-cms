@@ -29,6 +29,7 @@ const shell = {
     someone: 'User',
     publish: 'Publish',
     pendingChanges: { one: '{count} pending change', other: '{count} pending changes' },
+    incompleteChanges: { one: '{count} incomplete change: it stays out until it is filled in', other: '{count} incomplete changes: they stay out until they are filled in' },
     loading: 'Loading…'
   }
 } satisfies CatalogType<typeof es>
