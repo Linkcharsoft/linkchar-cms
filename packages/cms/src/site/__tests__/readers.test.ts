@@ -96,6 +96,11 @@ describe('site readers', () => {
     expect(sitemap).toHaveLength(6)
   })
 
+  it('refuses to build a sitemap without site.url', async () => {
+    const relative = createSiteReaders({ config: defineCmsConfig({ schema, locales: ['es', 'en'] }), supabaseUrl: () => 'https://db.test', source: async () => source, published: () => fakeClient(db) })
+    await expect(relative.sitemap()).rejects.toThrow('needs site.url')
+  })
+
   it('rejects locales the config does not have', async () => {
     await expect(readers().getEntryContent('home', { locale: 'pt' })).rejects.toThrow('not one of the locales')
   })

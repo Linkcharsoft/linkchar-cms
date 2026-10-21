@@ -184,6 +184,7 @@ export const createSiteReaders = ({ config, supabaseUrl, source, published }: Si
 
   // Every published URL in every locale, each with the other languages as alternates.
   const sitemap = async (): Promise<MetadataRoute.Sitemap> => {
+    if (!config.site.url) throw new Error('[@linkcharsoft/cms] sitemap() needs site.url: set `site: { url: "https://acme.com" }` in defineCmsConfig.')
     const listed = Object.entries(config.schema).filter(([, entry]) => entry.path && sitemapOf(entry) !== false).map(([id]) => id)
     if (listed.length === 0) return []
     const { data } = await published().from('published_documents').select('type, slugs, paths, published_at').in('type', listed)
