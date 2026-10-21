@@ -1,6 +1,7 @@
 import { withDefaults } from '../core/defaults'
 import { getCollection, getEntry } from '../core/entries'
 import { mediaItemFrom } from '../core/media'
+import { pageSections, usedEntries } from '../core/pages'
 import { documentReferences } from '../core/references'
 import { alternates, absoluteUrl, entryUrls } from '../core/urls'
 import { resolveSiteContent } from './resolve'
@@ -182,21 +183,30 @@ export const createSiteReaders = ({ config, supabaseUrl, source, published }: Si
 
   const sitemapOf = (entry: SchemaEntry) => (entry.kind === 'singleton' ? undefined : entry.sitemap)
 
-  // Every published URL in every locale, each with the other languages as alternates.
+  const usesOf = (entry: SchemaEntry) => (entry.kind === 'page' ? usedEntries(config, pageSections(entry.fields)).map(used => used.id) : [])
+
+  const latest = (dates: (string | null | undefined)[]) =>
+    dates.reduce<string | null>((last, date) => (date && (!last || Date.parse(date) > Date.parse(last)) ? date : last), null)
+
+  // Every published URL in every locale with its alternates; a page's lastModified counts the entries it `uses`.
   const sitemap = async (): Promise<MetadataRoute.Sitemap> => {
     if (!config.site.url) throw new Error('[@linkcharsoft/cms] sitemap() needs site.url: set `site: { url: "https://acme.com" }` in defineCmsConfig.')
     const listed = Object.entries(config.schema).filter(([, entry]) => entry.path && sitemapOf(entry) !== false).map(([id]) => id)
     if (listed.length === 0) return []
-    const { data } = await published().from('published_documents').select('type, slugs, paths, published_at').in('type', listed)
-    return (data ?? []).flatMap(row => {
+    const used = listed.flatMap(id => usesOf(entryOf(id)))
+    const { data } = await published().from('published_documents').select('type, slugs, paths, published_at').in('type', [...new Set([...listed, ...used])])
+    const rows = data ?? []
+    const lastOf = new Map(used.map(id => [id, latest(rows.filter(row => row.type === id).map(row => row.published_at))]))
+    return rows.filter(row => listed.includes(row.type)).flatMap(row => {
       const entry = entryOf(row.type)
       const paths = strings(row.paths)
       const urls = Object.keys(paths).length > 0 ? paths : entryUrls(config, entry, strings(row.slugs))
       const { languages } = alternates(config, urls, config.defaultLocale)
       const options = sitemapOf(entry) || null
+      const lastModified = latest([row.published_at, ...usesOf(entry).map(id => lastOf.get(id))]) ?? undefined
       return Object.values(urls).map(path => ({
         url: absoluteUrl(config, path),
-        lastModified: row.published_at,
+        lastModified,
         ...(options ? { changeFrequency: options.changeFrequency, priority: options.priority } : {}),
         alternates: { languages }
       }))

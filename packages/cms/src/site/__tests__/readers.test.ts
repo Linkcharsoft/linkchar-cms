@@ -96,6 +96,20 @@ describe('site readers', () => {
     expect(sitemap).toHaveLength(6)
   })
 
+  it('dates a page in the sitemap by the last publish of what its sections show', async () => {
+    const listing = page('Blog', { list: section('Artículos', { title: text({ label: 'Título' }) }, { uses: ['posts', 'team'] }) }, { path: '/blog' })
+    const withList = defineCmsConfig({ schema: { ...schema, listing }, locales: ['es', 'en'], site: { url: 'https://norte.com' } })
+    db.tables.published_documents.push(
+      { id: ID(8), type: 'listing', key: 'listing', slug: null, slugs: {}, paths: { es: '/blog', en: '/en/blog' }, sort_order: 0, published_at: '2026-09-01T00:00:00Z', data: {} },
+      { id: ID(9), type: 'team', key: null, slug: null, slugs: {}, paths: {}, sort_order: 0, published_at: '2026-09-15T00:00:00Z', data: {} }
+    )
+    const sitemap = await createSiteReaders({ config: withList, supabaseUrl: () => 'https://db.test', source: async () => source, published: () => fakeClient(db) }).sitemap()
+    expect(sitemap.find(item => item.url === 'https://norte.com/en/blog')?.lastModified).toBe('2026-10-03T00:00:00Z')
+    expect(sitemap.find(item => item.url === 'https://norte.com/blog/casa')?.lastModified).toBe('2026-10-02T00:00:00Z')
+    expect(sitemap.some(item => item.url.includes('team'))).toBe(false)
+    expect(sitemap).toHaveLength(8)
+  })
+
   it('refuses to build a sitemap without site.url', async () => {
     const relative = createSiteReaders({ config: defineCmsConfig({ schema, locales: ['es', 'en'] }), supabaseUrl: () => 'https://db.test', source: async () => source, published: () => fakeClient(db) })
     await expect(relative.sitemap()).rejects.toThrow('needs site.url')
