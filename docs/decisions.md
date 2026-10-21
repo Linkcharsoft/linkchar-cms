@@ -28,7 +28,11 @@ One line per decision that still shapes the package. Each is settled; reopening 
 - Route segments default to Spanish and are configurable with `paths`; the proxy matcher and the segments stay literals because Next reads them statically.
 - `server-only` is declared once, in `server/index.ts`. ESLint layer zones keep `core`, `site`, `publish`, `server` and `panel` apart.
 - `withCms` reads the redirects at `next build`; it detects `next typegen` through `process.argv` because `NEXT_PHASE` is set only after `redirects()` has run. `redirects: false` is the escape hatch.
-- `sitemap()` throws without `site.url`; `absoluteUrl` still returns relative paths for metadata.
+- `sitemap()` throws without `site.url`; `absoluteUrl` still returns relative paths for metadata. A page's `lastModified` also counts the entries its sections declare in `uses`, not the singletons it previews (menu, footer).
+- Site readers show drafts only in Draft Mode and only to whoever may open the preview (`canPreview`: signed in, active, past the second factor), checked against Auth on each request.
+- Site defaults for metadata are fields of a page or singleton (`site.defaults`), so editors change them; that makes `cms.site.metadata()` async. The page's own SEO always wins.
+- The project registers its generated `Database` as `Register.database` for its own tables (`cms.supabase()`, `cms.supabaseAdmin()`); the package's queries stay typed against its own types.
+- `DraftRefresh` and the schema.org helpers live in `site`; project-specific nodes (a clinic, an FAQ) stay in the project.
 - Invitation and recovery email templates belong to each project (`supabase/templates`), because Supabase's defaults link to a route the panel does not serve.
 
 ## Panel
@@ -43,7 +47,7 @@ One line per decision that still shapes the package. Each is settled; reopening 
 ## Dependencies and releases
 
 - `dependencies` and `devDependencies` are exact; `peerDependencies` are caret ranges, because each project pins its own versions and exact peers turn a patch difference into a conflict.
-- Held back on purpose: PrimeReact and primeicons majors, Tailwind 4 (and tailwind-merge 3), TypeScript 7, `@types/node` majors beyond `engines.node`, changesets/action v2.
-- `@supabase/ssr` stays 0.x; the package follows its minor releases.
+- Held back on purpose: PrimeReact 11 and primeicons 8 (paid versions: never), Tailwind 4 (and tailwind-merge 3: a migration for every project), TypeScript 7 (typescript-eslint supports `<6.1`), `@types/node` majors beyond `engines.node`.
+- `@supabase/ssr` stays 0.x; the peer `^0.12.0` accepts only 0.12.x, so each new minor of it needs a package release.
 - Core export pruning waits for 1.0.
 - One changeset per change; releases through the version PR, which CI gates with `publint` and the tarball check.
