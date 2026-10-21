@@ -15,7 +15,7 @@ export interface SiteImageType {
   caption: string
   width: number | null
   height: number | null
-  // 0–100 from the left and the top, for object-position; null when nobody set one.
+  // A 0–1 ratio from the left and the top (0.5 is the center); null when nobody set one. imageProps() turns it into object-position.
   focalX: number | null
   focalY: number | null
   blurDataUrl: string | null

@@ -86,4 +86,10 @@ describe('imageProps', () => {
       style: { objectPosition: '30% 50%' }, placeholder: 'blur', blurDataURL: 'data:image/png;base64,AA'
     })
   })
+
+  it('reads the focal point as a 0–1 ratio, edges included', () => {
+    const image = { id: 'x', src: 'https://cdn.test/a.webp', alt: '', caption: '', width: null, height: null, focalX: 0, focalY: 1, blurDataUrl: null }
+    expect(imageProps(image).style).toEqual({ objectPosition: '0% 100%' })
+    expect(imageProps({ ...image, focalX: 0.125, focalY: null }).style).toEqual({ objectPosition: '12.5% 50%' })
+  })
 })
