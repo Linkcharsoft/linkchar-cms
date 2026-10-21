@@ -38,6 +38,7 @@
     "linkchar-cms": "./cli/linkchar-cms.js"
   },
   "files": [
+    "CHANGELOG.md",
     "cli",
     "next",
     "src",

@@ -28,6 +28,22 @@ jobs:
       - run: pnpm type-check
       - run: pnpm test
 
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: The tarball that would be published
+        run: pnpm --filter @linkcharsoft/cms pack --pack-destination "$RUNNER_TEMP/pack"
+      - run: pnpm dlx publint@0.3.25 "$RUNNER_TEMP"/pack/*.tgz
+      - name: Every entry point, the CLI and the migrations ship; no tests do
+        run: node scripts/check-pack.mjs "$RUNNER_TEMP"/pack/*.tgz
+
   db:
     runs-on: ubuntu-latest
     steps:
