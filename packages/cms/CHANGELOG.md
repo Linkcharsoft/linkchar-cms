@@ -1,5 +1,11 @@
 # @linkcharsoft/cms
 
+## 0.7.1
+
+### Patch Changes
+
+- b21af49: The editor shows the "Vista previa" button for an entry that has a `previewPath` but no `path` of its own; 0.7.0 only showed it for entries with a `path`.
+
 ## 0.7.0
 
 ### Minor Changes
