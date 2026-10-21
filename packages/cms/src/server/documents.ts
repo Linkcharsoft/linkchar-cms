@@ -1,7 +1,9 @@
 import { STALE_DRAFT_DAYS } from '../core/alerts'
 import { textContext } from '../core/config'
+import { buildDefaults } from '../core/defaults'
 import { documentTitle, entryIds, getCollection, getEntry } from '../core/entries'
 import { fieldLocalize } from '../core/locales'
+import { sameContent } from '../core/merge'
 import { panelPaths } from '../core/paths'
 import { isDocumentStatus } from '../core/publish'
 import { displayStatus } from '../core/status'
@@ -222,6 +224,29 @@ export const getRelationLabels = async (ctx: CmsContextType, ids: string[]): Pro
       trashed: row.deleted_at !== null
     }]
   }))
+}
+
+export const UNTOUCHED_DRAFT_HOURS = 24
+
+// Drafts created and never touched (revision 1, same timestamps, the schema defaults, never published, used nowhere) go after a day.
+export const purgeUntouchedDrafts = async (ctx: CmsContextType, entryId: string) => {
+  const entry = getCollection(ctx.config, entryId)
+  if (!entry) return 0
+  const admin = ctx.admin()
+  const limit = new Date(ctx.now().getTime() - UNTOUCHED_DRAFT_HOURS * 60 * 60 * 1000).toISOString()
+  const { data } = await admin.from('document_status').select('id, data, created_at, updated_at')
+    .eq('type', entryId).eq('revision', 1).is('published_at', null).is('deleted_at', null).lt('created_at', limit).limit(100)
+  const defaults = JSON.parse(JSON.stringify(buildDefaults(ctx.config, entry.fields)))
+  const untouched = (data ?? []).filter(row => row.id && row.updated_at === row.created_at && sameContent(row.data, defaults)).map(row => row.id!)
+  if (untouched.length === 0) return 0
+
+  const used = new Set((await getDocumentUsageRows(ctx, untouched)).map(row => row.target_id))
+  const ids = untouched.filter(id => !used.has(id))
+  if (ids.length === 0) return 0
+
+  const { error } = await admin.from('documents').delete().in('id', ids)
+  if (error) ctx.logger.error('[documents] purge untouched failed:', error.code ?? error.message)
+  return error ? 0 : ids.length
 }
 
 // Hidden collection drafts nobody touched for STALE_DRAFT_DAYS, oldest first, for the overview.

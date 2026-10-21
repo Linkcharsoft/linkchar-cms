@@ -44,6 +44,26 @@ test('creates, edits, trashes and restores a collection item', async ({ page }) 
   console.expectClean()
 })
 
+test('drops a draft nobody touched after a day, and keeps the fresh one', async ({ page }) => {
+  await signIn(page, QA.super.email)
+  await page.goto('/dashboard/colecciones/faq')
+  await page.waitForLoadState('networkidle')
+  await page.getByRole('button', { name: 'Nueva pregunta' }).click()
+  await page.waitForURL(/\/dashboard\/colecciones\/faq\/[0-9a-f-]{36}$/)
+  const fresh = page.url().split('/').pop()!
+
+  const { data: row } = await admin.from('documents').select('data').eq('id', fresh).single()
+  const twoDaysAgo = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString()
+  const { data: old } = await admin.from('documents').insert({ type: 'faq', data: row!.data, visible: false, created_at: twoDaysAgo, updated_at: twoDaysAgo }).select('id').single()
+
+  await page.goto('/dashboard/colecciones/faq')
+  await page.waitForLoadState('networkidle')
+  const ids = (await admin.from('documents').select('id').in('id', [fresh, old!.id])).data!.map(item => item.id)
+  expect(ids).toEqual([fresh])
+
+  await admin.from('documents').delete().eq('id', fresh)
+})
+
 test('generates the slug from the title in each language', async ({ page }) => {
   await signIn(page, QA.super.email)
   await page.goto('/dashboard/colecciones/posts')

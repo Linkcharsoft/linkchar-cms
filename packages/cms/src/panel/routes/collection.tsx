@@ -36,6 +36,7 @@ export const collectionRoute = (cms: CmsServerType) => {
     await cms.queries.requireRole()
     const entry = getCollection(cms.config, entryId)
     if (!entry) notFound()
+    await cms.queries.purgeUntouchedDrafts(entryId)
 
     const ctx = textContext(cms.config)
     const { t } = ctx.translator

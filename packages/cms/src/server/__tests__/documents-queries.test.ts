@@ -1,6 +1,7 @@
 import cmsConfig from '@playground/cms.config'
 import { beforeEach, describe, expect, it } from 'vitest'
-import { getDocumentState, getRelationLabels, getStaleDrafts, listCollection, listTrash, purgeExpiredDocuments, searchRelation, titleColumn } from '../documents'
+import { buildDefaults } from '../../core/defaults'
+import { getDocumentState, getRelationLabels, getStaleDrafts, listCollection, listTrash, purgeExpiredDocuments, purgeUntouchedDrafts, searchRelation, titleColumn } from '../documents'
 import { createFakeDb, fakeContext, signIn } from './fakeSupabase'
 import type { FakeDbType } from './fakeSupabase'
 
@@ -71,6 +72,35 @@ describe('listCollection', () => {
 
   it('uses the manual order for orderable collections', async () => {
     expect((await listCollection(fakeContext(db, cmsConfig), 'team')).sort).toBe('manual')
+  })
+})
+
+describe('purgeUntouchedDrafts', () => {
+  it('removes day-old drafts nobody touched and keeps edited, used, recent or published ones', async () => {
+    const now = Date.parse('2026-10-03T10:00:00Z')
+    const ctx = { ...fakeContext(db, cmsConfig), now: () => new Date(now) }
+    const defaults = JSON.parse(JSON.stringify(buildDefaults(cmsConfig, cmsConfig.schema.posts.fields)))
+    const blank = (n: number, extra: Record<string, unknown> = {}) =>
+      post(n, '', { data: defaults, slug: null, visible: false, created_at: '2026-10-01T10:00:00Z', updated_at: '2026-10-01T10:00:00Z', ...extra })
+    db.tables.documents.push(
+      blank(5),
+      blank(6),
+      blank(7, { data: { ...defaults, title: { es: 'Con título', en: '' } } }),
+      blank(8, { revision: 2 }),
+      blank(9, { created_at: '2026-10-03T09:00:00Z', updated_at: '2026-10-03T09:00:00Z' }),
+      blank(10)
+    )
+    db.tables.published_documents.push({ id: ID(10), type: 'posts', key: null, slug: null, data: defaults, sort_order: 0, published_at: '2026-10-02T00:00:00Z' })
+    db.rpc.document_usage = ({ ids }) => ({
+      data: (ids as string[]).includes(ID(6)) ? [{ target_id: ID(6), document_id: ID(1), type: 'posts', data: {}, keys: [], published: false, trashed: false }] : [],
+      error: null
+    })
+
+    expect(await purgeUntouchedDrafts(ctx, 'posts')).toBe(1)
+    const left = db.tables.documents.map(row => row.id)
+    expect(left).not.toContain(ID(5))
+    expect(left).toEqual(expect.arrayContaining([ID(6), ID(7), ID(8), ID(9), ID(10)]))
+    expect(await purgeUntouchedDrafts(ctx, 'posts')).toBe(0)
   })
 })
 
