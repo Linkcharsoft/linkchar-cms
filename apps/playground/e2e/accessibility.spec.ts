@@ -25,6 +25,9 @@ test('the sign-in screen has no serious accessibility issues', async ({ page }) 
 
 test('the first Tab reaches a link that jumps to the content', async ({ page }) => {
   await signIn(page, QA.super.email)
+  // A full load: after a client-side navigation the browser keeps its focus starting point where it was.
+  await page.goto('/dashboard')
+  await page.waitForLoadState('networkidle')
   await page.keyboard.press('Tab')
   await expect(page.getByRole('link', { name: 'Saltar al contenido' })).toBeFocused()
   await page.keyboard.press('Enter')
