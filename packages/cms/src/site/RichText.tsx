@@ -63,7 +63,7 @@ const renderNode = (node: RichTextNodeType, key: number, components: RichTextCom
   const children = node.content?.map((child, index) => renderNode(child, index, components))
   switch (node.type) {
     case 'text':
-      return (node.marks ?? []).reduce<ReactNode>((inner, mark, index) => withMark(mark, inner, index), node.text ?? '')
+      return <Fragment key={key}>{(node.marks ?? []).reduce<ReactNode>((inner, mark, index) => withMark(mark, inner, index), node.text ?? '')}</Fragment>
     case 'paragraph':
       return <p key={key}>{children}</p>
     case 'heading': {

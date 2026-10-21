@@ -1,5 +1,5 @@
 import { cleanup, render } from '@testing-library/react'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { imageProps } from '../image'
 import JsonLd from '../JsonLd'
 import RichText from '../RichText'
@@ -37,6 +37,18 @@ describe('RichText', () => {
     expect(links[0].getAttribute('rel')).toBe('noopener noreferrer')
     expect(container.textContent).toContain('otra')
     expect(container.textContent).not.toContain('bloque de código')
+  })
+
+  it('gives each marked text in a paragraph its own key', () => {
+    const paragraph = { type: 'doc', content: [{ type: 'paragraph', content: [
+      { type: 'text', text: 'Una ', marks: [{ type: 'bold' }] },
+      { type: 'text', text: 'casa', marks: [{ type: 'italic' }] }
+    ] }] } as unknown as typeof value
+    const error = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+    const { container } = render(<RichText value={paragraph} />)
+    expect(container.querySelector('p')?.textContent).toBe('Una casa')
+    expect(error.mock.calls.flat().join(' ')).not.toContain('same key')
+    error.mockRestore()
   })
 
   it('renders images with their caption, or the project component', () => {
