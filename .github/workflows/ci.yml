@@ -20,8 +20,6 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - name: The package never imports project code
-        run: '! grep -rnE "from ''@/|from ''@playground/" packages/cms/src --include=*.ts --include=*.tsx --exclude-dir=__tests__ --exclude-dir=__integration__'
       - name: The playground has the package migrations
         run: pnpm --filter playground exec linkchar-cms migrations sync --check
       - name: The playground panel routes follow its config

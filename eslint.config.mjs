@@ -12,6 +12,28 @@ import reactHooks from 'eslint-plugin-react-hooks'
 import globals from 'globals'
 import * as jsoncParser from 'jsonc-eslint-parser'
 
+// Layer map: core ← publish ← server ← site/panel; panel/routes/** are server components and may use server constants.
+const layerZone = (files, layers, { ignores = [], paths = [], groups = [], allowTypeImports = true } = {}) => ({
+  files,
+  ignores: ['**/__tests__/**', '**/__integration__/**', ...ignores],
+  rules: {
+    '@typescript-eslint/no-restricted-imports': ['error', {
+      paths: paths.map(name => ({ name, message: 'This layer stays framework-free.' })),
+      patterns: [
+        ...(groups.length > 0 ? [{ group: groups, message: 'This layer stays framework-free.' }] : []),
+        {
+          regex: `^(\\.\\./)+(${layers.join('|')})(/|$)`,
+          message: `This layer never imports values from ${layers.join(', ')}: move the code to core or pass it in.`,
+          allowTypeImports
+        }
+      ]
+    }]
+  }
+})
+
+const FRAMEWORK_PACKAGES = ['react', 'react-dom', 'next', 'formik', 'primereact', '@supabase/ssr', '@supabase/supabase-js']
+const FRAMEWORK_GROUPS = ['react/*', 'react-dom/*', 'next/*', 'primereact/*', '@supabase/*', '@tiptap/*']
+
 const ESLintConfig = [
   {
     ignores: ['**/node_modules/', '**/dist/', '**/.next/', '**/.next-en/', '**/test-results/', '**/playwright-report/', '**/*.d.ts', '.claude/', '**/CHANGELOG.md']
@@ -105,6 +127,10 @@ const ESLintConfig = [
       }]
     }
   },
+  layerZone(['packages/cms/src/core/**/*.{ts,tsx}'], ['server', 'panel', 'site', 'publish'], { paths: FRAMEWORK_PACKAGES, groups: FRAMEWORK_GROUPS, allowTypeImports: false }),
+  layerZone(['packages/cms/src/publish/**/*.ts'], ['server', 'panel', 'site'], { allowTypeImports: false }),
+  layerZone(['packages/cms/src/site/**/*.{ts,tsx}'], ['server', 'panel']),
+  layerZone(['packages/cms/src/panel/**/*.{ts,tsx}'], ['server'], { ignores: ['packages/cms/src/panel/routes/**'] }),
   {
     files: ['**/package.json'],
     languageOptions: { parser: jsoncParser },
