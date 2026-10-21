@@ -1,5 +1,11 @@
 # @linkcharsoft/cms
 
+## 0.6.2
+
+### Patch Changes
+
+- ef273b2: `RichText` gave two marked texts in the same paragraph the same React key (the index of their mark instead of their own), so React warned about duplicate keys and could drop or repeat one of them on a re-render. Each text now carries its own key.
+
 ## 0.6.1
 
 ### Patch Changes
