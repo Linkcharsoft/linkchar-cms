@@ -2,9 +2,9 @@
 
 Linkchar's CMS for Next.js projects: a content schema in code, Supabase storage, an editor panel and site readers. The package ships TypeScript source; the project compiles it.
 
-> 0.6.x ships the core, the server layer (Supabase queries and actions, with a `logger` the project provides), publishing (Amplify and a local mock), the migrations, the editor panel with its theme and catalogs (`es`, `en`) and its per-language editing, the site readers (`cms.site`, `@linkcharsoft/cms/site`), `withCms` (`@linkcharsoft/cms/next`) and the `linkchar-cms` CLI. The changes of each version are in [CHANGELOG.md](./CHANGELOG.md), which ships with the package.
+> The package ships the core, the server layer (Supabase queries and actions, with a `logger` the project provides), publishing (Amplify and a local mock), the migrations, the editor panel with its theme and catalogs (`es`, `en`) and its per-language editing, the site readers (`cms.site`, `@linkcharsoft/cms/site`), `withCms` (`@linkcharsoft/cms/next`) and the `linkchar-cms` CLI (`init`, `routes`, `migrations sync`, `templates`, `admin`, `doctor`). The changes of each version are in [CHANGELOG.md](./CHANGELOG.md), which ships with the package.
 
-Sections: [Install](#install) · [Configure](#configure) · [Schema texts](#schema-texts) · [Localized content](#localized-content) · [URLs per locale](#urls-per-locale) · [Links](#links) · [Database](#database) · [Supabase](#supabase) · [Server](#server) · [Site](#site) · [Next config](#next-config) · [Field kinds](#field-kinds) · [Panel](#panel) · [Theme](#theme) · [Panel texts](#panel-texts) · [Extensions](#extensions) · [Amplify setup](#amplify-setup) · [Upgrade](#upgrade) · [Development](#development)
+Sections: [Install](#install) · [Start a project](#start-a-project) · [Configure](#configure) · [Schema texts](#schema-texts) · [Localized content](#localized-content) · [URLs per locale](#urls-per-locale) · [Links](#links) · [Database](#database) · [Supabase](#supabase) · [Server](#server) · [Site](#site) · [Next config](#next-config) · [Field kinds](#field-kinds) · [Panel](#panel) · [Theme](#theme) · [Panel texts](#panel-texts) · [Extensions](#extensions) · [Amplify setup](#amplify-setup) · [Upgrade](#upgrade) · [Development](#development)
 
 ## Install
 
@@ -27,7 +27,7 @@ echo "//npm.pkg.github.com/:_authToken=${GITHUB_PACKAGES_TOKEN}" >> ~/.npmrc
 The project needs pnpm 12 and Node 24. Install the package with its peers, pinned (the project's `package.json` keeps exact versions; the package declares its peers as ranges):
 
 ```bash
-pnpm add @linkcharsoft/cms@0.6.1 @supabase/ssr @supabase/supabase-js server-only
+pnpm add @linkcharsoft/cms@0.9.0 @supabase/ssr @supabase/supabase-js server-only
 pnpm add -D sass tailwindcss@3 postcss autoprefixer supabase
 ```
 
@@ -56,6 +56,38 @@ module.exports = { plugins: { tailwindcss: {}, autoprefixer: {} } }
 ```
 
 Tailwind 4 is not supported: the preset and the panel classes are Tailwind 3.
+
+## Start a project
+
+With the package installed and a Supabase folder (`supabase init`), `init` writes the starting point:
+
+```bash
+pnpm exec linkchar-cms init --name "Acme" --base-path /cms --locales es,en --panel-locale es --site-url https://acme.com
+```
+
+It writes only the files that don't exist yet and never touches the rest:
+
+- `cms.config.ts` with the site defaults (`site.defaults`) and `Register` (config and database types);
+- `src/cms/schema.ts` (a `settings` singleton and a home page, to rewrite with the real schema) and `src/cms/server.ts` (Amplify when `CMS_BUILD_HOOK_URL` is set, the mock build otherwise);
+- `src/types/supabase.ts`, which re-exports the package types until `supabase gen types` replaces it;
+- the panel's root layout with its theme (`app/(cms)/layout.tsx`, `theme.css`);
+- the site under `app/(site)/`: a root layout that renders `DraftRefresh` in Draft Mode, the home, the 404 and the catch-all that makes unmatched URLs reach it, plus `app/sitemap.ts` and `proxy.ts`.
+
+Then it runs `templates`, `routes` and `migrations sync`, and lists what each project wires its own way: `withCms` in `next.config.ts`, the Tailwind preset, the environment variables, and, when they already exist, the project's proxy (it must send `basePath` requests to `cms.proxy`) and its root layout (it moves into `app/(site)/`).
+
+```bash
+supabase start && supabase db reset                               # the package migrations
+pnpm exec linkchar-cms admin --email ana@acme.com --password '…'  # the first superadmin
+pnpm exec linkchar-cms doctor                                     # everything above, checked
+```
+
+`doctor` checks the config, routes, migrations and email templates, the variables and `site.url`, that Supabase answers with the package tables and a superadmin, the GitHub Packages token and `minimumReleaseAgeExclude`, and on Windows the Supabase ports: keep them below 49152, because Windows reserves blocks of the ports above it (Hyper-V, WSL, Docker) and a reserved port leaves a container without its host port. The project's check script keeps the generated parts honest:
+
+```json
+"check": "… && linkchar-cms routes --check && linkchar-cms migrations sync --check && linkchar-cms templates --check"
+```
+
+Deploying is in [docs/deploy.md](https://github.com/Linkcharsoft/linkchar-cms/blob/main/docs/deploy.md).
 
 ## Configure
 
