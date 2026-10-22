@@ -1,5 +1,25 @@
 # @linkcharsoft/cms
 
+## 0.9.0
+
+### Minor Changes
+
+- 06bcb4d: `linkchar-cms admin --email ana@acme.com [--password …] [--name "Ana"] [--env-file .env.local]` makes the first superadmin with `SUPABASE_SECRET_KEY`: with a password it creates a confirmed user, without one it sends the invitation email, and a user that already exists is only promoted (its password updated when one is given). The profile gets `superadmin`, `can_publish` and `active`. It replaces the SQL that promoted the first user by hand.
+- dfe8bf1: `linkchar-cms contrast <primary> [--on #ffffff]` prints the contrast between a panel primary and the text on it and exits with 1 below 4.5:1: the check `contrastRatio` makes, usable from a project's shell or an agent without importing the package source.
+- 7aa0325: `linkchar-cms doctor [--config] [--src] [--dir] [--env-file .env.local]` checks a project in one go and exits with 1 on a failure: the config loads, panel routes and proxy, migrations and email templates are up to date (the `--check` of each command), sign-ups off and two-step verification on in `config.toml`, the Supabase variables and `site.url` are set, Supabase answers with the package tables and a superadmin, the GitHub Packages token and pnpm's `minimumReleaseAgeExclude` are there, and, on Windows, no Supabase port falls in a range the system reserves (ports at 49152 and above get a warning: Windows can reserve them after a restart).
+- b5ca2cd: `linkchar-cms init --name "Acme" [--base-path /dashboard] [--locales es,en] [--panel-locale es] [--site-url …]` starts a project: it writes the files a project owns where none exist (`cms.config.ts` with `site.defaults` and `Register.database`, `src/cms/{schema,server}.ts`, `src/types/supabase.ts`, the panel root layout with its theme, the `(site)` layout with `DraftRefresh`, home, 404 and catch-all, `sitemap.ts`, `proxy.ts`), then runs `templates`, `routes` and `migrations sync`, and lists what is left to wire by hand (`next.config`, Tailwind, env, an existing proxy or root layout). It never overwrites a file; the starter labels come from the new `starter.*` catalog keys. CI type-checks what it writes (`pnpm check:init`).
+- df4aefe: `linkchar-cms templates [--config cms.config.ts] [--dir supabase] [--check]` writes the invitation and recovery emails (`supabase/templates/{invite,recovery}.html`) linking to the panel's confirm route under `basePath`, in the panel language (new `emails.*` catalog keys, which `messages` can override), and adds their `[auth.email.template.*]` blocks to `config.toml`. An existing template is the project's and is only checked: `--check` exits with 1 while one is missing or does not link to `<basePath>/auth/confirm`.
+  
+  To update a project: add `linkchar-cms templates --check` to its check script; the templates it already wrote by hand pass when they link to the confirm route.
+- 8be0777: `contrastRatio(a, b)` and `MIN_TEXT_CONTRAST` (4.5) in `@linkcharsoft/cms/core`: the WCAG 2 contrast between two hex colors, to check a brand's `--cms-primary` against `--cms-on-primary` before setting the panel theme.
+
+### Patch Changes
+
+- 57bbb58: README: a "Start a project" section with `init`, `admin` and `doctor`, the CLI commands in the overview, and the install example pinned to 0.9.0. `docs/deploy.md` (in the repository) gathers the hosted Supabase and Amplify steps.
+- 2deeb66: The README and `linkchar-cms doctor` now require Supabase sign-ups off (`enable_signup = false` under `[auth]`) and two-step verification on (`[auth.mfa.totp]` enroll and verify). Supabase lets anyone sign up by default with the publishable key, and every new user gets an active `editor` profile: with sign-ups on, a stranger could create a user and edit drafts.
+  
+  To update a project: set `enable_signup = false` and the `[auth.mfa.totp]` flags in `supabase/config.toml` and restart Supabase; on the hosted project, turn off Authentication → Sign In / Providers → "Allow new users to sign up" (or `supabase config push`). `linkchar-cms doctor` checks the local file.
+
 ## 0.8.0
 
 ### Minor Changes
