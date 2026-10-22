@@ -572,7 +572,7 @@ This repo is a pnpm workspace: `packages/cms` and `apps/playground`, a Next app 
 ```bash
 pnpm install
 pnpm verify                        # lint, types, unit tests; works with the database off
-pnpm --filter playground db:start  # local Supabase on 5442x, with the QA users of supabase/seed.sql
+pnpm --filter playground db:start  # local Supabase on 4442x, with the QA users of supabase/seed.sql
 pnpm --filter playground db:test   # pgTAP
 pnpm --filter @linkcharsoft/cms test:db   # integration suite against that database
 pnpm --filter playground dev       # http://localhost:3100/dashboard (qa-super@local.test / QaLocal12345)

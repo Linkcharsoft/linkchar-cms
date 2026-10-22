@@ -1,7 +1,7 @@
 import { expect } from '@playwright/test'
 
 // Mailpit, the local Supabase's mailbox (`pnpm db:status` prints MAILPIT_URL).
-const MAILPIT = 'http://127.0.0.1:54424'
+const MAILPIT = 'http://127.0.0.1:44424'
 
 export interface MailMessageType {
   ID: string

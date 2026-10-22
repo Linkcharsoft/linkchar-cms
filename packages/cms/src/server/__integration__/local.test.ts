@@ -24,7 +24,7 @@ const localStatus = (): Record<string, string> => {
 }
 
 const env = process.env.CMS_TEST_SUPABASE_SECRET_KEY ? {} : localStatus()
-const SUPABASE_URL = process.env.CMS_TEST_SUPABASE_URL ?? env.API_URL ?? 'http://127.0.0.1:54421'
+const SUPABASE_URL = process.env.CMS_TEST_SUPABASE_URL ?? env.API_URL ?? 'http://127.0.0.1:44421'
 const PUBLISHABLE_KEY = process.env.CMS_TEST_SUPABASE_PUBLISHABLE_KEY ?? env.PUBLISHABLE_KEY ?? ''
 const SECRET_KEY = process.env.CMS_TEST_SUPABASE_SECRET_KEY ?? env.SECRET_KEY ?? ''
 
