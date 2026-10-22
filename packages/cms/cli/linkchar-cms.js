@@ -4,28 +4,31 @@ import { resolve } from 'node:path'
 import { parseArgs } from 'node:util'
 import { CliError, isUpToDate, syncMigrations } from './migrations.js'
 import { checkProxy, loadConfig, syncRoutes } from './routes.js'
+import { syncTemplates, translatorOf } from './templates.js'
 
 /** @typedef {import('./migrations.js').SyncChangeType} SyncChangeType */
 /** @typedef {import('./routes.js').RouteChangeType} RouteChangeType */
+/** @typedef {import('./templates.js').TemplateChangeType} TemplateChangeType */
 
 const USAGE = `Usage:
   linkchar-cms migrations sync [--dir supabase] [--check]
   linkchar-cms routes [--config cms.config.ts] [--src src] [--check]
+  linkchar-cms templates [--config cms.config.ts] [--dir supabase] [--check]
 
   --dir     The project's Supabase folder (default: ./supabase)
   --config  The project's CMS config (default: ./cms.config.ts)
   --src     Folder with app/ and cms/ (default: ./src when it exists, else the project root)
   --check   Change nothing; exit with 1 when the project is behind the package`
 
-/** @type {Record<SyncChangeType['status'] | RouteChangeType['status'], string>} */
-const SYMBOLS = { added: '+', updated: '~', removed: '-', differs: '!', same: '=', kept: '=' }
+/** @type {Record<SyncChangeType['status'] | RouteChangeType['status'] | TemplateChangeType['status'], string>} */
+const SYMBOLS = { added: '+', updated: '~', removed: '-', differs: '!', stale: '!', same: '=', kept: '=' }
 
-/** @param {string} title @param {(SyncChangeType | RouteChangeType)[]} changes @param {boolean} check */
+/** @param {string} title @param {(SyncChangeType | RouteChangeType | TemplateChangeType)[]} changes @param {boolean} check */
 const print = (title, changes, check) => {
   const shown = changes.filter(change => change.status !== 'same' && change.status !== 'kept')
   console.log(shown.length === 0 ? `${title}: up to date` : `${title}:`)
   for (const { file, status } of shown) {
-    const verb = check && status !== 'differs' ? `would be ${status}` : status
+    const verb = check && status !== 'differs' && status !== 'stale' ? `would be ${status}` : status
     console.log(`  ${SYMBOLS[status]} ${file} (${verb})`)
   }
 }
@@ -60,6 +63,19 @@ const routes = async ({ config, src, check }) => {
   return check && (behind || proxy !== 'ok') ? 1 : 0
 }
 
+/** @param {{ config: string, dir: string, check: boolean }} options */
+const templates = async ({ config, dir, check }) => {
+  const loaded = await loadConfig(resolve(config))
+  const changes = await syncTemplates({ supabaseDir: resolve(dir), basePath: loaded.basePath, t: await translatorOf(loaded), write: !check })
+  print('Email templates', changes, check)
+
+  if (changes.some(change => change.status === 'stale')) {
+    console.warn(`
+An email template does not link to ${loaded.basePath}/auth/confirm: fix its href, or delete it and run this again.`)
+  }
+  return check && changes.some(change => change.status === 'added' || change.status === 'stale') ? 1 : 0
+}
+
 const main = async () => {
   const { positionals, values } = parseArgs({
     allowPositionals: true,
@@ -75,6 +91,7 @@ const main = async () => {
   const command = positionals.join(' ')
   if (command === 'migrations sync') return migrations(values)
   if (command === 'routes') return routes(values)
+  if (command === 'templates') return templates(values)
   console.log(USAGE)
   return values.help ? 0 : 1
 }

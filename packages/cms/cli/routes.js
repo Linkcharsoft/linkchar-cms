@@ -17,7 +17,7 @@ export const ACTION_NAMES = [
   'login', 'requestPasswordReset', 'updatePassword', 'acceptInvite', 'completeSecondFactor', 'logout'
 ]
 
-/** @typedef {{ basePath: string, paths: Record<string, string> }} RoutesConfigType */
+/** @typedef {{ basePath: string, paths: Record<string, string>, panelLocale?: string, messages?: unknown }} RoutesConfigType */
 /** @typedef {'page' | 'layout'} ViewKindType */
 /**
  * @typedef {{ file: string, managed: boolean, render: (importOf: (target: string) => string) => string }} RouteFileType

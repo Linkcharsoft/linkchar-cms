@@ -179,7 +179,7 @@ password_requirements = "letters_digits"
 
 Hosted projects set the same values in the dashboard (Authentication → URL configuration and Sign In / Providers → Email).
 
-**Email templates.** Supabase's default invitation and recovery emails link to `/auth/v1/verify?token=…&redirect_to=<site_url>`; the panel only accepts `/dashboard/auth/confirm?token_hash=…&type=…`, so without templates nobody can accept an invitation or reset a password. Each project ships its own, with `{{ .SiteURL }}` and its `basePath`:
+**Email templates.** Supabase's default invitation and recovery emails link to `/auth/v1/verify?token=…&redirect_to=<site_url>`; the panel only accepts `/dashboard/auth/confirm?token_hash=…&type=…`, so without templates nobody can accept an invitation or reset a password. Each project ships its own, with `{{ .SiteURL }}` and its `basePath`. `linkchar-cms templates` writes both in the panel language (the `emails.*` catalog keys, so `messages` can reword them) and adds them to `config.toml`; it never rewrites an existing template, and `--check` fails while one is missing or links elsewhere. What it writes:
 
 ```toml
 [auth.email.template.invite]

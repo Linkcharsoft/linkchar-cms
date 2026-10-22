@@ -1,6 +1,7 @@
 import activity from './activity'
 import admin from './admin'
 import auth from './auth'
+import cli from './cli'
 import core from './core'
 import editor from './editor'
 import inputs from './inputs'
@@ -12,6 +13,6 @@ import status from './status'
 import ui from './ui'
 
 // A namespace never has a key named `other`: an object with `other` is a plural message.
-const es = { ...core, ...activity, ...admin, ...auth, ...editor, ...inputs, ...lists, ...media, ...shell, ...site, ...status, ...ui } as const
+const es = { ...core, ...activity, ...admin, ...auth, ...cli, ...editor, ...inputs, ...lists, ...media, ...shell, ...site, ...status, ...ui } as const
 
 export default es
