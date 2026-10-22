@@ -68,7 +68,8 @@ export const syncTemplates = async ({ supabaseDir, basePath, t, write = true }) 
     const file = join(supabaseDir, 'templates', `${type}.html`)
     const shown = `templates/${type}.html`
     if (existsSync(file)) {
-      const linked = (await readFile(file, 'utf8')).includes(confirmLink(basePath, type))
+      const html = await readFile(file, 'utf8')
+      const linked = html.includes(confirmLink(basePath, type)) || html.includes(confirmLink(basePath, type).replace('&amp;', '&'))
       changes.push({ file: shown, status: linked ? 'kept' : 'stale' })
       continue
     }

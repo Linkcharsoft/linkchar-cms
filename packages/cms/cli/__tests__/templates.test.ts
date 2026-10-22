@@ -31,7 +31,7 @@ describe('syncTemplates', () => {
 
   it('keeps the project wording and only flags a template that links elsewhere', async () => {
     await mkdir(join(supabaseDir, 'templates'))
-    await writeFile(join(supabaseDir, 'templates', 'invite.html'), `<p>Hola</p><a href="${confirmLink('/cms', 'invite')}">Entrar</a>`)
+    await writeFile(join(supabaseDir, 'templates', 'invite.html'), `<p>Hola</p><a href="${confirmLink('/cms', 'invite').replace('&amp;', '&')}">Entrar</a>`)
     await writeFile(join(supabaseDir, 'templates', 'recovery.html'), `<a href="${confirmLink('/dashboard', 'recovery')}">Entrar</a>`)
     await appendFile(join(supabaseDir, 'config.toml'), '[auth.email.template.invite]\nsubject = "Hola"\n')
 
