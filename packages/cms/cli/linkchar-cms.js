@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 import { existsSync } from 'node:fs'
-import { resolve } from 'node:path'
+import { join, resolve } from 'node:path'
 import { parseArgs } from 'node:util'
 import { createSuperadmin, readEnvFile } from './admin.js'
+import { environmentChecks } from './doctor.js'
 import { initProject, nextSteps } from './init.js'
 import { CliError, isUpToDate, syncMigrations } from './migrations.js'
 import { checkProxy, loadConfig, syncRoutes } from './routes.js'
@@ -19,6 +20,7 @@ const USAGE = `Usage:
   linkchar-cms routes [--config cms.config.ts] [--src src] [--check]
   linkchar-cms templates [--config cms.config.ts] [--dir supabase] [--check]
   linkchar-cms admin --email ana@acme.com [--password …] [--name "Ana"] [--env-file .env.local]
+  linkchar-cms doctor [--config cms.config.ts] [--src src] [--dir supabase] [--env-file .env.local]
 
   --dir     The project's Supabase folder (default: ./supabase)
   --config  The project's CMS config (default: ./cms.config.ts)
@@ -27,7 +29,8 @@ const USAGE = `Usage:
 
   init writes the files a project owns (cms.config.ts, src/cms, the panel and site layouts) where none exist,
   then runs templates, routes and migrations sync, and lists what is left to wire by hand.
-  admin makes the first superadmin with SUPABASE_SECRET_KEY: created with --password, else invited by email.`
+  admin makes the first superadmin with SUPABASE_SECRET_KEY: created with --password, else invited by email.
+  doctor checks routes, migrations, templates, variables, Supabase, the package registry and the ports.`
 
 /** @type {Record<SyncChangeType['status'] | RouteChangeType['status'] | TemplateChangeType['status'], string>} */
 const SYMBOLS = { added: '+', updated: '~', removed: '-', differs: '!', stale: '!', same: '=', kept: '=' }
@@ -130,6 +133,52 @@ const admin = async ({ email, password, name, 'env-file': envFile }) => {
   return 0
 }
 
+/** @param {{ config: string, src?: string, dir: string, 'env-file': string }} options */
+const doctor = async ({ config, src, dir, 'env-file': envFile }) => {
+  /** @type {import('./doctor.js').CheckType[]} */
+  const checks = []
+  const supabaseDir = resolve(dir)
+  /** @type {import('./routes.js').RoutesConfigType | null} */
+  let loaded = null
+  try {
+    loaded = await loadConfig(resolve(config))
+    checks.push({ level: 'ok', text: `${config} loads (panel at ${loaded.basePath})` })
+  } catch (error) {
+    checks.push({ level: 'fail', text: error instanceof Error ? error.message : String(error) })
+  }
+
+  if (loaded) {
+    const sourceDir = resolve(src ?? (existsSync('src') ? 'src' : '.'))
+    const routeChanges = await syncRoutes({ sourceDir, config: loaded, configFile: resolve(config), write: false })
+    const proxy = await checkProxy({ sourceDir, basePath: loaded.basePath })
+    const behind = routeChanges.filter(change => change.status !== 'same' && change.status !== 'kept').length
+    checks.push(behind > 0 || proxy !== 'ok'
+      ? { level: 'fail', text: `Panel routes are behind (${behind} files${proxy === 'ok' ? '' : `, proxy ${proxy}`}): linkchar-cms routes` }
+      : { level: 'ok', text: 'Panel routes and proxy are up to date' })
+  }
+  if (existsSync(join(supabaseDir, 'config.toml'))) {
+    checks.push(isUpToDate(await syncMigrations({ target: supabaseDir, write: false }))
+      ? { level: 'ok', text: 'Migrations are in sync with the package' }
+      : { level: 'fail', text: 'Migrations are behind the package: linkchar-cms migrations sync' })
+    if (loaded) {
+      const emails = await syncTemplates({ supabaseDir, basePath: loaded.basePath, t: await translatorOf(loaded), write: false })
+      checks.push(emails.some(change => change.status === 'added' || change.status === 'stale')
+        ? { level: 'fail', text: 'Email templates are missing or link elsewhere: linkchar-cms templates' }
+        : { level: 'ok', text: 'Email templates link to the panel' })
+    }
+  } else {
+    checks.push({ level: 'fail', text: `There is no ${dir}/config.toml: supabase init` })
+  }
+
+  const env = { ...(await readEnvFile(resolve(envFile))), ...process.env }
+  const siteUrl = loaded?.site?.url ?? null
+  checks.push(...await environmentChecks({ root: resolve('.'), supabaseDir, env, siteUrl }))
+
+  const marks = { ok: '✓', warn: '!', fail: '✗' }
+  for (const { level, text } of checks) console.log(`${marks[level]} ${text}`)
+  return checks.some(check => check.level === 'fail') ? 1 : 0
+}
+
 const main = async () => {
   const { positionals, values } = parseArgs({
     allowPositionals: true,
@@ -153,6 +202,7 @@ const main = async () => {
   const command = positionals.join(' ')
   if (command === 'init') return init(values)
   if (command === 'admin') return admin(values)
+  if (command === 'doctor') return doctor(values)
   if (command === 'migrations sync') return migrations(values)
   if (command === 'routes') return routes(values)
   if (command === 'templates') return templates(values)
