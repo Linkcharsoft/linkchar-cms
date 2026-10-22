@@ -82,7 +82,8 @@ export const syncTemplates = async ({ supabaseDir, basePath, t, write = true }) 
 
   const toml = await readFile(configToml, 'utf8')
   for (const type of EMAILS) {
-    const has = toml.includes(`[auth.email.template.${type}]`)
+    // supabase init writes these blocks commented out: only a live header counts.
+    const has = toml.split(/\r?\n/).some(line => line.trim() === `[auth.email.template.${type}]`)
     if (!has && write) await appendFile(configToml, configBlock(type, t))
     changes.push({ file: `config.toml [auth.email.template.${type}]`, status: has ? 'same' : 'added' })
   }

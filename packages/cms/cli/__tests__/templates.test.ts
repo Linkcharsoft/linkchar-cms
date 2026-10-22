@@ -11,7 +11,8 @@ const read = (file: string) => readFile(join(supabaseDir, file), 'utf8')
 beforeEach(async () => {
   supabaseDir = join(await mkdtemp(join(tmpdir(), 'cms-templates-')), 'supabase')
   await mkdir(supabaseDir, { recursive: true })
-  await writeFile(join(supabaseDir, 'config.toml'), '[auth]\nsite_url = "http://127.0.0.1:3000"\n')
+  // As supabase init writes it: the template blocks come commented out.
+  await writeFile(join(supabaseDir, 'config.toml'), '[auth]\nsite_url = "http://127.0.0.1:3000"\n# [auth.email.template.invite]\n# content_path = "./supabase/templates/invite.html"\n')
 })
 
 afterEach(() => rm(join(supabaseDir, '..'), { recursive: true, force: true }))
