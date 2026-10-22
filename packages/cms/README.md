@@ -504,6 +504,8 @@ Three variables re-style the whole panel, PrimeReact included. Set them on `:roo
 
 Hovers, tints, rings and the sidebar states derive from those with `color-mix()`; neutrals and the error, warning and success colors are fixed. Every derived value is also a variable (`--cms-primary-50`, `--cms-sidebar-hover`…), so a project can pin one. The root layout passes classes to `<body>` with `rootLayout(cms, CmsClient, { className: inter.variable })`. The theme is Tailwind 3 only.
 
+Before settling a brand color, check it: `contrastRatio('#0f7a5c', '#ffffff')` from `@linkcharsoft/cms/core` must reach `MIN_TEXT_CONTRAST` (4.5); below it, darken the primary or set `--cms-on-primary`.
+
 ## Panel texts
 
 The panel speaks `panelLocale` (`'es'` by default, `'en'` complete). A project overrides any text with `messages`, per language and key:
