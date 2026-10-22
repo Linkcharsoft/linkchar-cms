@@ -20,15 +20,20 @@ A project runs on two services: **Supabase** (database, auth, storage) and **Amp
    [auth]
    site_url = "https://acme.com"
    additional_redirect_urls = ["https://acme.com"]
+   enable_signup = false
    minimum_password_length = 10
    password_requirements = "letters_digits"
+
+   [auth.mfa.totp]
+   enroll_enabled = true
+   verify_enabled = true
    ```
 
    ```bash
    supabase config push
    ```
 
-   `site_url` is what `{{ .SiteURL }}` becomes in the invitation and recovery emails: it must be the public origin of the site, never `localhost`.
+   `site_url` is what `{{ .SiteURL }}` becomes in the invitation and recovery emails: it must be the public origin of the site, never `localhost`. `enable_signup = false` is not optional: a new project lets anyone sign up, and every user gets a panel profile. Check Authentication → Sign In / Providers → "Allow new users to sign up" is off after the push.
 
 4. **SMTP.** Supabase's built-in email service only sends to the project's team and a few emails per hour: invitations to a client never arrive. Set a custom SMTP (Resend) in Authentication → Emails → SMTP settings, with a sender on a verified domain.
 5. **First superadmin**, with the hosted keys in the environment:
@@ -45,13 +50,14 @@ From some networks the direct database host (`db.<ref>.supabase.co`) does not an
 
 1. Connect the repository and the production branch.
 2. Environment variables: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SECRET_KEY`, `NEXT_PUBLIC_SITE_URL`, `CMS_BUILD_HOOK_URL`, `CMS_BUILD_WEBHOOK_SECRET`, and `GITHUB_PACKAGES_TOKEN` (a token with `read:packages` on Linkcharsoft) for the install.
-3. `amplify.yml` writes the token before installing:
+3. Amplify gives the environment variables to the build but not to the SSR runtime: `amplify.yml` copies the ones the server reads at runtime into `.env.production` (`SUPABASE_SECRET_KEY`, `CMS_BUILD_HOOK_URL`, `CMS_BUILD_WEBHOOK_SECRET`; the `NEXT_PUBLIC_*` ones are inlined at build), and writes the package token before installing:
 
    ```yaml
    preBuild:
      commands:
        - echo "//npm.pkg.github.com/:_authToken=${GITHUB_PACKAGES_TOKEN}" >> ~/.npmrc
        - pnpm install --frozen-lockfile
+       - env | grep -E "^(SUPABASE_SECRET_KEY|CMS_BUILD_HOOK_URL|CMS_BUILD_WEBHOOK_SECRET)=" >> .env.production || true
    ```
 
 4. The build hook and the EventBridge rule that reports each build to the panel: [Amplify setup](../packages/cms/README.md#amplify-setup).

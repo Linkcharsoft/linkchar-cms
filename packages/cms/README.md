@@ -199,15 +199,22 @@ supabase start      # local: pnpm exec supabase status prints the keys
 supabase db push    # hosted: after supabase link
 ```
 
-`supabase/config.toml` needs, under `[auth]`, the panel's origin and the password rules the panel states ("Al menos 10 caracteres, con letras y números."):
+`supabase/config.toml` needs, under `[auth]`, the panel's origin, sign-ups off, the password rules the panel states ("Al menos 10 caracteres, con letras y números.") and two-step verification on:
 
 ```toml
 [auth]
 site_url = "http://127.0.0.1:3000"
 additional_redirect_urls = ["http://localhost:3000"]
+enable_signup = false
 minimum_password_length = 10
 password_requirements = "letters_digits"
+
+[auth.mfa.totp]
+enroll_enabled = true
+verify_enabled = true
 ```
+
+**Sign-ups must be off.** Supabase lets anyone sign up by default, with the publishable key every visitor already has, and every new user gets a panel profile (`editor`, active): left on, a stranger can create a user and edit drafts. Users come only from invitations and `linkchar-cms admin`. `supabase init` writes `enable_signup = true` and hosted projects start with "Allow new users to sign up" on; `linkchar-cms doctor` fails until it is off.
 
 Hosted projects set the same values in the dashboard (Authentication → URL configuration and Sign In / Providers → Email).
 
@@ -583,7 +590,7 @@ const StatsPage = async () => {
 
 Publishing on Amplify is a build hook plus one EventBridge rule that reports the build's end to the project.
 
-1. **Environment variables** of the Amplify app: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SECRET_KEY`, `NEXT_PUBLIC_SITE_URL`, `CMS_BUILD_HOOK_URL` (the app's incoming webhook for the branch) and `CMS_BUILD_WEBHOOK_SECRET` (any long random string). `GITHUB_PACKAGES_TOKEN` for the install, written to `~/.npmrc` in the build's `preBuild`.
+1. **Environment variables** of the Amplify app: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SECRET_KEY`, `NEXT_PUBLIC_SITE_URL`, `CMS_BUILD_HOOK_URL` (the app's incoming webhook for the branch) and `CMS_BUILD_WEBHOOK_SECRET` (any long random string). `GITHUB_PACKAGES_TOKEN` for the install, written to `~/.npmrc` in the build's `preBuild`. Amplify passes them to the build, not to the SSR runtime: the `preBuild` also copies `SUPABASE_SECRET_KEY`, `CMS_BUILD_HOOK_URL` and `CMS_BUILD_WEBHOOK_SECRET` into `.env.production` (see [docs/deploy.md](https://github.com/Linkcharsoft/linkchar-cms/blob/main/docs/deploy.md)).
 2. **EventBridge rule** on the default bus with this pattern, so only this app and branch count:
 
    ```json
