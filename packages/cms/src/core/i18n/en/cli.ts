@@ -17,6 +17,18 @@ const cli = {
       action: 'Choose a new password',
       ignore: 'If it was not you, ignore this email: your password stays the same.'
     }
+  },
+  starter: {
+    settings: 'Site settings',
+    siteName: 'Site name',
+    tagline: 'Short description',
+    shareImage: 'Share image',
+    home: 'Home',
+    hero: 'Hero',
+    title: 'Title',
+    intro: 'Introduction',
+    folder: 'Site',
+    notFound: 'We could not find this page'
   }
 } satisfies CatalogType<typeof es>
 

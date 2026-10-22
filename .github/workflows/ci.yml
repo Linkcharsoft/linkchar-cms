@@ -43,6 +43,8 @@ jobs:
       - run: pnpm dlx publint@0.3.25 "$RUNNER_TEMP"/pack/*.tgz
       - name: Every entry point, the CLI and the migrations ship; no tests do
         run: node scripts/check-pack.mjs "$RUNNER_TEMP"/pack/*.tgz
+      - name: linkchar-cms init writes a project that type-checks
+        run: pnpm check:init
 
   db:
     runs-on: ubuntu-latest

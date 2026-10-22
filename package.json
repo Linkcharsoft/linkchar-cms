@@ -12,6 +12,7 @@
     "type-check": "pnpm -r --parallel type-check",
     "test": "pnpm -r test",
     "verify": "pnpm run lint-check && pnpm run type-check && pnpm run test",
+    "check:init": "node scripts/check-init.mjs",
     "db:types": "pnpm --filter playground exec supabase gen types typescript --local > packages/cms/src/server/database.ts && pnpm dlx oxfmt@0.72.0 packages/cms/src/server/database.ts && eslint --fix packages/cms/src/server/database.ts",
     "changeset": "changeset",
     "release": "changeset publish"

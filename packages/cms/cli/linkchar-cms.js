@@ -2,6 +2,7 @@
 import { existsSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { parseArgs } from 'node:util'
+import { initProject, nextSteps } from './init.js'
 import { CliError, isUpToDate, syncMigrations } from './migrations.js'
 import { checkProxy, loadConfig, syncRoutes } from './routes.js'
 import { syncTemplates, translatorOf } from './templates.js'
@@ -9,8 +10,10 @@ import { syncTemplates, translatorOf } from './templates.js'
 /** @typedef {import('./migrations.js').SyncChangeType} SyncChangeType */
 /** @typedef {import('./routes.js').RouteChangeType} RouteChangeType */
 /** @typedef {import('./templates.js').TemplateChangeType} TemplateChangeType */
+/** @typedef {import('./init.js').InitChangeType} InitChangeType */
 
 const USAGE = `Usage:
+  linkchar-cms init --name "Acme" [--base-path /dashboard] [--locales es,en] [--panel-locale es] [--site-url http://localhost:3000]
   linkchar-cms migrations sync [--dir supabase] [--check]
   linkchar-cms routes [--config cms.config.ts] [--src src] [--check]
   linkchar-cms templates [--config cms.config.ts] [--dir supabase] [--check]
@@ -18,12 +21,15 @@ const USAGE = `Usage:
   --dir     The project's Supabase folder (default: ./supabase)
   --config  The project's CMS config (default: ./cms.config.ts)
   --src     Folder with app/ and cms/ (default: ./src when it exists, else the project root)
-  --check   Change nothing; exit with 1 when the project is behind the package`
+  --check   Change nothing; exit with 1 when the project is behind the package
+
+  init writes the files a project owns (cms.config.ts, src/cms, the panel and site layouts) where none exist,
+  then runs templates, routes and migrations sync, and lists what is left to wire by hand.`
 
 /** @type {Record<SyncChangeType['status'] | RouteChangeType['status'] | TemplateChangeType['status'], string>} */
 const SYMBOLS = { added: '+', updated: '~', removed: '-', differs: '!', stale: '!', same: '=', kept: '=' }
 
-/** @param {string} title @param {(SyncChangeType | RouteChangeType | TemplateChangeType)[]} changes @param {boolean} check */
+/** @param {string} title @param {(SyncChangeType | RouteChangeType | TemplateChangeType | InitChangeType)[]} changes @param {boolean} check */
 const print = (title, changes, check) => {
   const shown = changes.filter(change => change.status !== 'same' && change.status !== 'kept')
   console.log(shown.length === 0 ? `${title}: up to date` : `${title}:`)
@@ -70,10 +76,39 @@ const templates = async ({ config, dir, check }) => {
   print('Email templates', changes, check)
 
   if (changes.some(change => change.status === 'stale')) {
-    console.warn(`
-An email template does not link to ${loaded.basePath}/auth/confirm: fix its href, or delete it and run this again.`)
+    console.warn(`\nAn email template does not link to ${loaded.basePath}/auth/confirm: fix its href, or delete it and run this again.`)
   }
   return check && changes.some(change => change.status === 'added' || change.status === 'stale') ? 1 : 0
+}
+
+/**
+ * @param {{ name?: string, 'base-path': string, locales: string, 'panel-locale': string, 'site-url': string, config: string, src?: string, dir: string }} options
+ */
+const init = async options => {
+  const root = resolve('.')
+  const sourceDir = resolve(options.src ?? (existsSync('src') ? 'src' : '.'))
+  const configFile = resolve(options.config)
+  const project = {
+    name: options.name ?? '',
+    basePath: options['base-path'],
+    locales: options.locales.split(',').map(locale => locale.trim()).filter(Boolean),
+    panelLocale: options['panel-locale'],
+    siteUrl: options['site-url']
+  }
+  const changes = await initProject(project, { root, sourceDir, configFile, t: await translatorOf(project.panelLocale) })
+  print('Starter files', changes, false)
+
+  if (existsSync(resolve(options.dir, 'config.toml'))) {
+    await templates({ config: options.config, dir: options.dir, check: false })
+  } else {
+    console.log(`Email templates: skipped, there is no ${options.dir}/config.toml (run supabase init, then linkchar-cms templates)`)
+  }
+  await routes({ config: options.config, src: options.src, check: false })
+  await migrations({ dir: options.dir, check: false })
+
+  console.log('\nLeft to wire by hand:')
+  for (const step of nextSteps(project, { root, sourceDir, configFile }, changes)) console.log(`  - ${step}`)
+  return 0
 }
 
 const main = async () => {
@@ -84,11 +119,17 @@ const main = async () => {
       config: { type: 'string', default: 'cms.config.ts' },
       src: { type: 'string' },
       check: { type: 'boolean', default: false },
+      name: { type: 'string' },
+      'base-path': { type: 'string', default: '/dashboard' },
+      locales: { type: 'string', default: 'es' },
+      'panel-locale': { type: 'string', default: 'es' },
+      'site-url': { type: 'string', default: 'http://localhost:3000' },
       help: { type: 'boolean', short: 'h' }
     }
   })
 
   const command = positionals.join(' ')
+  if (command === 'init') return init(values)
   if (command === 'migrations sync') return migrations(values)
   if (command === 'routes') return routes(values)
   if (command === 'templates') return templates(values)

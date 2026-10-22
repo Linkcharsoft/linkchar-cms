@@ -14,6 +14,18 @@ const cli = {
       action: 'Elegir una contraseña nueva',
       ignore: 'Si no fuiste vos, ignorá este email: tu contraseña no cambia.'
     }
+  },
+  starter: {
+    settings: 'Datos del sitio',
+    siteName: 'Nombre del sitio',
+    tagline: 'Descripción corta',
+    shareImage: 'Imagen al compartir',
+    home: 'Inicio',
+    hero: 'Portada',
+    title: 'Título',
+    intro: 'Introducción',
+    folder: 'Sitio',
+    notFound: 'No encontramos esta página'
   }
 } as const
 
