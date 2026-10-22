@@ -16,6 +16,13 @@ export const PANEL_LOCALES = ['es', 'en']
 const SEGMENT = /^\/[a-z0-9]+(-[a-z0-9]+)*$/
 const LOCALE = /^[a-z]{2,3}(-[A-Z]{2})?$/
 
+// Git Bash turns an argument like /cms into C:/Program Files/Git/cms before node sees it.
+/** @param {string} value */
+export const normalizeBasePath = value => {
+  if (/^[A-Za-z]:[\\/]/.test(value)) throw new CliError(`--base-path "${value}" looks like a path the shell rewrote: pass it without the slash, --base-path ${value.split(/[\\/]/).pop()}.`)
+  return value.startsWith('/') ? value : `/${value}`
+}
+
 /** @param {InitOptionsType} options */
 export const checkInitOptions = ({ name, basePath, locales, panelLocale, siteUrl }) => {
   if (!name.trim()) throw new CliError('--name is required: the site name shown in the panel and in page titles.')
@@ -177,14 +184,17 @@ export const planInit = ({ name, basePath, locales, panelLocale, siteUrl }, { so
       'import { draftMode } from \'next/headers\'',
       'import type { ReactNode } from \'react\'',
       '',
-      'const SiteLayout = async ({ children }: { children: ReactNode }) => (',
-      `  <html lang=${quote(defaultLocale)}>`,
-      '    <body>',
-      '      {children}',
-      `      {(await draftMode()).isEnabled && <DraftRefresh locale=${quote(panelLocale)} />}`,
-      '    </body>',
-      '  </html>',
-      ')',
+      'const SiteLayout = async ({ children }: { children: ReactNode }) => {',
+      '  const { isEnabled: isDraftMode } = await draftMode()',
+      '  return (',
+      `    <html lang=${quote(defaultLocale)}>`,
+      '      <body>',
+      '        {children}',
+      `        {isDraftMode && <DraftRefresh locale=${quote(panelLocale)} />}`,
+      '      </body>',
+      '    </html>',
+      '  )',
+      '}',
       '',
       'export default SiteLayout'
     ]])
@@ -267,6 +277,7 @@ export const nextSteps = ({ basePath, panelLocale }, { root, sourceDir }, change
     'next.config.ts: wrap the config with withCms() from \'@linkcharsoft/cms/next\'.',
     'tailwind.config: presets: [cmsPreset] and content: [...cmsContent()] from \'@linkcharsoft/cms/tailwind\'.',
     '.env.local: NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY, SUPABASE_SECRET_KEY, NEXT_PUBLIC_SITE_URL.',
+    'supabase/config.toml [auth]: enable_signup = false (only invited users get in), minimum_password_length = 10, password_requirements = "letters_digits", and [auth.mfa.totp] enroll_enabled and verify_enabled = true.',
     'supabase start, then supabase db reset: it applies the package migrations.',
     'linkchar-cms admin --email … --password … creates the first superadmin.',
     'package.json "check": linkchar-cms routes --check && linkchar-cms migrations sync --check && linkchar-cms templates --check.'

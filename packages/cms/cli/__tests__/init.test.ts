@@ -2,7 +2,7 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { initProject, nextSteps } from '../init.js'
+import { initProject, nextSteps, normalizeBasePath } from '../init.js'
 import { translatorOf } from '../templates.js'
 
 let root: string
@@ -73,6 +73,12 @@ describe('initProject', () => {
   it('does nothing twice', async () => {
     await init()
     expect((await init()).every(change => change.status === 'kept')).toBe(true)
+  })
+
+  it('takes the base path with or without its slash and explains one the shell rewrote', () => {
+    expect(normalizeBasePath('cms')).toBe('/cms')
+    expect(normalizeBasePath('/cms')).toBe('/cms')
+    expect(() => normalizeBasePath('C:/Program Files/Git/cms')).toThrow('pass it without the slash, --base-path cms')
   })
 
   it('refuses options it would write wrong', async () => {

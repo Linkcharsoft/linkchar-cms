@@ -4,7 +4,7 @@ import { join, resolve } from 'node:path'
 import { parseArgs } from 'node:util'
 import { createSuperadmin, readEnvFile } from './admin.js'
 import { environmentChecks } from './doctor.js'
-import { initProject, nextSteps } from './init.js'
+import { initProject, nextSteps, normalizeBasePath } from './init.js'
 import { CliError, isUpToDate, syncMigrations } from './migrations.js'
 import { checkProxy, loadConfig, syncRoutes } from './routes.js'
 import { syncTemplates, translatorOf } from './templates.js'
@@ -96,7 +96,7 @@ const init = async options => {
   const configFile = resolve(options.config)
   const project = {
     name: options.name ?? '',
-    basePath: options['base-path'],
+    basePath: normalizeBasePath(options['base-path']),
     locales: options.locales.split(',').map(locale => locale.trim()).filter(Boolean),
     panelLocale: options['panel-locale'],
     siteUrl: options['site-url']
