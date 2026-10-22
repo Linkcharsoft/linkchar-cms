@@ -2,6 +2,7 @@
 import { existsSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { parseArgs } from 'node:util'
+import { createSuperadmin, readEnvFile } from './admin.js'
 import { initProject, nextSteps } from './init.js'
 import { CliError, isUpToDate, syncMigrations } from './migrations.js'
 import { checkProxy, loadConfig, syncRoutes } from './routes.js'
@@ -17,6 +18,7 @@ const USAGE = `Usage:
   linkchar-cms migrations sync [--dir supabase] [--check]
   linkchar-cms routes [--config cms.config.ts] [--src src] [--check]
   linkchar-cms templates [--config cms.config.ts] [--dir supabase] [--check]
+  linkchar-cms admin --email ana@acme.com [--password …] [--name "Ana"] [--env-file .env.local]
 
   --dir     The project's Supabase folder (default: ./supabase)
   --config  The project's CMS config (default: ./cms.config.ts)
@@ -24,7 +26,8 @@ const USAGE = `Usage:
   --check   Change nothing; exit with 1 when the project is behind the package
 
   init writes the files a project owns (cms.config.ts, src/cms, the panel and site layouts) where none exist,
-  then runs templates, routes and migrations sync, and lists what is left to wire by hand.`
+  then runs templates, routes and migrations sync, and lists what is left to wire by hand.
+  admin makes the first superadmin with SUPABASE_SECRET_KEY: created with --password, else invited by email.`
 
 /** @type {Record<SyncChangeType['status'] | RouteChangeType['status'] | TemplateChangeType['status'], string>} */
 const SYMBOLS = { added: '+', updated: '~', removed: '-', differs: '!', stale: '!', same: '=', kept: '=' }
@@ -111,6 +114,22 @@ const init = async options => {
   return 0
 }
 
+/** @param {{ email?: string, password?: string, name?: string, 'env-file': string }} options */
+const admin = async ({ email, password, name, 'env-file': envFile }) => {
+  if (!email) throw new CliError('--email is required.')
+  const env = { ...(await readEnvFile(resolve(envFile))), ...process.env }
+  const url = env.NEXT_PUBLIC_SUPABASE_URL
+  const secretKey = env.SUPABASE_SECRET_KEY
+  if (!url || !secretKey) throw new CliError(`NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SECRET_KEY are needed, in the environment or in ${envFile}.`)
+
+  const { createClient } = await import('@supabase/supabase-js')
+  const client = createClient(url, secretKey, { auth: { persistSession: false, autoRefreshToken: false } })
+  const { status } = await createSuperadmin(/** @type {import('./admin.js').AdminClientType} */ (/** @type {unknown} */ (client)), { email, password, name })
+  const how = { created: 'created with the given password', invited: 'invited: the email links to the panel', promoted: password ? 'already existed; password updated' : 'already existed' }[status]
+  console.log(`Superadmin ${email} at ${url}: ${how}.`)
+  return 0
+}
+
 const main = async () => {
   const { positionals, values } = parseArgs({
     allowPositionals: true,
@@ -120,6 +139,9 @@ const main = async () => {
       src: { type: 'string' },
       check: { type: 'boolean', default: false },
       name: { type: 'string' },
+      email: { type: 'string' },
+      password: { type: 'string' },
+      'env-file': { type: 'string', default: '.env.local' },
       'base-path': { type: 'string', default: '/dashboard' },
       locales: { type: 'string', default: 'es' },
       'panel-locale': { type: 'string', default: 'es' },
@@ -130,6 +152,7 @@ const main = async () => {
 
   const command = positionals.join(' ')
   if (command === 'init') return init(values)
+  if (command === 'admin') return admin(values)
   if (command === 'migrations sync') return migrations(values)
   if (command === 'routes') return routes(values)
   if (command === 'templates') return templates(values)

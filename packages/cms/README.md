@@ -200,7 +200,14 @@ content_path = "./supabase/templates/recovery.html"
 
 The recovery template is the same link with `type=recovery`. `config.toml` templates apply to the local Supabase after `supabase stop && supabase start`; the hosted project takes them from Authentication → Emails (the CLI pushes them with `supabase config push`). Locally, Mailpit shows every email at the `MAILPIT_URL` that `supabase status` prints.
 
-**First superadmin.** Invitations come from the panel, so the first user is promoted by hand after signing up or being invited from the Supabase dashboard:
+**First superadmin.** Invitations come from the panel, so the first user comes from the CLI, with `NEXT_PUBLIC_SUPABASE_URL` and `SUPABASE_SECRET_KEY` from the environment or `--env-file` (`.env.local` by default):
+
+```bash
+pnpm exec linkchar-cms admin --email ana@acme.com --password '…' --name 'Ana'  # created, confirmed and promoted
+pnpm exec linkchar-cms admin --email ana@acme.com                              # invited by email instead (needs SMTP)
+```
+
+An existing user is only promoted. By hand, the same promotion is:
 
 ```sql
 update public.profiles set role = 'superadmin', can_publish = true
