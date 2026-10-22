@@ -2,7 +2,7 @@ import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { configPorts, environmentChecks, excludesPackageFromQuarantine, parseExcludedRanges, portChecks } from '../doctor.js'
+import { authChecks, configPorts, environmentChecks, excludesPackageFromQuarantine, parseExcludedRanges, portChecks } from '../doctor.js'
 
 const NETSH = `
 Protocol tcp Port Exclusion Ranges
@@ -39,6 +39,35 @@ describe('ports', () => {
     expect(portChecks(configPorts(TOML), ranges)[0]).toMatchObject({ level: 'fail', text: expect.stringContaining('54421 (api.port)') })
     expect(portChecks([{ key: 'api.port', port: 54521 }], ranges)[0]).toMatchObject({ level: 'warn' })
     expect(portChecks([{ key: 'api.port', port: 44421 }], ranges)[0]).toMatchObject({ level: 'ok' })
+  })
+})
+
+describe('authChecks', () => {
+  const SAFE = `[auth]
+enable_signup = false
+minimum_password_length = 10
+password_requirements = "letters_digits"
+[auth.mfa.totp]
+enroll_enabled = true
+verify_enabled = true
+`
+
+  it('passes the settings the panel relies on', () => {
+    expect(authChecks(SAFE).map(check => check.level)).toEqual(['ok', 'ok'])
+  })
+
+  it('fails on Supabase defaults: open sign-ups and no two-step verification', () => {
+    const checks = authChecks(`[auth]
+enable_signup = true
+minimum_password_length = 6
+[auth.email]
+enable_signup = false
+[auth.mfa.totp]
+enroll_enabled = false
+`)
+    expect(checks.map(check => check.level)).toEqual(['fail', 'fail', 'warn'])
+    expect(checks[0].text).toContain('anyone with the site URL can create a user')
+    expect(authChecks('[auth]\n').map(check => check.level)).toEqual(['fail', 'fail', 'warn'])
   })
 })
 

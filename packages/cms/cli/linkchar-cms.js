@@ -1,9 +1,10 @@
 #!/usr/bin/env node
 import { existsSync } from 'node:fs'
+import { readFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 import { parseArgs } from 'node:util'
 import { createSuperadmin, readEnvFile } from './admin.js'
-import { environmentChecks } from './doctor.js'
+import { authChecks, environmentChecks } from './doctor.js'
 import { initProject, nextSteps, normalizeBasePath } from './init.js'
 import { CliError, isUpToDate, syncMigrations } from './migrations.js'
 import { checkProxy, loadConfig, syncRoutes } from './routes.js'
@@ -157,6 +158,7 @@ const doctor = async ({ config, src, dir, 'env-file': envFile }) => {
       : { level: 'ok', text: 'Panel routes and proxy are up to date' })
   }
   if (existsSync(join(supabaseDir, 'config.toml'))) {
+    checks.push(...authChecks(await readFile(join(supabaseDir, 'config.toml'), 'utf8')))
     checks.push(isUpToDate(await syncMigrations({ target: supabaseDir, write: false }))
       ? { level: 'ok', text: 'Migrations are in sync with the package' }
       : { level: 'fail', text: 'Migrations are behind the package: linkchar-cms migrations sync' })

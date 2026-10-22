@@ -42,6 +42,38 @@ export const portChecks = (ports, ranges) => {
   return [{ level: 'ok', text: 'Supabase ports are clear of the ports Windows reserves' }]
 }
 
+/** @param {string} text supabase/config.toml @returns {Record<string, string>} keys as "section.key" */
+export const configValues = text => {
+  let section = ''
+  /** @type {Record<string, string>} */
+  const values = {}
+  for (const line of text.split(/\r?\n/)) {
+    const header = /^\s*\[([^\]]+)\]/.exec(line)
+    if (header) section = header[1]
+    const pair = /^\s*([a-z_]+)\s*=\s*(.+?)\s*$/.exec(line)
+    if (pair) values[`${section}.${pair[1]}`] = pair[2].replace(/^"(.*)"$/, '$1')
+  }
+  return values
+}
+
+// The auth settings the panel relies on; Supabase's defaults let anyone sign up and turn two-step verification off.
+/** @param {string} text supabase/config.toml @returns {CheckType[]} */
+export const authChecks = text => {
+  const values = configValues(text)
+  /** @type {CheckType[]} */
+  const checks = []
+  checks.push(values['auth.enable_signup'] === 'false'
+    ? { level: 'ok', text: 'Sign-ups are off: only invited users get in' }
+    : { level: 'fail', text: 'Sign-ups are on: anyone with the site URL can create a user and edit drafts. Set enable_signup = false under [auth] (hosted: Authentication → Sign In / Providers → Allow new users to sign up)' })
+  checks.push(values['auth.mfa.totp.enroll_enabled'] === 'true' && values['auth.mfa.totp.verify_enabled'] === 'true'
+    ? { level: 'ok', text: 'Two-step verification (TOTP) is on' }
+    : { level: 'fail', text: 'Two-step verification is off: the MFA screens of the panel fail. Set enroll_enabled and verify_enabled = true under [auth.mfa.totp]' })
+  if (Number(values['auth.minimum_password_length'] ?? 6) < 10 || values['auth.password_requirements'] !== 'letters_digits') {
+    checks.push({ level: 'warn', text: 'Password rules are looser than the panel says (10 characters, letters and digits): minimum_password_length = 10 and password_requirements = "letters_digits" under [auth]' })
+  }
+  return checks
+}
+
 /** @param {string} text pnpm-workspace.yaml */
 export const excludesPackageFromQuarantine = text => /minimumReleaseAgeExclude:[\s\S]*?-\s*['"]?@linkcharsoft\/cms['"]?/.test(text)
 
