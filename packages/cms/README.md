@@ -2,9 +2,9 @@
 
 Linkchar's CMS for Next.js projects: a content schema in code, Supabase storage, an editor panel and site readers. The package ships TypeScript source; the project compiles it.
 
-> The package ships the core, the server layer (Supabase queries and actions, with a `logger` the project provides), publishing (Amplify and a local mock), the migrations, the editor panel with its theme and catalogs (`es`, `en`) and its per-language editing, the site readers (`cms.site`, `@linkcharsoft/cms/site`), `withCms` (`@linkcharsoft/cms/next`) and the `linkchar-cms` CLI (`init`, `routes`, `migrations sync`, `templates`, `admin`, `doctor`). The changes of each version are in [CHANGELOG.md](./CHANGELOG.md), which ships with the package.
+> The package ships the core, the server layer (Supabase queries and actions, with a `logger` the project provides), publishing (Amplify and a local mock), the migrations, the editor panel with its theme and catalogs (`es`, `en`) and its per-language editing, the site readers (`cms.site`, `@linkcharsoft/cms/site`), `withCms` (`@linkcharsoft/cms/next`) and the `linkchar-cms` CLI (`init`, `routes`, `migrations sync`, `templates`, `admin`, `doctor`, `import`). The changes of each version are in [CHANGELOG.md](./CHANGELOG.md), which ships with the package.
 
-Sections: [Install](#install) · [Start a project](#start-a-project) · [Configure](#configure) · [Schema texts](#schema-texts) · [Localized content](#localized-content) · [URLs per locale](#urls-per-locale) · [Links](#links) · [Database](#database) · [Supabase](#supabase) · [Server](#server) · [Site](#site) · [Next config](#next-config) · [Field kinds](#field-kinds) · [Panel](#panel) · [Theme](#theme) · [Panel texts](#panel-texts) · [Extensions](#extensions) · [Amplify setup](#amplify-setup) · [Upgrade](#upgrade) · [Development](#development)
+Sections: [Install](#install) · [Start a project](#start-a-project) · [Configure](#configure) · [Schema texts](#schema-texts) · [Localized content](#localized-content) · [URLs per locale](#urls-per-locale) · [Links](#links) · [Database](#database) · [Supabase](#supabase) · [Server](#server) · [Site](#site) · [Next config](#next-config) · [Field kinds](#field-kinds) · [Panel](#panel) · [Theme](#theme) · [Panel texts](#panel-texts) · [Extensions](#extensions) · [Amplify setup](#amplify-setup) · [Import content](#import-content) · [Upgrade](#upgrade) · [Development](#development)
 
 ## Install
 
@@ -41,13 +41,13 @@ minimumReleaseAgeExclude:
   - '@linkcharsoft/cms'
 ```
 
-The panel is styled with Tailwind 3 and Sass, compiled by the project (`tailwindcss` and `sass` are peer dependencies; `postcss` and `autoprefixer` are Tailwind's own requirement). The preset brings the panel tokens; presets can't add `content`, so the project spreads the package sources into it:
+The panel is styled with Tailwind 3 and Sass, compiled by the project (`tailwindcss` and `sass` are peer dependencies; `postcss` and `autoprefixer` are Tailwind's own requirement). The panel stylesheet compiles with the package's own Tailwind config (`@config`), which scans the package and the project's panel code (`src/cms/**` and `src/app/(cms)/**`, where its inputs and extension screens live), so the site's CSS carries no panel classes. The project's config only adds the preset, whose tokens the package's Sass `@apply`:
 
 ```js
 // tailwind.config.js
-import cmsPreset, { cmsContent } from '@linkcharsoft/cms/tailwind'
+import cmsPreset from '@linkcharsoft/cms/tailwind'
 
-export default { presets: [cmsPreset], content: ['./src/**/*.{ts,tsx}', ...cmsContent()] }
+export default { presets: [cmsPreset], content: ['./src/**/*.{ts,tsx}'] }
 ```
 
 ```js
@@ -72,6 +72,8 @@ It writes only the files that don't exist yet and never touches the rest:
 - `src/types/supabase.ts`, which re-exports the package types until `supabase gen types` replaces it;
 - the panel's root layout with its theme (`app/(cms)/layout.tsx`, `theme.css`);
 - the site under `app/(site)/`: a root layout that renders `DraftRefresh` in Draft Mode, the home, the 404 and the catch-all that makes unmatched URLs reach it, plus `app/sitemap.ts` and `proxy.ts`.
+
+A project whose site already has its root layout under a dynamic segment (`app/[lang]/layout.tsx`) keeps it there: `init` writes nothing under `app/(site)/`, sets `prefixDefaultLocale: true` and says where `DraftRefresh` goes.
 
 Then it runs `templates`, `routes` and `migrations sync`, and lists what each project wires its own way: `withCms` in `next.config.ts`, the Tailwind preset, the environment variables, and, when they already exist, the project's proxy (it must send `basePath` requests to `cms.proxy`) and its root layout (it moves into `app/(site)/`).
 
@@ -165,7 +167,11 @@ about: page('Estudio', { /* … */ }, { path: { es: '/estudio', en: '/studio' } 
 posts: collection('Blog', { /* … */ }, { slugField: 'slug', path: '/blog/:slug' })   // /blog/casa, /en/blog/house
 ```
 
+With `prefixDefaultLocale: true` the default locale gets its prefix too (`/es/estudio`, `/en/studio`, the home at `/es` and `/en`), for a site under `app/[lang]`; patterns then never start with a locale code. Turning it on in a live site needs a publish of every page and document: each one leaves its 301 from the old URL, and the sitemap follows.
+
 `defineCmsConfig` checks the patterns. An entry that lives inside another page (the footer, the menu) has no path; `previewPath: '/'` with an `anchor` says where the panel previews it, and several entries may share it. Slugs are translated like any text, and each locale's slug must be unique in its collection: saving gives an automatic slug a free variant ("casa-2") and keeps a typed one with an error. Publishing stores the live URL of every locale and leaves a 301 from the old one when it changes, pages included. Changing a pattern in code doesn't create the 301 until the page or document is published again.
+
+hreflang's `x-default` points to the default locale's URL; `site: { xDefault: 'en' }` points it to another locale's, for a site written first in Spanish whose visitors from elsewhere should land in English.
 
 `entryPath(config, entry, { locale, slug })`, `entryUrls`, `slugsOf`, `localePrefix`, `alternates` and `absoluteUrl` build the same URLs anywhere (the panel preview, the site, a sitemap).
 
@@ -372,6 +378,7 @@ export default PostPage
 - `getEntryContent(id, { locale })` reads a page or singleton; before its first publish it reads as the schema defaults.
 - `getDocumentBySlug`, `listDocuments` and `getDocuments` (in the order of a relation field) read collections.
 - Every document carries `urls` with its URL in each locale, for the language switch.
+- `<RichText value={body} />` renders the blocks inside a `<div className>`. A short text with a bold word or a link that goes inside the site's own `<p>` or card is an inline field, `richText({ label: 'Bajada', inline: true, marks: ['bold', 'link'] })`: one paragraph, no headings, lists or media, and the editor offers only those marks (`marks` also narrows a block text). `<RichText value={lead} inline />` renders its text and marks alone, each line after a `<br>`, inside a `<span>` only when it gets a `className`.
 - `sitemap()` lists every published URL with its languages: `export default () => cms.site.sitemap()` in `src/app/sitemap.ts`. A page's `lastModified` is its own last publish or the last publish of the entries its sections declare in `uses`, whichever is newer (the blog page moves with each new post). It throws when the config has no `site.url`; `absoluteUrl` alone still returns relative paths.
 - `await metadata(document)` gives the title with `site.titleTemplate`, the canonical URL, hreflang and Open Graph; `site.url` makes them absolute. With `site: { defaults: { entry: 'settings', description: 'tagline', image: 'shareImage' } }` in the config, a page whose SEO leaves the description or the share image empty takes them from those fields (text or textarea, image) of a page or singleton, in the page's language; its own values always win.
 - `jsonLd(document)` gives a `WebPage` or `Article` node for one page. For the site as a whole, `@linkcharsoft/cms/site` has schema.org helpers that take the site's name, origin and locale: `organization`, `website`, `breadcrumbs`, `blogPosting`, `openingHoursSpecification` (from an `openingHours` field) and `jsonLdGraph`, which joins them (and `jsonLd()` nodes) in one script:
@@ -385,7 +392,9 @@ const site = { name: 'Norte', url: 'https://norte.com', locale: 'es', email: con
 
 **App structure.** The panel's root layout (`src/app/(cms)/layout.tsx`) renders its own `<html>`, so the site lives in route groups with their own root layout: `src/app/(es)/layout.tsx` with `page.tsx`, `blog/…` for the default locale and `src/app/(en)/layout.tsx` with `en/page.tsx`, `en/blog/…` for the others. Shared screens (`src/screens/*`) take the locale as a prop.
 
-In Draft Mode (the panel preview) with an active panel user the readers return drafts. Otherwise they read the published copy without touching cookies, so the pages stay static and each publish rebuilds the site.
+In Draft Mode (the panel preview) with an active panel user the readers return drafts. Otherwise they read the published copy without touching cookies, so the pages stay static and each publish rebuilds the site. A route with `dynamicParams = false` still previews a document never published: Draft Mode renders a slug outside `generateStaticParams`, which stays a 404 for everyone else (checked on Next 16.4).
+
+**Images and videos.** The alt text belongs to the file, in Media, and every image in use needs it in each language. Where the site shows an image as decoration (a mosaic, a background), it keeps the alt text and renders `<Image {...imageProps(image, { sizes })} alt='' />` for that use. Media holds images and PDFs; the project's own videos (hero loops, testimonials, with their posters and variants per language or format) stay in `public/` or a CDN, chosen in code or with a `url` field, because a video bypasses the image optimizer and every view would count against Supabase's egress. A `video` field takes YouTube and Vimeo links.
 
 **Preview.** Render `DraftRefresh` in Draft Mode from the site's layout or frame: it refreshes the page after each autosave, scrolls to the section being edited and shows the exit link (`/api/cms/disable-draft`). `locale` picks the language of the link; `label` and `className` replace its text and look.
 
@@ -600,7 +609,35 @@ Publishing on Amplify is a build hook plus one EventBridge rule that reports the
 3. **API destination** as the rule's target: endpoint `https://<site>/api/cms/build-status`, method `POST`, with a **Connection** of type API key, key `Authorization`, value `Bearer <CMS_BUILD_WEBHOOK_SECRET>`. No input transformer: the handler reads Amplify's own event (`jobId`, `jobStatus`).
 4. The handler maps `SUCCEED`, `FAILED` and `CANCELLED` to the publish log; an event for a job the panel didn't start matches the oldest open publish of the last 30 minutes. A publish without an answer after 30 minutes reads "sin confirmar" and can be retried.
 
-A weekly scheduled build (Amplify's own, or a cron hitting the hook) keeps the site's static pages from drifting from drafts nobody published.
+A weekly scheduled build (Amplify's own, or a cron hitting the hook) keeps the site's static pages from drifting from drafts nobody published. It does not keep a free Supabase project awake: see [docs/deploy.md](https://github.com/Linkcharsoft/linkchar-cms/blob/main/docs/deploy.md#free-plan).
+
+## Import content
+
+Moving content in (from Strapi, a JSON export or constants in code) is a script the project writes. `linkchar-cms import` runs it with a session signed in as a panel user, so it writes through RLS and the activity log like the panel:
+
+```ts
+// scripts/import-content.ts
+import type { ImportSessionType } from '@linkcharsoft/cms/import'
+
+export default async (cms: ImportSessionType) => {
+  const shot = await cms.media({ file: 'src/assets/projects/givxo-1.webp', folder: 'proyectos', alt: { es: 'Givxo: panel de donaciones', en: 'Givxo: donations dashboard' } })
+  await cms.upsert('projects', { data: { title: { es: 'Givxo', en: 'Givxo' }, slug: { es: 'givxo', en: 'givxo' }, mosaic: { es: [shot.id] } } })
+  await cms.upsert('home', { data: { hero: { title: { es: 'Hola', en: 'Hello' } } } })
+  const { published, skipped } = await cms.publish()
+  console.log(`${published} published`, skipped)
+}
+```
+
+```bash
+CMS_IMPORT_PASSWORD='…' pnpm exec linkchar-cms import scripts/import-content.ts --email ana@acme.com --env-file .env.remote [--otp 123456] [--no-publish]
+```
+
+- `media({ file, folder, alt, caption })` processes an image like the panel's uploader (upright, without metadata, within 2560 px, WebP, blur preview) and needs `sharp` (`pnpm add -D sharp`); PDFs go as they are. The same bytes give back the file already in the library, so the script can run again.
+- `upsert(entry, { data, match })` writes `data` in its stored shape (localized maps, media ids) and returns `{ id, created, adjusted }`. A page or singleton is the one of its entry; a collection document is found again by its slug in the default locale (or `match: { id }`, `match: { slug }`), and a new one goes visible at the end of the list, so the script's order is the order of an orderable collection.
+- `publish()` publishes what the import touched, in one publish and one build, and lists in `skipped` the documents still missing content, which stay out as in Publicar. `--no-publish` makes it report without publishing.
+- The environment (or `--env-file`, `.env.local` by default) needs `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` and `SUPABASE_SECRET_KEY` (it only updates the publish log). `CMS_BUILD_HOOK_URL` triggers the Amplify build, a local Supabase runs the mock one, and a hosted project without a hook gets no build: retry it from Publicar. A user with two-step verification passes the current code with `--otp`.
+- The script runs outside Next, loaded with jiti and the `tsconfig` paths: it can't import `server-only` modules (`src/cms/server.ts`) or files only Next understands (static images, CSS).
+- `createImportSession(options)` from `@linkcharsoft/cms/import` is the same session for a runner of the project's own.
 
 ## Upgrade
 

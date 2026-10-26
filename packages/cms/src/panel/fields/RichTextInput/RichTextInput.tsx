@@ -39,6 +39,8 @@ const RichTextInput = ({ name, field }: Props) => {
         label={text(field.label)}
         value={value ?? null}
         headings={field.headings}
+        inline={field.inline}
+        marks={field.marks}
         invalid={!!error}
         describedBy={describedBy(name, field, languages.describedBy)}
         onChange={setValue}

@@ -17,7 +17,7 @@ const typography = plugin(({ addComponents }) => {
 })
 
 /**
- * Panel classes the project's Tailwind must scan: presets cannot add `content`, so spread this into it.
+ * The package sources, which panel.config.js scans; a project no longer spreads them into its own config.
  * @returns {string[]}
  */
 export const cmsContent = () => {

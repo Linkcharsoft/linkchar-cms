@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { isEmptyRichText, normalizeRichText, richTextReferences, sanitizeHref } from '../nodes'
+import { richText } from '../../kinds/richText'
+import { inlineRichText, isEmptyRichText, keepMarks, normalizeRichText, richTextReferences, sanitizeHref } from '../nodes'
 import type { RichTextDocType } from '../nodes'
 
 describe('sanitizeHref', () => {
@@ -55,5 +56,49 @@ describe('normalizeRichText', () => {
 describe('richTextReferences', () => {
   it('lists the images and the linked documents', () => {
     expect(richTextReferences(doc)).toEqual({ media: [MEDIA], relations: [POST] })
+  })
+})
+
+const text = (value: string, marks?: string[]) => ({ type: 'text', text: value, ...(marks ? { marks: marks.map(type => ({ type })) } : {}) })
+
+describe('inline rich text', () => {
+  const blocks: RichTextDocType = {
+    type: 'doc',
+    content: [
+      { type: 'heading', attrs: { level: 2 }, content: [text('Givxo')] },
+      { type: 'paragraph', content: [text('Una app de '), text('donaciones', ['bold', 'italic'])] },
+      { type: 'image', attrs: { mediaId: MEDIA } },
+      { type: 'bulletList', content: [{ type: 'listItem', content: [{ type: 'paragraph', content: [text('iOS')] }] }] },
+      { type: 'paragraph' }
+    ]
+  }
+
+  it('turns every block into a line of one paragraph and drops media', () => {
+    expect(inlineRichText(blocks)).toEqual({
+      type: 'doc',
+      content: [{
+        type: 'paragraph',
+        content: [text('Givxo'), { type: 'hardBreak' }, text('Una app de '), text('donaciones', ['bold', 'italic']), { type: 'hardBreak' }, text('iOS')]
+      }]
+    })
+    expect(inlineRichText(inlineRichText(blocks))).toEqual(inlineRichText(blocks))
+    expect(inlineRichText({ type: 'doc', content: [] })).toEqual({ type: 'doc', content: [{ type: 'paragraph' }] })
+  })
+
+  it('keeps only the allowed marks', () => {
+    const [, paragraph] = keepMarks(blocks, ['bold']).content!
+    expect(paragraph.content).toEqual([text('Una app de '), text('donaciones', ['bold'])])
+  })
+
+  it('applies both when the field is inline with a mark allowlist', () => {
+    const field = { kind: 'richText', label: 'Resumen', inline: true, marks: ['bold'] } as const
+    expect(richText.normalize(blocks, field)).toEqual({
+      type: 'doc',
+      content: [{
+        type: 'paragraph',
+        content: [text('Givxo'), { type: 'hardBreak' }, text('Una app de '), text('donaciones', ['bold']), { type: 'hardBreak' }, text('iOS')]
+      }]
+    })
+    expect(richText.references(richText.normalize(blocks, field), field)).toEqual({ media: [], relations: [] })
   })
 })

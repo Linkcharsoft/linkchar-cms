@@ -56,7 +56,7 @@ describe('richTextExtensions', () => {
   })
 
   it('keeps only the heading levels the field allows', () => {
-    editor = new Editor({ extensions: richTextExtensions(lookup, [2]), content: '<h2>a</h2><h3>b</h3>' })
+    editor = new Editor({ extensions: richTextExtensions(lookup, { headings: [2] }), content: '<h2>a</h2><h3>b</h3>' })
     expect(editor.getJSON().content?.map(node => `${node.type}${node.attrs?.level ?? ''}`)).toEqual(['heading2', 'paragraph'])
   })
 
@@ -94,5 +94,25 @@ describe('richTextExtensions', () => {
     const attrs = { src: 'https://youtu.be/abcdefghijk', title: 'Entrevista', caption: 'Charla completa' }
     editor = new Editor({ extensions: richTextExtensions(lookup), content: { type: 'doc', content: [{ type: 'video', attrs }] } })
     expect(editor.getJSON().content).toEqual([{ type: 'video', attrs }])
+  })
+
+  it('keeps an inline text in one paragraph without blocks, media or other marks', () => {
+    editor = new Editor({
+      extensions: richTextExtensions(lookup, { inline: true, marks: ['bold'] }),
+      content: '<p>Lista:</p>'
+    })
+    editor.commands.setTextSelection(editor.state.doc.content.size - 1)
+    const html = `<h2>Givxo</h2><p>Una app de <strong>donaciones</strong> <em>simple</em> <a href="https://x.com">link</a></p><ul><li>iOS</li></ul><img data-media-id="${MEDIA}">`
+    // jsdom has no ClipboardEvent, which pasteHTML builds when it gets no event.
+    Reflect.apply(editor.view.pasteHTML, editor.view, [html, new Event('paste')])
+    const json = editor.getJSON() as RichTextNodeType
+    const { nodes, marks } = collect(json)
+
+    expect(json.content?.map(node => node.type)).toEqual(['paragraph'])
+    expect([...nodes].filter(type => !['doc', 'paragraph', 'text', 'hardBreak'].includes(type))).toEqual([])
+    expect([...marks]).toEqual(['bold'])
+    expect(editor.getText()).toBe('Lista:Givxo\nUna app de donaciones simple link\niOS')
+    expect(editor.commands.splitBlock()).toBe(false)
+    expect(editor.commands.setHardBreak()).toBe(true)
   })
 })

@@ -32,12 +32,14 @@ export type SiteDefaultsType<S extends ContentSchema = ContentSchema> = {
   }
 }[keyof S & string]
 
-export interface SiteType<S extends ContentSchema = ContentSchema> {
+export interface SiteType<S extends ContentSchema = ContentSchema, L extends string = string> {
   // Public origin of the site ("https://acme.com"), for the Google preview and links out of the panel.
   url?: string
   // How pages title themselves, e.g. "%s | Acme".
   titleTemplate?: string
   defaults?: SiteDefaultsType<S>
+  // The locale hreflang's x-default points to, for visitors no locale matches; defaultLocale unless set.
+  xDefault?: L
 }
 
 interface SiteDefaultsRefType {
@@ -64,6 +66,8 @@ export interface CmsConfigInputType<S extends ContentSchema, L extends string> {
   schema: S
   locales?: readonly L[]
   defaultLocale?: NoInfer<L>
+  // The default locale's URLs start with its code too ("/es/blog/casa"), like every other locale's.
+  prefixDefaultLocale?: boolean
   // Language of the panel itself, independent from the content locales.
   panelLocale?: string
   basePath?: string
@@ -71,7 +75,7 @@ export interface CmsConfigInputType<S extends ContentSchema, L extends string> {
   paths?: Partial<Record<PanelSegmentType, string>>
   timeZone?: string
   branding?: BrandingType
-  site?: SiteType<S>
+  site?: SiteType<S, NoInfer<L>>
   mediaFolders?: readonly MediaFolderType[]
   extensions?: readonly CmsExtensionType[]
   // Opt-in kinds (openingHours) and the project's own, made with defineField.
@@ -83,12 +87,13 @@ export interface CmsConfigType<S extends ContentSchema = ContentSchema, L extend
   schema: S
   locales: readonly L[]
   defaultLocale: L
+  prefixDefaultLocale: boolean
   panelLocale: string
   basePath: string
   paths: Readonly<Record<PanelSegmentType, string>>
   timeZone: string
   branding: BrandingType
-  site: { readonly url: string | null, readonly titleTemplate: string, readonly defaults: SiteDefaultsRefType | null }
+  site: { readonly url: string | null, readonly titleTemplate: string, readonly defaults: SiteDefaultsRefType | null, readonly xDefault: L }
   mediaFolders: readonly MediaFolderType[]
   extensions: readonly CmsExtensionType[]
   fieldTypes: ReadonlyMap<string, FieldDefinitionType>
@@ -151,6 +156,7 @@ interface CheckContextType {
   folders: readonly MediaFolderType[]
   locales: readonly string[]
   defaultLocale: string
+  prefixDefaultLocale: boolean
 }
 
 const checkFields = (ctx: CheckContextType, fields: FieldsRecord, where: string) => {
@@ -163,6 +169,9 @@ const checkFields = (ctx: CheckContextType, fields: FieldsRecord, where: string)
     }
     if (field.kind === 'relation' && schema[field.to]?.kind !== 'collection') {
       throw new CmsConfigError(`${path} points to "${field.to}", which is not a collection.`)
+    }
+    if (field.kind === 'richText' && field.inline && field.headings?.length) {
+      throw new CmsConfigError(`${path} is inline: it can't have headings.`)
     }
     if (field.kind === 'slug' && !keys.includes(field.from)) {
       throw new CmsConfigError(`${path} is generated from "${field.from}", which is not a field next to it.`)
@@ -198,10 +207,10 @@ const checkSchema = (ctx: CheckContextType) => {
   const urls = new Map<string, string>()
   for (const [id, entry] of Object.entries(schema)) {
     checkFields(ctx, entry.fields, id)
-    const [problem] = pathProblems(id, entry, ctx.locales, ctx.defaultLocale, urls)
+    const [problem] = pathProblems(id, entry, ctx, urls)
     if (problem) throw new CmsConfigError(problem)
     // A preview location is not a URL the entry owns: no :slug, and other entries may share it.
-    const [previewProblem] = pathProblems(id, { kind: 'singleton', path: entry.previewPath }, ctx.locales, ctx.defaultLocale, new Map(), 'previewPath')
+    const [previewProblem] = pathProblems(id, { kind: 'singleton', path: entry.previewPath }, ctx, new Map(), 'previewPath')
     if (previewProblem) throw new CmsConfigError(previewProblem)
     if (entry.kind !== 'collection') continue
     const keys = dataFields(entry.fields).map(([key]) => key)
@@ -217,6 +226,7 @@ export const defineCmsConfig = <const S extends ContentSchema, const L extends s
   const locales = input.locales ?? (['es'] as unknown as readonly L[])
   const defaultLocale = input.defaultLocale ?? locales[0]
   const basePath = input.basePath ?? '/dashboard'
+  const prefixDefaultLocale = input.prefixDefaultLocale ?? false
 
   if (locales.length === 0) throw new CmsConfigError('locales needs at least one locale.')
   if (new Set(locales).size !== locales.length) throw new CmsConfigError('locales has repeated values.')
@@ -229,23 +239,26 @@ export const defineCmsConfig = <const S extends ContentSchema, const L extends s
     if (fieldTypes.has(definition.kind) || isStructuralKind(definition.kind)) throw new CmsConfigError(`The field kind "${definition.kind}" is defined twice.`)
     fieldTypes.set(definition.kind, definition)
   }
-  checkSchema({ schema: input.schema, types: fieldTypes, folders: input.mediaFolders ?? [], locales, defaultLocale })
+  checkSchema({ schema: input.schema, types: fieldTypes, folders: input.mediaFolders ?? [], locales, defaultLocale, prefixDefaultLocale })
   const paths = panelSegments(input.paths)
   checkExtensions(input.extensions ?? [], paths)
   const titleTemplate = input.site?.titleTemplate ?? '%s'
   if (!titleTemplate.includes('%s')) throw new CmsConfigError(`site.titleTemplate "${titleTemplate}" needs %s where the page title goes.`)
   if (input.site?.url && !/^https?:\/\/[^/]+$/.test(input.site.url)) throw new CmsConfigError(`site.url "${input.site.url}" must be an origin like https://acme.com.`)
+  const xDefault = input.site?.xDefault ?? defaultLocale
+  if (!locales.includes(xDefault)) throw new CmsConfigError(`site.xDefault "${xDefault}" is not in locales.`)
 
   return Object.freeze({
     schema: input.schema,
     locales: Object.freeze([...locales]),
     defaultLocale,
+    prefixDefaultLocale,
     panelLocale: input.panelLocale ?? 'es',
     basePath,
     paths,
     timeZone: input.timeZone ?? 'America/Argentina/Buenos_Aires',
     branding: input.branding ?? { name: 'CMS' },
-    site: Object.freeze({ url: input.site?.url ?? null, titleTemplate, defaults: siteDefaults(input.schema, input.site?.defaults as SiteDefaultsType | undefined) }),
+    site: Object.freeze({ url: input.site?.url ?? null, titleTemplate, defaults: siteDefaults(input.schema, input.site?.defaults as SiteDefaultsType | undefined), xDefault }),
     mediaFolders: input.mediaFolders ?? [],
     extensions: input.extensions ?? [],
     fieldTypes,

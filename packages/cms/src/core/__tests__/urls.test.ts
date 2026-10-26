@@ -60,6 +60,38 @@ describe('entry URLs', () => {
   })
 })
 
+describe('entry URLs with prefixDefaultLocale', () => {
+  const prefixed = defineCmsConfig({ schema, locales: ['es', 'en'], prefixDefaultLocale: true, site: { url: 'https://norte.com' } })
+
+  it('prefixes the default locale too', () => {
+    expect(localePrefix(prefixed, 'es')).toBe('/es')
+    expect(entryPath(prefixed, schema.home)).toBe('/es')
+    expect(entryPath(prefixed, schema.home, { locale: 'en' })).toBe('/en')
+    expect(entryPath(prefixed, schema.about)).toBe('/es/estudio')
+    expect(slugPrefixFor(prefixed, schema.projects, 'es')).toBe('/es/proyectos/')
+    expect(entryUrls(prefixed, schema.posts, { es: 'casa', en: 'house' })).toEqual({ es: '/es/blog/casa', en: '/en/blog/house' })
+  })
+
+  it('gives publish_site the prefixed URLs', () => {
+    expect(publishUrls(prefixed, schema.posts)).toEqual({ es: { prefix: '/es/blog/', primary: true }, en: { prefix: '/en/blog/', primary: false } })
+    expect(publishUrls(prefixed, schema.home)).toEqual({ es: { path: '/es' }, en: { path: '/en' } })
+  })
+
+  it('points x-default to site.xDefault', () => {
+    const english = defineCmsConfig({ schema, locales: ['es', 'en'], prefixDefaultLocale: true, site: { url: 'https://norte.com', xDefault: 'en' } })
+    expect(alternates(english, entryUrls(english, schema.home), 'es').languages).toEqual({
+      es: 'https://norte.com/es', en: 'https://norte.com/en', 'x-default': 'https://norte.com/en'
+    })
+  })
+
+  it('rejects patterns that already start with a locale', () => {
+    const about = (path: string | Record<string, string>) => ({ about: page('Estudio', {}, { path }) })
+    expect(() => defineCmsConfig({ schema: about('/es/estudio'), locales: ['es', 'en'], prefixDefaultLocale: true })).toThrow('"/es/es/estudio"')
+    expect(() => defineCmsConfig({ schema: about({ es: '/estudio', en: '/en' }), locales: ['es', 'en'], prefixDefaultLocale: true })).toThrow('"/en/en"')
+    expect(defineCmsConfig({ schema: about('/estudio'), locales: ['es', 'en'], prefixDefaultLocale: true }).prefixDefaultLocale).toBe(true)
+  })
+})
+
 describe('entry paths in defineCmsConfig', () => {
   const posts = (path: string | Record<string, string>) => ({
     posts: collection('Blog', { title: text({ label: 'Título' }), slug: slug({ label: 'Dirección', from: 'title' }) },

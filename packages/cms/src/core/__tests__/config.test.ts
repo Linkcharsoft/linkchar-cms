@@ -2,7 +2,7 @@ import { describe, expect, expectTypeOf, it } from 'vitest'
 import { defineCmsConfig, translatorFor } from '../config'
 import { collection, page, singleton } from '../define'
 import { getCollection, getEntry, getPage } from '../entries'
-import { image, relation, section, slug, text } from '../fields'
+import { image, relation, richText, section, slug, text } from '../fields'
 
 const schema = {
   settings: singleton('Sitio', { name: text({ label: 'Nombre' }) }),
@@ -48,7 +48,10 @@ describe('defineCmsConfig', () => {
   })
 
   it('checks the site settings', () => {
-    expect(defineCmsConfig({ schema }).site).toEqual({ url: null, titleTemplate: '%s', defaults: null })
+    expect(defineCmsConfig({ schema }).site).toEqual({ url: null, titleTemplate: '%s', defaults: null, xDefault: 'es' })
+    expect(defineCmsConfig({ schema, locales: ['es', 'en'], site: { xDefault: 'en' } }).site.xDefault).toBe('en')
+    // @ts-expect-error: x-default must be one of the locales
+    expect(() => defineCmsConfig({ schema, locales: ['es', 'en'], site: { xDefault: 'pt' } })).toThrow('not in locales')
     expect(defineCmsConfig({ schema, site: { url: 'https://acme.com', titleTemplate: '%s | Acme' } }).site.titleTemplate).toBe('%s | Acme')
     expect(() => defineCmsConfig({ schema, site: { titleTemplate: 'Acme' } })).toThrow('%s')
     expect(() => defineCmsConfig({ schema, site: { url: 'https://acme.com/blog' } })).toThrow('origin')
@@ -80,6 +83,7 @@ describe('defineCmsConfig', () => {
     expect(broken({ title: text({ label: 'Título' }), slug: slug({ label: 'Slug', from: 'name' }) })).toThrow('generated from "name"')
     expect(broken({ name: text({ label: 'Nombre' }) })).toThrow('titleField "title"')
     expect(broken({ title: text({ label: 'Título' }), cover: image({ label: 'Portada', folder: 'blog' }) })).toThrow('folder "blog"')
+    expect(broken({ title: text({ label: 'Título' }), lead: richText({ label: 'Bajada', inline: true, headings: [2] }) })).toThrow('posts.lead is inline')
   })
 })
 

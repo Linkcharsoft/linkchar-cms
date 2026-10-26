@@ -37,6 +37,8 @@ export const RICH_TEXT_NODES = [
 
 export const RICH_TEXT_MARKS = ['bold', 'italic', 'underline', 'strike', 'link'] as const
 
+export type RichTextMarkNameType = typeof RICH_TEXT_MARKS[number]
+
 export const RICH_TEXT_HEADING_LEVELS = [2, 3, 4] as const
 
 export type RichTextHeadingLevelType = typeof RICH_TEXT_HEADING_LEVELS[number]
@@ -70,6 +72,33 @@ const cleanNodes = (nodes: RichTextNodeType[]): RichTextNodeType[] => nodes.flat
 // Images keep only their media id and caption: URL, size and alt text come from Media, in each language.
 export const normalizeRichText = (doc: RichTextDocType): RichTextDocType =>
   (doc.content ? { ...doc, content: cleanNodes(doc.content) } : doc)
+
+const isInline = (node: RichTextNodeType) => node.type === 'text' || node.type === 'hardBreak'
+
+const TEXT_BLOCKS = ['paragraph', 'heading']
+
+const CONTAINERS = ['doc', 'bulletList', 'orderedList', 'listItem', 'blockquote']
+
+const linesOf = (node: RichTextNodeType): RichTextNodeType[][] => {
+  if (TEXT_BLOCKS.includes(node.type)) return [(node.content ?? []).filter(isInline)]
+  return CONTAINERS.includes(node.type) ? (node.content ?? []).flatMap(linesOf) : []
+}
+
+// One paragraph: each block becomes a line, separated by line breaks; images, videos and dividers are dropped.
+export const inlineRichText = (doc: RichTextDocType): RichTextDocType => {
+  const content = linesOf(doc).filter(line => line.length > 0).flatMap((line, index) => (index === 0 ? line : [{ type: 'hardBreak' }, ...line]))
+  return { type: 'doc', content: [content.length > 0 ? { type: 'paragraph', content } : { type: 'paragraph' }] }
+}
+
+const withMarks = (nodes: RichTextNodeType[], marks: readonly string[]): RichTextNodeType[] => nodes.map(node => {
+  const { marks: own, content, ...rest } = node
+  const kept = own?.filter(mark => marks.includes(mark.type))
+  return { ...rest, ...(kept?.length ? { marks: kept } : {}), ...(content ? { content: withMarks(content, marks) } : {}) }
+})
+
+// Drops every mark not in `marks`, e.g. a pasted italic in a text that only allows bold.
+export const keepMarks = (doc: RichTextDocType, marks: readonly RichTextMarkNameType[]): RichTextDocType =>
+  (doc.content ? { ...doc, content: withMarks(doc.content, marks) } : doc)
 
 // The files and documents a text points to: its images and the links to documents of the site.
 export const richTextReferences = (doc: RichTextDocType) => {

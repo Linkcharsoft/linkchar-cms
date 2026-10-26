@@ -3,7 +3,7 @@ import './RichTextEditor.sass'
 import { EditorContent, useEditor, useEditorState } from '@tiptap/react'
 import { classNames } from 'primereact/utils'
 import { useEffect, useRef, useState } from 'react'
-import { RICH_TEXT_HEADING_LEVELS } from '../../../core/richText/nodes'
+import { RICH_TEXT_HEADING_LEVELS, RICH_TEXT_MARKS } from '../../../core/richText/nodes'
 import { entryPath, slugPrefixFor } from '../../../core/urls'
 import parseVideoUrl from '../../../core/video'
 import { useCms, useT } from '../../client/context'
@@ -16,7 +16,7 @@ import { useMediaRegistry } from '../referencesContext'
 import { richTextExtensions } from './extensions'
 import type { EditorImageType } from './extensions'
 import type { MediaItemType } from '../../../core/media'
-import type { RichTextDocType, RichTextHeadingLevelType } from '../../../core/richText/nodes'
+import type { RichTextDocType, RichTextHeadingLevelType, RichTextMarkNameType } from '../../../core/richText/nodes'
 import type { EntryTargetType } from '../LinkInput/EntryPicker'
 import type { Editor } from '@tiptap/react'
 
@@ -25,6 +25,8 @@ interface Props {
   label: string
   value: RichTextDocType | null
   headings?: readonly RichTextHeadingLevelType[]
+  inline?: boolean
+  marks?: readonly RichTextMarkNameType[]
   invalid: boolean
   describedBy?: string
   onChange: (value: RichTextDocType) => void
@@ -61,7 +63,10 @@ const BLOCK_TOOLS: ToolType[] = [
 ]
 
 // Loaded lazily by RichTextInput: Tiptap only reaches the browser when a rich text field is on screen.
-const RichTextEditor = ({ id, label, value, headings = RICH_TEXT_HEADING_LEVELS, invalid, describedBy, onChange, onBlur }: Props) => {
+const RichTextEditor = ({ id, label, value, headings: allowedHeadings = RICH_TEXT_HEADING_LEVELS, inline = false, marks = RICH_TEXT_MARKS, invalid, describedBy, onChange, onBlur }: Props) => {
+  const headings = inline ? [] : allowedHeadings
+  const markTools = MARK_TOOLS.filter(tool => marks.includes(tool.name as RichTextMarkNameType))
+  const blockTools = inline ? [] : BLOCK_TOOLS
   const { t } = useT()
   const { config } = useCms()
   const stored = useStoredText()
@@ -95,13 +100,13 @@ const RichTextEditor = ({ id, label, value, headings = RICH_TEXT_HEADING_LEVELS,
   // Created once: re-applying options on each render loops onUpdate → setValue. Remount to load new content.
   const editor = useEditor({
     immediatelyRender: false,
-    extensions: richTextExtensions(mediaId => lookupRef.current(mediaId), headings),
+    extensions: richTextExtensions(mediaId => lookupRef.current(mediaId), { headings, inline, marks }),
     content: value ?? undefined,
     editorProps: {
       attributes: {
         id,
         role: 'textbox',
-        'aria-multiline': 'true',
+        'aria-multiline': inline ? 'false' : 'true',
         'aria-label': label,
         ...(describedBy ? { 'aria-describedby': describedBy } : {}),
         class: 'RichTextEditor__Content'
@@ -120,7 +125,7 @@ const RichTextEditor = ({ id, label, value, headings = RICH_TEXT_HEADING_LEVELS,
   const state = useEditorState({
     editor,
     selector: ({ editor: current }) => ({
-      active: current ? [...MARK_TOOLS, ...BLOCK_TOOLS].map(tool => tool.isActive?.(current) ?? false) : [],
+      active: current ? [...markTools, ...blockTools].map(tool => tool.isActive?.(current) ?? false) : [],
       heading: current ? headings.find(level => current.isActive('heading', { level })) ?? null : null,
       link: current?.getAttributes('link') as { href?: string, target?: string, entry?: string, id?: string, anchor?: string } | undefined,
       canUndo: current?.can().undo() ?? false,
@@ -167,7 +172,7 @@ const RichTextEditor = ({ id, label, value, headings = RICH_TEXT_HEADING_LEVELS,
   )
 
   return (
-    <div className={classNames('RichTextEditor', { 'RichTextEditor--Invalid': invalid })}>
+    <div className={classNames('RichTextEditor', { 'RichTextEditor--Invalid': invalid, 'RichTextEditor--Inline': inline })}>
       {/* mousedown is cancelled so clicking a tool never takes focus (and the selection) away from the text. */}
       <div
         role='toolbar'
@@ -191,41 +196,47 @@ const RichTextEditor = ({ id, label, value, headings = RICH_TEXT_HEADING_LEVELS,
             H{level}
           </CustomButton>
         ))}
-        <span className='RichTextEditor__Divider' aria-hidden='true' />
-        {MARK_TOOLS.map((tool, index) => renderTool(tool, index))}
-        <CustomButton
-          type='button'
-          variant='ghost'
-          size='xs'
-          iconOnly
-          icon='pi pi-link'
-          aria-label={t('richTextEditor.link')}
-          aria-pressed={!!state?.link?.href}
-          className={classNames('RichTextEditor__Tool', { 'RichTextEditor__Tool--Active': !!state?.link?.href })}
-          onClick={() => openDialog('link')}
-        />
-        <span className='RichTextEditor__Divider' aria-hidden='true' />
-        {BLOCK_TOOLS.map((tool, index) => renderTool(tool, MARK_TOOLS.length + index))}
-        <CustomButton
-          type='button'
-          variant='ghost'
-          size='xs'
-          iconOnly
-          icon='pi pi-image'
-          aria-label={t('richTextEditor.insertImage')}
-          className='RichTextEditor__Tool'
-          onClick={() => openDialog('image')}
-        />
-        <CustomButton
-          type='button'
-          variant='ghost'
-          size='xs'
-          iconOnly
-          icon='pi pi-video'
-          aria-label={t('richTextEditor.insertVideo')}
-          className='RichTextEditor__Tool'
-          onClick={() => openDialog('video')}
-        />
+        {headings.length > 0 && <span className='RichTextEditor__Divider' aria-hidden='true' />}
+        {markTools.map((tool, index) => renderTool(tool, index))}
+        {marks.includes('link') && (
+          <CustomButton
+            type='button'
+            variant='ghost'
+            size='xs'
+            iconOnly
+            icon='pi pi-link'
+            aria-label={t('richTextEditor.link')}
+            aria-pressed={!!state?.link?.href}
+            className={classNames('RichTextEditor__Tool', { 'RichTextEditor__Tool--Active': !!state?.link?.href })}
+            onClick={() => openDialog('link')}
+          />
+        )}
+        {!inline && (
+          <>
+            <span className='RichTextEditor__Divider' aria-hidden='true' />
+            {blockTools.map((tool, index) => renderTool(tool, markTools.length + index))}
+            <CustomButton
+              type='button'
+              variant='ghost'
+              size='xs'
+              iconOnly
+              icon='pi pi-image'
+              aria-label={t('richTextEditor.insertImage')}
+              className='RichTextEditor__Tool'
+              onClick={() => openDialog('image')}
+            />
+            <CustomButton
+              type='button'
+              variant='ghost'
+              size='xs'
+              iconOnly
+              icon='pi pi-video'
+              aria-label={t('richTextEditor.insertVideo')}
+              className='RichTextEditor__Tool'
+              onClick={() => openDialog('video')}
+            />
+          </>
+        )}
         <span className='RichTextEditor__Divider' aria-hidden='true' />
         <CustomButton
           type='button'

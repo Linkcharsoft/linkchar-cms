@@ -147,6 +147,7 @@ export const schema = defineSchema({
     slug: slug({ label: 'Dirección', from: 'title', required: true }),
     publishedAt: datetime({ label: 'Fecha de publicación' }),
     excerpt: textarea({ label: 'Resumen', rows: 3, maxLength: 220 }),
+    lead: richText({ label: 'Bajada', inline: true, marks: ['bold', 'link'] }),
     cover: image({ label: 'Imagen', folder: 'blog' }),
     body: richText({ label: 'Texto', required: true, headings: [2, 3, 4] }),
     author: relation({ label: 'Autor', to: 'team' }),

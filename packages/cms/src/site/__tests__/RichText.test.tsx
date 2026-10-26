@@ -27,6 +27,17 @@ const value: SiteRichTextType = {
 }
 
 describe('RichText', () => {
+  it('renders an inline text without <p> or a wrapper, one line per block', () => {
+    const { container } = render(<p className='Lead'><RichText value={value} inline /></p>)
+    const lead = container.querySelector('.Lead')!
+    expect(lead.querySelectorAll('p, div, h2, figure')).toHaveLength(0)
+    expect(lead.querySelector('strong')?.textContent).toBe('Una ')
+    expect(lead.querySelectorAll('br')).toHaveLength(1)
+    expect(lead.textContent).toBe('ObrasUna nota y otra')
+    expect(render(<RichText value={value} inline className='Lead__Text' />).container.firstElementChild?.tagName).toBe('SPAN')
+    expect(render(<RichText value={{ type: 'doc', content: [{ type: 'paragraph' }] }} inline />).container.innerHTML).toBe('')
+  })
+
   it('renders the allowed nodes and marks, with safe links', () => {
     const { container } = render(<RichText value={value} className='Post__Body' />)
     expect(container.querySelector('.Post__Body h2')?.textContent).toBe('Obras')
