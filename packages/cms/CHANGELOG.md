@@ -1,5 +1,34 @@
 # @linkcharsoft/cms
 
+## 0.10.0
+
+### Minor Changes
+
+- 26ff4d3: Content imports, for projects that migrate from Strapi or from content in code. `linkchar-cms import <script.ts> --email … [--otp …] [--no-publish]` loads the project's script with jiti (with its `tsconfig` paths, outside Next) and runs its default export with a session signed in as that panel user, so every write goes through RLS and the activity log. The session (`createImportSession` from `@linkcharsoft/cms/import`, a new export without `server-only`) has `media()`, which processes images like the panel's uploader (upright, without metadata, within 2560 px, WebP, blur preview, SHA-256 dedupe), `upsert()`, which writes a page, singleton or collection document and finds it again by its default-locale slug (new documents go visible, at the end of the list), and `publish()`, which publishes everything the import touched in one build and lists the documents still missing content. `sharp` is a new optional peer dependency, only for importing images. The server also exports `addDocument`, `createDocument` without the redirect.
+  
+  To update a project: nothing. To import images, `pnpm add -D sharp`; the password goes in `CMS_IMPORT_PASSWORD`.
+- d22f135: Inline rich text, for a short text with a bold word or a link that goes inside the site's own `<p>` or card: `richText({ inline: true, marks: ['bold', 'link'] })` keeps one paragraph (blocks become lines, media is dropped), its editor offers only those marks and no headings, lists, images or videos, Enter can't split it and Shift+Enter breaks the line, and pasted paragraphs become lines. `<RichText value={lead} inline />` renders the text and its marks without `<p>` or a wrapper (a `<span>` when it gets a `className`). `marks` alone narrows the marks of a block text too; `defineCmsConfig` rejects an inline field with `headings`. Core exports `inlineRichText`, `keepMarks` and `RichTextMarkNameType`.
+  
+  To update a project: nothing; existing rich text fields keep every block and mark.
+- 0fcff06: The panel stylesheet compiles with the package's own Tailwind config (`@config '../../../tailwind/panel.config.js'` in `styles.css`): the preset, the package sources and the project's panel code (`src/cms/**`, `src/app/(cms)/**`, or the same without `src/`). The project's `tailwind.config` no longer spreads `cmsContent()`, so its site CSS stops carrying the panel's utilities: on linkchar-page, the site's Tailwind output went from 30.6 KB to 10.2 KB minified (6.1 to 2.9 KB gzip). The panel CSS also stops carrying the site's utilities and plugins. `cmsContent()` stays exported.
+  
+  To update a project: remove `...cmsContent()` from `content` in `tailwind.config` and keep `presets: [cmsPreset]` (the package's Sass applies its tokens). Project panel inputs and extension screens must live under `src/cms/` or `src/app/(cms)/`; classes used only elsewhere stop reaching the panel.
+- 567045c: `prefixDefaultLocale: true` in `defineCmsConfig` gives the default locale its prefix too: `/es/blog/casa` and `/en/blog/house`, the home at `/es` and `/en`, for sites whose pages live under `app/[lang]`. `entryPath`, `entryUrls`, `slugPrefixFor`, `publishUrls`, `alternates`, the sitemap, the panel preview and the redirects of `publish_site` all follow it; the database needs no migration. With the option on, `defineCmsConfig` rejects patterns that start with a locale code (`/es/estudio` would end up as `/es/es/estudio`).
+  
+  To update a project: nothing; without the option every URL stays as it was. A live site that turns it on publishes every page and document again: each publish leaves the 301 from the unprefixed URL.
+- 2fbfb1f: `site.xDefault` picks the locale hreflang's `x-default` points to in `cms.site.metadata()`, the sitemap and `alternates()`. It defaults to `defaultLocale`, which is the language editors write first (required alt texts, the original above each translation); a site written in Spanish whose foreign visitors should land in English sets `site: { xDefault: 'en' }`. `defineCmsConfig` rejects a locale that is not in `locales`.
+  
+  To update a project: nothing.
+
+### Patch Changes
+
+- 86615af: The README now says how to show a decorative image (keep its alt text in Media and render `alt=''` for that use), where the project's own videos go (`public/` or a CDN, not Media), and that a route with `dynamicParams = false` still previews a document never published, since Draft Mode renders a slug outside `generateStaticParams`. The deploy guide has a Free plan section: the plan's limits, what breaks while a free Supabase project is paused, and a daily keepalive query, since the weekly build is not enough to keep it awake.
+  
+  To update a project: nothing.
+- f35de4d: `linkchar-cms init` recognizes a site whose root layout lives under a dynamic segment (`app/[lang]/layout.tsx`): it no longer writes `app/(site)/`, whose `[...notFound]` catch-all next to `[lang]` broke `next build` ("different slug names for the same dynamic path"). It sets `prefixDefaultLocale: true` in the new `cms.config.ts` and lists where `DraftRefresh` and the catch-all go.
+  
+  To update a project: nothing. A project that ran `init` 0.9.0 with an `app/[lang]` root deletes `src/app/(site)/`.
+
 ## 0.9.0
 
 ### Minor Changes
