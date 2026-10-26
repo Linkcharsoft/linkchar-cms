@@ -170,6 +170,9 @@ const checkFields = (ctx: CheckContextType, fields: FieldsRecord, where: string)
     if (field.kind === 'relation' && schema[field.to]?.kind !== 'collection') {
       throw new CmsConfigError(`${path} points to "${field.to}", which is not a collection.`)
     }
+    if (field.kind === 'richText' && field.inline && field.headings?.length) {
+      throw new CmsConfigError(`${path} is inline: it can't have headings.`)
+    }
     if (field.kind === 'slug' && !keys.includes(field.from)) {
       throw new CmsConfigError(`${path} is generated from "${field.from}", which is not a field next to it.`)
     }
