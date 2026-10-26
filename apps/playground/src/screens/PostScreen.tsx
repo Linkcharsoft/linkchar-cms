@@ -27,7 +27,7 @@ export const postMetadata = async (locale: LocaleType, params: SlugParamsType['p
 const PostScreen = async ({ locale, params }: Props) => {
   const post = await readPost(locale, params)
   if (!post) notFound()
-  const { title, cover, body, author } = post.content
+  const { title, lead, cover, body, author } = post.content
   const [writer] = author ? await cms.site.getDocuments('team', [author], { locale }) : []
 
   return (
@@ -35,6 +35,7 @@ const PostScreen = async ({ locale, params }: Props) => {
       <JsonLd data={cms.site.jsonLd(post)} />
       <article>
         <h1 data-testid='post-title'>{title}</h1>
+        {lead && <p data-testid='post-lead'><RichText value={lead} inline /></p>}
         {writer && <p>{writer.content.name}</p>}
         {cover?.width && cover.height && <Image {...imageProps(cover, { sizes: '(min-width: 1024px) 60vw, 100vw' })} />}
         <RichText value={body} />
