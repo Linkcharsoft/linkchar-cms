@@ -100,3 +100,25 @@ Projects on `linkchar-frontend-workflows` pass the package token and the Supabas
 - Invite a user from Usuarios: the email arrives and its link opens the invitation screen on the site's domain.
 - Edit a page and open the preview: the draft shows, and "Salir" leaves Draft Mode.
 - Publish: the build starts, and its end (success or failure) shows in Publicar without reloading.
+
+## Free plan
+
+Supabase's Free plan includes 500 MB of database, 1 GB of storage, 5 GB of egress plus 5 GB of cached egress per month, and files up to 50 MB (the `media` bucket stops at 10 MB). Images reach visitors through Next's image optimizer, which caches each size, so Media costs little egress; videos would not, which is why they stay out of it.
+
+**A free project pauses after a week with too little database activity**; Supabase's own guide asks for a few requests to the database each day. While it is paused, the site's static pages keep serving from Amplify, but the panel can't sign in, publishing fails, every build fails (`withCms` reads the redirects and the pages read the content) while Amplify keeps the last good deploy, and images the optimizer hasn't cached yet stop loading. The weekly build is not enough: it is one request a week, and it fails once the project is paused. A production client goes on Pro, which never pauses. A free project gets a daily query, e.g. from the project's GitHub Actions:
+
+```yaml
+# .github/workflows/supabase-keepalive.yml
+on:
+  schedule:
+    - cron: '17 9 * * *'
+  workflow_dispatch:
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - run: curl -fsS "${{ vars.SUPABASE_URL }}/rest/v1/published_documents?select=id&limit=1" -H "apikey: ${{ vars.SUPABASE_PUBLISHABLE_KEY }}"
+```
+
+A paused project comes back with Restore in the dashboard; then run the build again from Publicar.
+

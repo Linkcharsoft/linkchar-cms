@@ -392,7 +392,9 @@ const site = { name: 'Norte', url: 'https://norte.com', locale: 'es', email: con
 
 **App structure.** The panel's root layout (`src/app/(cms)/layout.tsx`) renders its own `<html>`, so the site lives in route groups with their own root layout: `src/app/(es)/layout.tsx` with `page.tsx`, `blog/…` for the default locale and `src/app/(en)/layout.tsx` with `en/page.tsx`, `en/blog/…` for the others. Shared screens (`src/screens/*`) take the locale as a prop.
 
-In Draft Mode (the panel preview) with an active panel user the readers return drafts. Otherwise they read the published copy without touching cookies, so the pages stay static and each publish rebuilds the site.
+In Draft Mode (the panel preview) with an active panel user the readers return drafts. Otherwise they read the published copy without touching cookies, so the pages stay static and each publish rebuilds the site. A route with `dynamicParams = false` still previews a document never published: Draft Mode renders a slug outside `generateStaticParams`, which stays a 404 for everyone else (checked on Next 16.4).
+
+**Images and videos.** The alt text belongs to the file, in Media, and every image in use needs it in each language. Where the site shows an image as decoration (a mosaic, a background), it keeps the alt text and renders `<Image {...imageProps(image, { sizes })} alt='' />` for that use. Media holds images and PDFs; the project's own videos (hero loops, testimonials, with their posters and variants per language or format) stay in `public/` or a CDN, chosen in code or with a `url` field, because a video bypasses the image optimizer and every view would count against Supabase's egress. A `video` field takes YouTube and Vimeo links.
 
 **Preview.** Render `DraftRefresh` in Draft Mode from the site's layout or frame: it refreshes the page after each autosave, scrolls to the section being edited and shows the exit link (`/api/cms/disable-draft`). `locale` picks the language of the link; `label` and `className` replace its text and look.
 
@@ -607,7 +609,7 @@ Publishing on Amplify is a build hook plus one EventBridge rule that reports the
 3. **API destination** as the rule's target: endpoint `https://<site>/api/cms/build-status`, method `POST`, with a **Connection** of type API key, key `Authorization`, value `Bearer <CMS_BUILD_WEBHOOK_SECRET>`. No input transformer: the handler reads Amplify's own event (`jobId`, `jobStatus`).
 4. The handler maps `SUCCEED`, `FAILED` and `CANCELLED` to the publish log; an event for a job the panel didn't start matches the oldest open publish of the last 30 minutes. A publish without an answer after 30 minutes reads "sin confirmar" and can be retried.
 
-A weekly scheduled build (Amplify's own, or a cron hitting the hook) keeps the site's static pages from drifting from drafts nobody published.
+A weekly scheduled build (Amplify's own, or a cron hitting the hook) keeps the site's static pages from drifting from drafts nobody published. It does not keep a free Supabase project awake: see [docs/deploy.md](https://github.com/Linkcharsoft/linkchar-cms/blob/main/docs/deploy.md#free-plan).
 
 ## Import content
 
