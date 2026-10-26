@@ -31,7 +31,8 @@ const insertDocument = async (ctx: CmsContextType, entryId: string, entry: Colle
     .insert({ type: entryId, data: toJson(data), ...slugColumns(ctx, entryId, data), sort_order: sortOrder, visible: entry.referenceOnly })
     .select('id').single()
 
-export const createDocument = async (ctx: CmsContextType, entryId: string): Promise<ActionResultType> => {
+// A document with the schema defaults at the end of the list; createDocument then opens it, an import fills it.
+export const addDocument = async (ctx: CmsContextType, entryId: string): Promise<{ ok: true, id: string, data: DataRecord } | { ok: false, error: MessageKeyType }> => {
   await requireRole(ctx, 'editor')
   const entry = getCollection(ctx.config, entryId)
   if (!entry) return fail('errors.unknownEntry')
@@ -44,6 +45,12 @@ export const createDocument = async (ctx: CmsContextType, entryId: string): Prom
   }
 
   await logActivity(ctx, 'document.create', created.id, { type: entryId })
+  return { ok: true, id: created.id, data }
+}
+
+export const createDocument = async (ctx: CmsContextType, entryId: string): Promise<ActionResultType> => {
+  const created = await addDocument(ctx, entryId)
+  if (!created.ok) return created
   throw new CmsRedirect(panelPaths(ctx.config).document(entryId, created.id))
 }
 
