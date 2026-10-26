@@ -165,6 +165,8 @@ about: page('Estudio', { /* … */ }, { path: { es: '/estudio', en: '/studio' } 
 posts: collection('Blog', { /* … */ }, { slugField: 'slug', path: '/blog/:slug' })   // /blog/casa, /en/blog/house
 ```
 
+With `prefixDefaultLocale: true` the default locale gets its prefix too (`/es/estudio`, `/en/studio`, the home at `/es` and `/en`), for a site under `app/[lang]`; patterns then never start with a locale code. Turning it on in a live site needs a publish of every page and document: each one leaves its 301 from the old URL, and the sitemap follows.
+
 `defineCmsConfig` checks the patterns. An entry that lives inside another page (the footer, the menu) has no path; `previewPath: '/'` with an `anchor` says where the panel previews it, and several entries may share it. Slugs are translated like any text, and each locale's slug must be unique in its collection: saving gives an automatic slug a free variant ("casa-2") and keeps a typed one with an error. Publishing stores the live URL of every locale and leaves a 301 from the old one when it changes, pages included. Changing a pattern in code doesn't create the 301 until the page or document is published again.
 
 `entryPath(config, entry, { locale, slug })`, `entryUrls`, `slugsOf`, `localePrefix`, `alternates` and `absoluteUrl` build the same URLs anywhere (the panel preview, the site, a sitemap).

@@ -17,8 +17,9 @@ export type PublishUrlType = { prefix: string, primary: boolean } | { path: stri
 
 const SLUG = ':slug'
 
-// The default locale has no prefix: "/blog/casa", "/en/blog/house".
-export const localePrefix = (config: CmsConfigType, locale: string) => (locale === config.defaultLocale ? '' : `/${locale}`)
+// The default locale has no prefix unless prefixDefaultLocale: "/blog/casa", "/en/blog/house".
+export const localePrefix = (config: CmsConfigType, locale: string) =>
+  (locale === config.defaultLocale && !config.prefixDefaultLocale ? '' : `/${locale}`)
 
 const withPrefix = (config: CmsConfigType, locale: string, path: string) => {
   const prefix = localePrefix(config, locale)
@@ -86,8 +87,14 @@ export const alternates = (config: CmsConfigType, urls: Record<string, string>, 
 
 const PATTERN = /^\/((?:[a-z0-9]+(?:-[a-z0-9]+)*\/)*(?:[a-z0-9]+(?:-[a-z0-9]+)*|:slug))?$/
 
+export interface LocaleRulesType {
+  locales: readonly string[]
+  defaultLocale: string
+  prefixDefaultLocale: boolean
+}
+
 // Problems of one entry's path for defineCmsConfig, as messages; patterns are collected to catch two entries on one URL.
-export const pathProblems = (id: string, entry: PathOwnerType, locales: readonly string[], defaultLocale: string, taken: Map<string, string>, option = 'path') => {
+export const pathProblems = (id: string, entry: PathOwnerType, { locales, defaultLocale, prefixDefaultLocale }: LocaleRulesType, taken: Map<string, string>, option = 'path') => {
   if (!entry.path) return []
   const problems: string[] = []
   const name = `${id}.${option}`
@@ -104,7 +111,10 @@ export const pathProblems = (id: string, entry: PathOwnerType, locales: readonly
     const hasSlug = pattern.endsWith(SLUG)
     if (entry.kind === 'collection' && (!hasSlug || !entry.slugField)) problems.push(`${name} "${pattern}" needs :slug at the end and a slugField.`)
     if (entry.kind !== 'collection' && hasSlug) problems.push(`${name} "${pattern}" can't use :slug: only collections have one page per document.`)
-    if (locale === defaultLocale && locales.some(other => other !== defaultLocale && (pattern === `/${other}` || pattern.startsWith(`/${other}/`)))) {
+    const first = pattern.split('/')[1]
+    if (prefixDefaultLocale && locales.includes(first)) {
+      problems.push(`${name} "${pattern}" starts with a locale: with prefixDefaultLocale it would be "/${locale}${pattern}".`)
+    } else if (!prefixDefaultLocale && locale === defaultLocale && first !== locale && locales.includes(first)) {
       problems.push(`${name} "${pattern}" starts with another locale's prefix.`)
     }
     const key = `${locale} ${pattern}`

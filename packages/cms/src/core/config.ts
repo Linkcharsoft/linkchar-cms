@@ -64,6 +64,8 @@ export interface CmsConfigInputType<S extends ContentSchema, L extends string> {
   schema: S
   locales?: readonly L[]
   defaultLocale?: NoInfer<L>
+  // The default locale's URLs start with its code too ("/es/blog/casa"), like every other locale's.
+  prefixDefaultLocale?: boolean
   // Language of the panel itself, independent from the content locales.
   panelLocale?: string
   basePath?: string
@@ -83,6 +85,7 @@ export interface CmsConfigType<S extends ContentSchema = ContentSchema, L extend
   schema: S
   locales: readonly L[]
   defaultLocale: L
+  prefixDefaultLocale: boolean
   panelLocale: string
   basePath: string
   paths: Readonly<Record<PanelSegmentType, string>>
@@ -151,6 +154,7 @@ interface CheckContextType {
   folders: readonly MediaFolderType[]
   locales: readonly string[]
   defaultLocale: string
+  prefixDefaultLocale: boolean
 }
 
 const checkFields = (ctx: CheckContextType, fields: FieldsRecord, where: string) => {
@@ -198,10 +202,10 @@ const checkSchema = (ctx: CheckContextType) => {
   const urls = new Map<string, string>()
   for (const [id, entry] of Object.entries(schema)) {
     checkFields(ctx, entry.fields, id)
-    const [problem] = pathProblems(id, entry, ctx.locales, ctx.defaultLocale, urls)
+    const [problem] = pathProblems(id, entry, ctx, urls)
     if (problem) throw new CmsConfigError(problem)
     // A preview location is not a URL the entry owns: no :slug, and other entries may share it.
-    const [previewProblem] = pathProblems(id, { kind: 'singleton', path: entry.previewPath }, ctx.locales, ctx.defaultLocale, new Map(), 'previewPath')
+    const [previewProblem] = pathProblems(id, { kind: 'singleton', path: entry.previewPath }, ctx, new Map(), 'previewPath')
     if (previewProblem) throw new CmsConfigError(previewProblem)
     if (entry.kind !== 'collection') continue
     const keys = dataFields(entry.fields).map(([key]) => key)
@@ -217,6 +221,7 @@ export const defineCmsConfig = <const S extends ContentSchema, const L extends s
   const locales = input.locales ?? (['es'] as unknown as readonly L[])
   const defaultLocale = input.defaultLocale ?? locales[0]
   const basePath = input.basePath ?? '/dashboard'
+  const prefixDefaultLocale = input.prefixDefaultLocale ?? false
 
   if (locales.length === 0) throw new CmsConfigError('locales needs at least one locale.')
   if (new Set(locales).size !== locales.length) throw new CmsConfigError('locales has repeated values.')
@@ -229,7 +234,7 @@ export const defineCmsConfig = <const S extends ContentSchema, const L extends s
     if (fieldTypes.has(definition.kind) || isStructuralKind(definition.kind)) throw new CmsConfigError(`The field kind "${definition.kind}" is defined twice.`)
     fieldTypes.set(definition.kind, definition)
   }
-  checkSchema({ schema: input.schema, types: fieldTypes, folders: input.mediaFolders ?? [], locales, defaultLocale })
+  checkSchema({ schema: input.schema, types: fieldTypes, folders: input.mediaFolders ?? [], locales, defaultLocale, prefixDefaultLocale })
   const paths = panelSegments(input.paths)
   checkExtensions(input.extensions ?? [], paths)
   const titleTemplate = input.site?.titleTemplate ?? '%s'
@@ -240,6 +245,7 @@ export const defineCmsConfig = <const S extends ContentSchema, const L extends s
     schema: input.schema,
     locales: Object.freeze([...locales]),
     defaultLocale,
+    prefixDefaultLocale,
     panelLocale: input.panelLocale ?? 'es',
     basePath,
     paths,

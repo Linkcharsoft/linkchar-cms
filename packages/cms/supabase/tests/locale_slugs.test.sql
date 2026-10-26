@@ -1,7 +1,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(10);
+select plan(12);
 
 insert into auth.users (id, email) values ('80000000-0000-0000-0000-00000000000c', 'publisher-slugs@test.local');
 update public.profiles set can_publish = true where id = '80000000-0000-0000-0000-00000000000c';
@@ -100,6 +100,16 @@ select throws_ok(
 select throws_ok(
   $$ select pg_temp.publish('80000000-0000-0000-0000-0000000000d4', '{"es-": {"path": "/x"}}') $$,
   '22023', null, 'locales are checked'
+);
+
+select lives_ok(
+  $$ select pg_temp.publish('80000000-0000-0000-0000-0000000000d3', '{"es": {"prefix": "/es/ls-proyectos/", "primary": true}, "en": {"prefix": "/en/ls-projects/", "primary": false}}') $$,
+  'the default locale can carry its own prefix (prefixDefaultLocale)'
+);
+select results_eq(
+  $$ select from_path, to_path from public.redirects where to_path like '/es/ls-proyectos/%' $$,
+  $$ values ('/ls-proyectos/norte', '/es/ls-proyectos/norte') $$,
+  'turning the prefix on redirects the unprefixed URL on the next publish'
 );
 
 select * from finish();
