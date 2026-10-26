@@ -1,0 +1,81 @@
+import { existsSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
+import { CliError } from './migrations.js'
+import { tsconfigAliases } from './routes.js'
+
+/**
+ * @typedef {{ email?: string, password?: string, otp?: string }} ImportFlagsType
+ * @typedef {{
+ *   email: string, password: string, otp?: string,
+ *   supabase: { url: string, publishableKey: string, secretKey: string },
+ *   build: { kind: 'amplify', hookUrl: string, webhookSecret?: string } | { kind: 'mock' } | { kind: 'none' }
+ * }} ImportSettingsType
+ */
+
+const LOCAL = /^https?:\/\/(127\.0\.0\.1|localhost)(:\d+)?$/
+
+/**
+ * Who imports and where, from the flags and the environment; the build follows the project's server.ts.
+ * @param {Record<string, string | undefined>} env
+ * @param {ImportFlagsType} flags
+ * @returns {ImportSettingsType}
+ */
+export const importSettings = (env, { email, password, otp }) => {
+  const user = email ?? env.CMS_IMPORT_EMAIL
+  const secret = password ?? env.CMS_IMPORT_PASSWORD
+  if (!user || !secret) throw new CliError('The import signs in as a panel user: pass --email and set CMS_IMPORT_PASSWORD (or --password).')
+
+  const url = env.NEXT_PUBLIC_SUPABASE_URL
+  const publishableKey = env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
+  const secretKey = env.SUPABASE_SECRET_KEY
+  const missing = Object.entries({ NEXT_PUBLIC_SUPABASE_URL: url, NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: publishableKey, SUPABASE_SECRET_KEY: secretKey })
+    .filter(([, value]) => !value).map(([name]) => name)
+  if (!url || !publishableKey || !secretKey) throw new CliError(`Missing ${missing.join(', ')} in the environment or the env file.`)
+
+  // A hosted project without a hook gets no build: the publish log says so instead of a mock success.
+  const build = env.CMS_BUILD_HOOK_URL
+    ? /** @type {const} */ ({ kind: 'amplify', hookUrl: env.CMS_BUILD_HOOK_URL, webhookSecret: env.CMS_BUILD_WEBHOOK_SECRET })
+    : LOCAL.test(url) ? /** @type {const} */ ({ kind: 'mock' }) : /** @type {const} */ ({ kind: 'none' })
+
+  return { email: user, password: secret, otp, supabase: { url, publishableKey, secretKey }, build }
+}
+
+/**
+ * Loads the project's config and script with jiti (they import the package's TypeScript) and runs the script with a session.
+ * @param {{ script: string, configFile: string, root: string, settings: ImportSettingsType, publish: boolean }} options
+ */
+export const runImport = async ({ script, configFile, root, settings, publish }) => {
+  if (!existsSync(script)) throw new CliError(`There is no import script at ${script}.`)
+  if (!existsSync(configFile)) throw new CliError(`There is no CMS config at ${configFile}: pass --config.`)
+
+  const { createJiti } = await import('jiti')
+  const jiti = createJiti(import.meta.url, { alias: await tsconfigAliases(root) })
+  const source = (/** @type {string} */ file) => fileURLToPath(new URL(`../src/${file}`, import.meta.url))
+
+  const config = await jiti.import(configFile, { default: true })
+  const run = await jiti.import(script, { default: true })
+  if (typeof run !== 'function') throw new CliError(`${script} must export default async (cms) => { … }.`)
+
+  const { createImportSession } = /** @type {typeof import('../src/server/import')} */ (await jiti.import(source('server/import.ts')))
+  const { build } = settings
+  const publishTarget = build.kind === 'amplify'
+    ? (/** @type {typeof import('../src/publish/amplify')} */ (await jiti.import(source('publish/amplify.ts')))).amplify({ hookUrl: build.hookUrl, webhookSecret: build.webhookSecret })
+    : build.kind === 'mock' ? (/** @type {typeof import('../src/publish/mock')} */ (await jiti.import(source('publish/mock.ts')))).mockBuild({ seconds: 1 }) : null
+
+  const session = await createImportSession({
+    config: /** @type {import('../src/core/config').CmsConfigType} */ (config),
+    supabase: settings.supabase,
+    email: settings.email,
+    password: settings.password,
+    otp: settings.otp,
+    publishTarget,
+    publish,
+    root
+  })
+  try {
+    await run(session)
+  } finally {
+    await session.signOut()
+  }
+  return build.kind
+}

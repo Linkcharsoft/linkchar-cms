@@ -200,7 +200,7 @@ export const checkProxy = async ({ sourceDir, basePath }) => {
 }
 
 /** @param {string} root */
-const tsconfigAliases = async root => {
+export const tsconfigAliases = async root => {
   const file = join(root, 'tsconfig.json')
   if (!existsSync(file)) return {}
   const text = (await readFile(file, 'utf8')).replace(/^\s*\/\/.*$/gm, '')

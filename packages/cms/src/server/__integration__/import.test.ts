@@ -1,4 +1,4 @@
-import { execSync } from 'node:child_process'
+import { execFileSync, execSync } from 'node:child_process'
 import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -102,4 +102,35 @@ describe('an import session', () => {
     await expect(session.upsert('nope', { data: {} })).rejects.toThrow('"nope" is not an entry')
     await expect(session.upsert('posts', { data: { title: { es: 'Sin slug' } } })).rejects.toThrow('match.slug')
   })
+})
+
+describe('linkchar-cms import', () => {
+  it('runs a project script with a signed-in session and leaves publishing to --no-publish', async () => {
+    const script = join(root, 'import-content.ts')
+    await writeFile(script, [
+      'export default async (cms: { upsert: (entry: string, input: object) => Promise<{ id: string }>, publish: () => Promise<{ published: number }> }) => {',
+      `  const { id } = await cms.upsert('posts', { data: { title: { es: 'CLI ${stamp}', en: 'CLI ${stamp}' }, slug: { es: 'cli-${stamp}', en: 'cli-${stamp}' } } })`,
+      '  console.log(`IMPORTED ${id} ${(await cms.publish()).published}`)',
+      '}'
+    ].join('\n'))
+
+    const output = execFileSync(process.execPath, [fileURLToPath(new URL('../../../cli/linkchar-cms.js', import.meta.url)), 'import', script, '--email', 'qa-super@local.test', '--no-publish'], {
+      cwd: fileURLToPath(new URL('../../../../../apps/playground', import.meta.url)),
+      encoding: 'utf8',
+      env: {
+        ...process.env,
+        CMS_IMPORT_PASSWORD: 'QaLocal12345',
+        NEXT_PUBLIC_SUPABASE_URL: supabase.url,
+        NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: supabase.publishableKey,
+        SUPABASE_SECRET_KEY: supabase.secretKey
+      }
+    })
+
+    const [, id, published] = output.match(/IMPORTED (\S+) (\d+)/) ?? []
+    documents.push(id)
+    expect(published).toBe('0')
+    expect(output).toContain('nothing published (--no-publish)')
+    const { data } = await admin.from('documents').select('slug, visible').eq('id', id).single()
+    expect(data).toEqual({ slug: `cli-${stamp}`, visible: true })
+  }, 120_000)
 })
