@@ -41,13 +41,13 @@ minimumReleaseAgeExclude:
   - '@linkcharsoft/cms'
 ```
 
-The panel is styled with Tailwind 3 and Sass, compiled by the project (`tailwindcss` and `sass` are peer dependencies; `postcss` and `autoprefixer` are Tailwind's own requirement). The preset brings the panel tokens; presets can't add `content`, so the project spreads the package sources into it:
+The panel is styled with Tailwind 3 and Sass, compiled by the project (`tailwindcss` and `sass` are peer dependencies; `postcss` and `autoprefixer` are Tailwind's own requirement). The panel stylesheet compiles with the package's own Tailwind config (`@config`), which scans the package and the project's panel code (`src/cms/**` and `src/app/(cms)/**`, where its inputs and extension screens live), so the site's CSS carries no panel classes. The project's config only adds the preset, whose tokens the package's Sass `@apply`:
 
 ```js
 // tailwind.config.js
-import cmsPreset, { cmsContent } from '@linkcharsoft/cms/tailwind'
+import cmsPreset from '@linkcharsoft/cms/tailwind'
 
-export default { presets: [cmsPreset], content: ['./src/**/*.{ts,tsx}', ...cmsContent()] }
+export default { presets: [cmsPreset], content: ['./src/**/*.{ts,tsx}'] }
 ```
 
 ```js

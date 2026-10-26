@@ -285,7 +285,7 @@ export const nextSteps = ({ basePath, panelLocale }, { root, sourceDir }, change
     ...(moves.length > 0 ? [`Move ${moves.join(' and ')} with the site's pages into app/(site)/, and render <DraftRefresh locale='${panelLocale}' /> there in Draft Mode: the panel has its own root layout.`] : []),
     ...(kept(join(app, 'sitemap.ts')) ? [`${project(join(app, 'sitemap.ts'))} exists: return cms.site.sitemap() from it.`] : []),
     'next.config.ts: wrap the config with withCms() from \'@linkcharsoft/cms/next\'.',
-    'tailwind.config: presets: [cmsPreset] and content: [...cmsContent()] from \'@linkcharsoft/cms/tailwind\'.',
+    'tailwind.config: presets: [cmsPreset] from \'@linkcharsoft/cms/tailwind\'; the panel stylesheet scans the package on its own.',
     '.env.local: NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY, SUPABASE_SECRET_KEY, NEXT_PUBLIC_SITE_URL.',
     'supabase/config.toml [auth]: enable_signup = false (only invited users get in), minimum_password_length = 10, password_requirements = "letters_digits", and [auth.mfa.totp] enroll_enabled and verify_enabled = true.',
     'supabase start, then supabase db reset: it applies the package migrations.',

@@ -37,7 +37,7 @@ for (const [entry, value] of Object.entries(manifest.exports)) {
   }
 }
 for (const target of Object.values(manifest.bin)) expectFile(target, 'bin')
-for (const file of ['README.md', 'CHANGELOG.md', 'next/index.d.ts', 'tailwind/preset.js']) expectFile(file, 'files')
+for (const file of ['README.md', 'CHANGELOG.md', 'next/index.d.ts', 'tailwind/preset.js', 'tailwind/panel.config.js']) expectFile(file, 'files')
 
 const sameSqlFiles = folder => {
   const shipped = existsSync(join(root, folder)) ? readdirSync(join(root, folder)).filter(file => file.endsWith('.sql')).sort() : []
