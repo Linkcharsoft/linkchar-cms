@@ -1,10 +1,13 @@
 import Image from '@tiptap/extension-image'
 import Link from '@tiptap/extension-link'
+import { Fragment, Slice } from '@tiptap/pm/model'
+import { Plugin } from '@tiptap/pm/state'
 import { mergeAttributes, Node } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
-import { RICH_TEXT_HEADING_LEVELS, sanitizeHref } from '../../../core/richText/nodes'
+import { RICH_TEXT_HEADING_LEVELS, RICH_TEXT_MARKS, sanitizeHref } from '../../../core/richText/nodes'
 import parseVideoUrl from '../../../core/video'
-import type { RichTextHeadingLevelType } from '../../../core/richText/nodes'
+import type { RichTextHeadingLevelType, RichTextMarkNameType } from '../../../core/richText/nodes'
+import type { Node as ProseMirrorNode } from '@tiptap/pm/model'
 
 export interface EditorImageType {
   url: string
@@ -98,15 +101,64 @@ export const SiteLink = Link.extend({
   HTMLAttributes: { rel: 'noopener noreferrer', target: null }
 })
 
+// An inline text is exactly one paragraph: Enter can't split it, Shift+Enter breaks the line.
+const InlineDocument = Node.create({
+  name: 'doc',
+  topNode: true,
+  content: 'paragraph',
+
+  // Pasted paragraphs become lines; the one-paragraph schema would otherwise keep only the first.
+  addProseMirrorPlugins () {
+    return [new Plugin({
+      props: {
+        transformPasted: (slice, view) => {
+          const lines: ProseMirrorNode[][] = []
+          slice.content.descendants(node => {
+            if (!node.isTextblock) return true
+            const line: ProseMirrorNode[] = []
+            node.forEach(child => line.push(child))
+            lines.push(line)
+            return false
+          })
+          if (lines.length < 2) return slice
+          const lineBreak = view.state.schema.nodes.hardBreak
+          return new Slice(Fragment.from(lines.flatMap((line, index) => (index === 0 ? line : [lineBreak.create(), ...line]))), 0, 0)
+        }
+      }
+    })]
+  }
+})
+
+export interface RichTextOptionsType {
+  headings?: readonly RichTextHeadingLevelType[]
+  inline?: boolean
+  marks?: readonly RichTextMarkNameType[]
+}
+
 // Same allowlist as core/richText/nodes.ts: pasted colors, fonts, H1, code or raw HTML never enter the document.
-export const richTextExtensions = (lookup: MediaLookupType, headings: readonly RichTextHeadingLevelType[] = RICH_TEXT_HEADING_LEVELS) => [
-  StarterKit.configure({
-    heading: { levels: [...headings] },
-    code: false,
-    codeBlock: false,
-    link: false
-  }),
-  SiteLink,
-  Video,
-  mediaImage(lookup)
-]
+export const richTextExtensions = (lookup: MediaLookupType, { headings = RICH_TEXT_HEADING_LEVELS, inline = false, marks = RICH_TEXT_MARKS }: RichTextOptionsType = {}) => {
+  const mark = (name: RichTextMarkNameType) => (marks.includes(name) ? undefined : false)
+  const block = inline ? false : undefined
+  return [
+    StarterKit.configure({
+      heading: inline ? false : { levels: [...headings] },
+      bold: mark('bold'),
+      italic: mark('italic'),
+      underline: mark('underline'),
+      strike: mark('strike'),
+      bulletList: block,
+      orderedList: block,
+      listItem: block,
+      listKeymap: block,
+      blockquote: block,
+      horizontalRule: block,
+      trailingNode: block,
+      document: inline ? false : undefined,
+      code: false,
+      codeBlock: false,
+      link: false
+    }),
+    ...(inline ? [InlineDocument] : [Video, mediaImage(lookup)]),
+    ...(marks.includes('link') ? [SiteLink] : [])
+  ]
+}
