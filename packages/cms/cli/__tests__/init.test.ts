@@ -70,6 +70,20 @@ describe('initProject', () => {
     expect(steps[1]).toContain('Move src/app/layout.tsx with the site\'s pages into app/(site)/')
   })
 
+  it('leaves the site to a root layout under a dynamic segment', async () => {
+    await mkdir(join(root, 'src', 'app', '[lang]'), { recursive: true })
+    await writeFile(join(root, 'src', 'app', '[lang]', 'layout.tsx'), 'export default function Layout () {}\n')
+
+    const changes = await init()
+    expect(changes.filter(change => change.file.includes('(site)'))).toEqual([])
+    expect(changes.map(change => change.file)).toEqual(expect.arrayContaining(['src/app/(cms)/layout.tsx', 'src/app/sitemap.ts']))
+    expect(await read('cms.config.ts')).toContain('  prefixDefaultLocale: true,')
+
+    const steps = nextSteps(options, paths, changes)
+    expect(steps[0]).toContain('src/app/[lang]/layout.tsx is the site\'s root layout: render <DraftRefresh locale=\'es\' /> there')
+    expect(steps.join('\n')).not.toContain('into app/(site)/')
+  })
+
   it('does nothing twice', async () => {
     await init()
     expect((await init()).every(change => change.status === 'kept')).toBe(true)

@@ -73,6 +73,8 @@ It writes only the files that don't exist yet and never touches the rest:
 - the panel's root layout with its theme (`app/(cms)/layout.tsx`, `theme.css`);
 - the site under `app/(site)/`: a root layout that renders `DraftRefresh` in Draft Mode, the home, the 404 and the catch-all that makes unmatched URLs reach it, plus `app/sitemap.ts` and `proxy.ts`.
 
+A project whose site already has its root layout under a dynamic segment (`app/[lang]/layout.tsx`) keeps it there: `init` writes nothing under `app/(site)/`, sets `prefixDefaultLocale: true` and says where `DraftRefresh` goes.
+
 Then it runs `templates`, `routes` and `migrations sync`, and lists what each project wires its own way: `withCms` in `next.config.ts`, the Tailwind preset, the environment variables, and, when they already exist, the project's proxy (it must send `basePath` requests to `cms.proxy`) and its root layout (it moves into `app/(site)/`).
 
 ```bash

@@ -47,6 +47,12 @@ const quote = (/** @type {string} */ text) => `'${text.replace(/\\/g, '\\\\').re
 const hasHomePage = (/** @type {string} */ app) => existsSync(join(app, 'page.tsx')) || (existsSync(app) &&
   readdirSync(app, { withFileTypes: true }).some(entry => entry.isDirectory() && /^\(.+\)$/.test(entry.name) && existsSync(join(app, entry.name, 'page.tsx'))))
 
+// A root layout under a dynamic segment, e.g. app/[lang]/layout.tsx: that segment is the site, so (site) stays out.
+const dynamicSiteRoot = (/** @type {string} */ app) => (existsSync(app)
+  ? readdirSync(app, { withFileTypes: true })
+    .find(entry => entry.isDirectory() && /^\[[\w-]+\]$/.test(entry.name) && existsSync(join(app, entry.name, 'layout.tsx')))?.name ?? null
+  : null)
+
 /**
  * The files a project owns from the first day; initProject writes only the ones that don't exist yet.
  * @param {InitOptionsType} options
@@ -60,6 +66,7 @@ export const planInit = ({ name, basePath, locales, panelLocale, siteUrl }, { so
   const app = join(sourceDir, 'app')
   const at = (/** @type {string} */ from, /** @type {string} */ target) => importPath(from, join(sourceDir, target))
   const serverFile = join(sourceDir, 'cms', 'server.ts')
+  const siteRoot = dynamicSiteRoot(app)
 
   /** @type {[string, string[]][]} */
   const files = [
@@ -73,6 +80,7 @@ export const planInit = ({ name, basePath, locales, panelLocale, siteUrl }, { so
       `  basePath: ${quote(basePath)},`,
       `  locales: [${locales.map(quote).join(', ')}],`,
       `  defaultLocale: ${quote(defaultLocale)},`,
+      ...(siteRoot ? ['  prefixDefaultLocale: true,'] : []),
       `  panelLocale: ${quote(panelLocale)},`,
       `  branding: { name: ${quote(name)} },`,
       `  mediaFolders: [{ value: 'sitio', label: ${label('folder')} }],`,
@@ -153,14 +161,14 @@ export const planInit = ({ name, basePath, locales, panelLocale, siteUrl }, { so
       'export default route.Layout',
       'export const metadata = route.metadata'
     ]],
-    [join(app, '(site)', '[...notFound]', 'page.tsx'), [
+    ...(siteRoot ? [] : /** @type {[string, string[]][]} */ ([[join(app, '(site)', '[...notFound]', 'page.tsx'), [
       'import { notFound } from \'next/navigation\'',
       '',
       '// With two root layouts, unmatched URLs need a route inside the site\'s: this one renders (site)/not-found.tsx.',
       'const Page = () => notFound()',
       '',
       'export default Page'
-    ]],
+    ]]])),
     [join(app, 'sitemap.ts'), [
       `import { cms } from '${at(join(app, 'sitemap.ts'), 'cms/server')}'`,
       '',
@@ -177,8 +185,8 @@ export const planInit = ({ name, basePath, locales, panelLocale, siteUrl }, { so
     ]]
   ]
 
-  // A project with its own root layout, home or 404 moves them into (site) instead (see nextSteps).
-  if (!existsSync(join(app, 'layout.tsx'))) {
+  // A project with its own root layout, home or 404 moves them into (site) instead; a dynamic root keeps them (see nextSteps).
+  if (!siteRoot && !existsSync(join(app, 'layout.tsx'))) {
     files.push([join(app, '(site)', 'layout.tsx'), [
       'import { DraftRefresh } from \'@linkcharsoft/cms/site\'',
       'import { draftMode } from \'next/headers\'',
@@ -199,7 +207,7 @@ export const planInit = ({ name, basePath, locales, panelLocale, siteUrl }, { so
       'export default SiteLayout'
     ]])
   }
-  if (!hasHomePage(app)) {
+  if (!siteRoot && !hasHomePage(app)) {
     files.push([join(app, '(site)', 'page.tsx'), [
       'import { JsonLd } from \'@linkcharsoft/cms/site\'',
       `import { cms } from '${at(join(app, '(site)', 'page.tsx'), 'cms/server')}'`,
@@ -221,7 +229,7 @@ export const planInit = ({ name, basePath, locales, panelLocale, siteUrl }, { so
       'export default HomePage'
     ]])
   }
-  if (!existsSync(join(app, 'not-found.tsx'))) {
+  if (!siteRoot && !existsSync(join(app, 'not-found.tsx'))) {
     files.push([join(app, '(site)', 'not-found.tsx'), [
       `const NotFoundPage = () => <main><h1>{${label('notFound')}}</h1></main>`,
       '',
@@ -269,9 +277,11 @@ export const nextSteps = ({ basePath, panelLocale }, { root, sourceDir }, change
   const project = (/** @type {string} */ path) => toPosix(relative(root, path))
   const kept = (/** @type {string} */ path) => changes.some(change => change.file === project(path) && change.status === 'kept')
   const moves = ['layout.tsx', 'not-found.tsx'].filter(file => existsSync(join(app, file))).map(file => project(join(app, file)))
+  const siteRoot = dynamicSiteRoot(app)
 
   return [
     ...(kept(join(sourceDir, 'proxy.ts')) ? [`${project(join(sourceDir, 'proxy.ts'))} exists: send ${basePath} requests to cms.proxy and add '${basePath}/:path*' to its matcher.`] : []),
+    ...(siteRoot ? [`${project(join(app, siteRoot, 'layout.tsx'))} is the site's root layout: render <DraftRefresh locale='${panelLocale}' /> there in Draft Mode, and keep a catch-all inside ${siteRoot} that calls notFound(). The config prefixes every locale (prefixDefaultLocale).`] : []),
     ...(moves.length > 0 ? [`Move ${moves.join(' and ')} with the site's pages into app/(site)/, and render <DraftRefresh locale='${panelLocale}' /> there in Draft Mode: the panel has its own root layout.`] : []),
     ...(kept(join(app, 'sitemap.ts')) ? [`${project(join(app, 'sitemap.ts'))} exists: return cms.site.sitemap() from it.`] : []),
     'next.config.ts: wrap the config with withCms() from \'@linkcharsoft/cms/next\'.',
