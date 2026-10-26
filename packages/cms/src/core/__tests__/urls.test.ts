@@ -77,6 +77,13 @@ describe('entry URLs with prefixDefaultLocale', () => {
     expect(publishUrls(prefixed, schema.home)).toEqual({ es: { path: '/es' }, en: { path: '/en' } })
   })
 
+  it('points x-default to site.xDefault', () => {
+    const english = defineCmsConfig({ schema, locales: ['es', 'en'], prefixDefaultLocale: true, site: { url: 'https://norte.com', xDefault: 'en' } })
+    expect(alternates(english, entryUrls(english, schema.home), 'es').languages).toEqual({
+      es: 'https://norte.com/es', en: 'https://norte.com/en', 'x-default': 'https://norte.com/en'
+    })
+  })
+
   it('rejects patterns that already start with a locale', () => {
     const about = (path: string | Record<string, string>) => ({ about: page('Estudio', {}, { path }) })
     expect(() => defineCmsConfig({ schema: about('/es/estudio'), locales: ['es', 'en'], prefixDefaultLocale: true })).toThrow('"/es/es/estudio"')

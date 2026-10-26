@@ -48,7 +48,10 @@ describe('defineCmsConfig', () => {
   })
 
   it('checks the site settings', () => {
-    expect(defineCmsConfig({ schema }).site).toEqual({ url: null, titleTemplate: '%s', defaults: null })
+    expect(defineCmsConfig({ schema }).site).toEqual({ url: null, titleTemplate: '%s', defaults: null, xDefault: 'es' })
+    expect(defineCmsConfig({ schema, locales: ['es', 'en'], site: { xDefault: 'en' } }).site.xDefault).toBe('en')
+    // @ts-expect-error: x-default must be one of the locales
+    expect(() => defineCmsConfig({ schema, locales: ['es', 'en'], site: { xDefault: 'pt' } })).toThrow('not in locales')
     expect(defineCmsConfig({ schema, site: { url: 'https://acme.com', titleTemplate: '%s | Acme' } }).site.titleTemplate).toBe('%s | Acme')
     expect(() => defineCmsConfig({ schema, site: { titleTemplate: 'Acme' } })).toThrow('%s')
     expect(() => defineCmsConfig({ schema, site: { url: 'https://acme.com/blog' } })).toThrow('origin')

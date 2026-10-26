@@ -75,10 +75,10 @@ export const publishUrls = (config: CmsConfigType, entry: PathOwnerType): Record
 // Without site.url the paths stay relative.
 export const absoluteUrl = (config: CmsConfigType, path: string) => (config.site.url ? `${config.site.url}${path}` : path)
 
-// Canonical and hreflang links of a page in one locale; x-default is the default locale's URL.
+// Canonical and hreflang links of a page in one locale; x-default is the URL of site.xDefault.
 export const alternates = (config: CmsConfigType, urls: Record<string, string>, locale: string) => {
   const languages = Object.fromEntries(Object.entries(urls).map(([code, path]) => [code, absoluteUrl(config, path)]))
-  const fallback = urls[config.defaultLocale]
+  const fallback = urls[config.site.xDefault]
   return {
     canonical: urls[locale] ? absoluteUrl(config, urls[locale]) : null,
     languages: fallback ? { ...languages, 'x-default': absoluteUrl(config, fallback) } : languages

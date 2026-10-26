@@ -32,12 +32,14 @@ export type SiteDefaultsType<S extends ContentSchema = ContentSchema> = {
   }
 }[keyof S & string]
 
-export interface SiteType<S extends ContentSchema = ContentSchema> {
+export interface SiteType<S extends ContentSchema = ContentSchema, L extends string = string> {
   // Public origin of the site ("https://acme.com"), for the Google preview and links out of the panel.
   url?: string
   // How pages title themselves, e.g. "%s | Acme".
   titleTemplate?: string
   defaults?: SiteDefaultsType<S>
+  // The locale hreflang's x-default points to, for visitors no locale matches; defaultLocale unless set.
+  xDefault?: L
 }
 
 interface SiteDefaultsRefType {
@@ -73,7 +75,7 @@ export interface CmsConfigInputType<S extends ContentSchema, L extends string> {
   paths?: Partial<Record<PanelSegmentType, string>>
   timeZone?: string
   branding?: BrandingType
-  site?: SiteType<S>
+  site?: SiteType<S, NoInfer<L>>
   mediaFolders?: readonly MediaFolderType[]
   extensions?: readonly CmsExtensionType[]
   // Opt-in kinds (openingHours) and the project's own, made with defineField.
@@ -91,7 +93,7 @@ export interface CmsConfigType<S extends ContentSchema = ContentSchema, L extend
   paths: Readonly<Record<PanelSegmentType, string>>
   timeZone: string
   branding: BrandingType
-  site: { readonly url: string | null, readonly titleTemplate: string, readonly defaults: SiteDefaultsRefType | null }
+  site: { readonly url: string | null, readonly titleTemplate: string, readonly defaults: SiteDefaultsRefType | null, readonly xDefault: L }
   mediaFolders: readonly MediaFolderType[]
   extensions: readonly CmsExtensionType[]
   fieldTypes: ReadonlyMap<string, FieldDefinitionType>
@@ -240,6 +242,8 @@ export const defineCmsConfig = <const S extends ContentSchema, const L extends s
   const titleTemplate = input.site?.titleTemplate ?? '%s'
   if (!titleTemplate.includes('%s')) throw new CmsConfigError(`site.titleTemplate "${titleTemplate}" needs %s where the page title goes.`)
   if (input.site?.url && !/^https?:\/\/[^/]+$/.test(input.site.url)) throw new CmsConfigError(`site.url "${input.site.url}" must be an origin like https://acme.com.`)
+  const xDefault = input.site?.xDefault ?? defaultLocale
+  if (!locales.includes(xDefault)) throw new CmsConfigError(`site.xDefault "${xDefault}" is not in locales.`)
 
   return Object.freeze({
     schema: input.schema,
@@ -251,7 +255,7 @@ export const defineCmsConfig = <const S extends ContentSchema, const L extends s
     paths,
     timeZone: input.timeZone ?? 'America/Argentina/Buenos_Aires',
     branding: input.branding ?? { name: 'CMS' },
-    site: Object.freeze({ url: input.site?.url ?? null, titleTemplate, defaults: siteDefaults(input.schema, input.site?.defaults as SiteDefaultsType | undefined) }),
+    site: Object.freeze({ url: input.site?.url ?? null, titleTemplate, defaults: siteDefaults(input.schema, input.site?.defaults as SiteDefaultsType | undefined), xDefault }),
     mediaFolders: input.mediaFolders ?? [],
     extensions: input.extensions ?? [],
     fieldTypes,
