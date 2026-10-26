@@ -1,5 +1,5 @@
 import { createElement, Fragment } from 'react'
-import { sanitizeHref } from '../core/richText/nodes'
+import { inlineRichText, sanitizeHref } from '../core/richText/nodes'
 import parseVideoUrl from '../core/video'
 import type { SiteRichTextType } from './types'
 import type { RichTextMarkType, RichTextNodeType } from '../core/richText/nodes'
@@ -22,6 +22,8 @@ interface Props {
   value: SiteRichTextType | null | undefined
   className?: string
   components?: RichTextComponentsType
+  // Only the text and its marks, with no <p> or wrapper: for a text inside the site's own paragraph or card.
+  inline?: boolean
 }
 
 const HEADINGS = { 2: 'h2', 3: 'h3', 4: 'h4' } as const
@@ -109,8 +111,14 @@ const renderNode = (node: RichTextNodeType, key: number, components: RichTextCom
 }
 
 // Renders a rich text field as the site reads it; only the nodes and marks the editor allows get through.
-const RichText = ({ value, className, components = {} }: Props) => {
+const RichText = ({ value, className, components = {}, inline = false }: Props) => {
   if (!value?.content?.length) return null
+  if (inline) {
+    const [paragraph] = inlineRichText(value).content ?? []
+    const children = paragraph?.content?.map((node, index) => renderNode(node, index, components))
+    if (!children?.length) return null
+    return className ? <span className={className}>{children}</span> : <>{children}</>
+  }
   return (
     <div className={className}>
       {value.content.map((node, index) => <Fragment key={index}>{renderNode(node, index, components)}</Fragment>)}

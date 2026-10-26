@@ -75,9 +75,13 @@ export const normalizeRichText = (doc: RichTextDocType): RichTextDocType =>
 
 const isInline = (node: RichTextNodeType) => node.type === 'text' || node.type === 'hardBreak'
 
+const TEXT_BLOCKS = ['paragraph', 'heading']
+
+const CONTAINERS = ['doc', 'bulletList', 'orderedList', 'listItem', 'blockquote']
+
 const linesOf = (node: RichTextNodeType): RichTextNodeType[][] => {
-  const children = node.content ?? []
-  return children.some(isInline) ? [children.filter(isInline)] : children.flatMap(linesOf)
+  if (TEXT_BLOCKS.includes(node.type)) return [(node.content ?? []).filter(isInline)]
+  return CONTAINERS.includes(node.type) ? (node.content ?? []).flatMap(linesOf) : []
 }
 
 // One paragraph: each block becomes a line, separated by line breaks; images, videos and dividers are dropped.
