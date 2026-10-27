@@ -1,6 +1,6 @@
 {
   "name": "@linkcharsoft/cms",
-  "version": "0.10.0",
+  "version": "0.10.1",
   "description": "Linkchar CMS: content schema, Supabase storage, editor panel and site readers for Next.js projects",
   "license": "UNLICENSED",
   "type": "module",
