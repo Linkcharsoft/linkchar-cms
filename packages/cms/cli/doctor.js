@@ -84,6 +84,26 @@ export const postcssCheck = text => (/@linkcharsoft\/cms\/tailwind\/postcss/.tes
   ? { level: 'ok', text: 'PostCSS runs Tailwind per stylesheet (@linkcharsoft/cms/tailwind/postcss)' }
   : { level: 'fail', text: 'The PostCSS config runs tailwindcss directly: the panel\'s @config reaches the site\'s stylesheets and next build fails on the project\'s own classes. Replace tailwindcss: {} with \'@linkcharsoft/cms/tailwind/postcss\': {}' })
 
+export const PACKAGE_RELATIONS = ['profiles', 'documents', 'published_documents', 'document_status', 'document_versions', 'redirects', 'media', 'activity_log', 'publish_log']
+
+/** @param {Response} response @returns {Promise<string | null>} the PostgREST or Postgres error code */
+const errorCode = async response => {
+  if (response.ok) return null
+  const body = await response.json().catch(() => null)
+  return typeof body?.code === 'string' ? body.code : `HTTP ${response.status}`
+}
+
+/** @param {{ table: string, code: string | null }[]} failed what the secret key could not read @returns {CheckType} */
+export const tablesCheck = failed => {
+  const missing = failed.filter(({ code }) => code === 'PGRST205').map(({ table }) => table)
+  if (missing.length > 0) return { level: 'fail', text: `Missing ${missing.join(', ')}: apply the migrations (supabase db reset locally, supabase db push hosted)` }
+  const denied = failed.filter(({ code }) => code === '42501').map(({ table }) => table)
+  if (denied.length > 0) {
+    return { level: 'fail', text: `The secret key cannot read ${denied.join(', ')}: the database lacks the service_role grants of the package (0.10.2). Run linkchar-cms migrations sync, then supabase db push` }
+  }
+  return { level: 'fail', text: `Supabase refused ${failed.map(({ table, code }) => `${table} (${code})`).join(', ')}` }
+}
+
 const run = promisify(execFile)
 const shell = promisify(exec)
 
@@ -132,10 +152,12 @@ export const environmentChecks = async ({ root, supabaseDir, env, siteUrl, fetch
       const health = await get(`${url}/auth/v1/health`, { headers })
       if (!health.ok) throw new Error(`HTTP ${health.status}`)
       checks.push({ level: 'ok', text: `Supabase answers at ${url}` })
-      const admins = await get(`${url}/rest/v1/profiles?select=id&role=eq.superadmin&limit=1`, { headers })
-      if (!admins.ok) {
-        checks.push({ level: 'fail', text: 'The profiles table is missing: apply the migrations (supabase db reset locally, supabase db push hosted)' })
+      const probes = await Promise.all(PACKAGE_RELATIONS.map(async table => ({ table, code: await errorCode(await get(`${url}/rest/v1/${table}?select=*&limit=0`, { headers })) })))
+      const failed = probes.filter(probe => probe.code)
+      if (failed.length > 0) {
+        checks.push(tablesCheck(failed))
       } else {
+        const admins = await get(`${url}/rest/v1/profiles?select=id&role=eq.superadmin&limit=1`, { headers })
         checks.push((await admins.json()).length > 0
           ? { level: 'ok', text: 'There is a superadmin' }
           : { level: 'fail', text: 'No superadmin yet: linkchar-cms admin --email …' })

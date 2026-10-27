@@ -2,7 +2,7 @@ import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { authChecks, configPorts, environmentChecks, excludesPackageFromQuarantine, parseExcludedRanges, portChecks, postcssCheck } from '../doctor.js'
+import { authChecks, configPorts, environmentChecks, excludesPackageFromQuarantine, parseExcludedRanges, portChecks, postcssCheck, tablesCheck } from '../doctor.js'
 
 const NETSH = `
 Protocol tcp Port Exclusion Ranges
@@ -73,9 +73,12 @@ enroll_enabled = false
 
 describe('environmentChecks', () => {
   const env = { NEXT_PUBLIC_SUPABASE_URL: 'http://127.0.0.1:44421', NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: 'pk', SUPABASE_SECRET_KEY: 'sk', NODE_AUTH_TOKEN: 'x' }
-  const answer = (admins: unknown[] | null) => (async (url: string) => (url.includes('/rest/v1/profiles')
-    ? (admins ? Response.json(admins) : new Response('{}', { status: 404 }))
-    : new Response('{}'))) as typeof fetch
+  const answer = (admins: unknown[], refused: Record<string, { status: number, code: string }> = {}) => (async (url: string) => {
+    const table = /\/rest\/v1\/(\w+)\?select=\*&limit=0$/.exec(url)?.[1]
+    if (table && refused[table]) return Response.json({ code: refused[table].code, message: '' }, { status: refused[table].status })
+    if (table) return Response.json([])
+    return url.includes('/rest/v1/profiles') ? Response.json(admins) : new Response('{}')
+  }) as typeof fetch
 
   const levels = async (options: Partial<Parameters<typeof environmentChecks>[0]>) => {
     const root = await mkdtemp(join(tmpdir(), 'cms-doctor-'))
@@ -97,10 +100,20 @@ describe('environmentChecks', () => {
       'Missing NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY, SUPABASE_SECRET_KEY in the environment or .env.local',
       'site.url is empty: the sitemap throws and canonical URLs stay relative (set NEXT_PUBLIC_SITE_URL)'
     ])
-    expect((await levels({ fetch: answer(null) })).find(check => check.level === 'fail')?.text).toContain('apply the migrations')
+    expect((await levels({ fetch: answer([], { profiles: { status: 404, code: 'PGRST205' } }) })).find(check => check.level === 'fail')?.text)
+      .toBe('Missing profiles: apply the migrations (supabase db reset locally, supabase db push hosted)')
     expect((await levels({ fetch: answer([]) })).find(check => check.level === 'fail')?.text).toBe('No superadmin yet: linkchar-cms admin --email …')
     expect((await levels({ fetch: (async () => { throw new Error('ECONNREFUSED') }) as typeof fetch })).find(check => check.level === 'fail')?.text)
       .toContain('ECONNREFUSED')
+  })
+
+  it('tells missing grants of the secret key apart from missing migrations', async () => {
+    const denied = { status: 403, code: '42501' }
+    const checks = await levels({ fetch: answer([{ id: 'u1' }], { profiles: denied, document_status: denied }) })
+    expect(checks.filter(check => check.level === 'fail').map(check => check.text)).toEqual([
+      'The secret key cannot read profiles, document_status: the database lacks the service_role grants of the package (0.10.2). Run linkchar-cms migrations sync, then supabase db push'
+    ])
+    expect(tablesCheck([{ table: 'media', code: 'HTTP 500' }]).text).toBe('Supabase refused media (HTTP 500)')
   })
 
   it('warns when pnpm would quarantine a version released today', async () => {

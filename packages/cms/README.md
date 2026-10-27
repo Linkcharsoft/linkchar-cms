@@ -85,7 +85,7 @@ pnpm exec linkchar-cms admin --email ana@acme.com --password '…'  # the first 
 pnpm exec linkchar-cms doctor                                     # everything above, checked
 ```
 
-`doctor` checks the config, routes, migrations and email templates, the variables and `site.url`, that Supabase answers with the package tables and a superadmin, the GitHub Packages token and `minimumReleaseAgeExclude`, the Tailwind plugin in the PostCSS config, and on Windows the Supabase ports: keep them below 49152, because Windows reserves blocks of the ports above it (Hyper-V, WSL, Docker) and a reserved port leaves a container without its host port. The project's check script keeps the generated parts honest:
+`doctor` checks the config, routes, migrations and email templates, the variables and `site.url`, that Supabase answers with the package tables (readable with the secret key) and a superadmin, the GitHub Packages token and `minimumReleaseAgeExclude`, the Tailwind plugin in the PostCSS config, and on Windows the Supabase ports: keep them below 49152, because Windows reserves blocks of the ports above it (Hyper-V, WSL, Docker) and a reserved port leaves a container without its host port. The project's check script keeps the generated parts honest:
 
 ```json
 "check": "… && linkchar-cms routes --check && linkchar-cms migrations sync --check && linkchar-cms templates --check"
@@ -194,7 +194,7 @@ supabase test db                                # the package suites land in sup
 
 `sync` never rewrites a file it already copied; a migration the project edited shows as `!` in its output and stays as it is. The project's own migrations go with later timestamps.
 
-**Project tables.** Generate the project's types (`supabase gen types typescript --local > src/types/supabase.ts`, which includes the CMS tables) and register them next to the config: `interface Register { config: typeof cmsConfig, database: Database }`. Then `await cms.supabase()` is the request's session client (RLS applies) and `cms.supabaseAdmin()` the secret-key one, both typed with the project's tables; call `cms.queries.requireRole()` first, as in [Extensions](#extensions). The package's own code keeps its own types, so stale project types never break it. The base migration (`20261020000000_cms_base.sql`) holds roles, content, media (alt text and caption per locale), logs, publishing, checkpoints and `media_usage`; later ones add per-locale slugs, `document_usage`, `publish_log.retry_of` and `media.hash`.
+**Project tables.** Generate the project's types (`supabase gen types typescript --local > src/types/supabase.ts`, which includes the CMS tables) and register them next to the config: `interface Register { config: typeof cmsConfig, database: Database }`. Then `await cms.supabase()` is the request's session client (RLS applies) and `cms.supabaseAdmin()` the secret-key one, both typed with the project's tables; call `cms.queries.requireRole()` first, as in [Extensions](#extensions). The package's own code keeps its own types, so stale project types never break it. The base migration (`20261020000000_cms_base.sql`) holds roles, content, media (alt text and caption per locale), logs, publishing, checkpoints and `media_usage`; later ones add per-locale slugs, `document_usage`, `publish_log.retry_of`, `media.hash` and the `service_role` grants.
 
 ## Supabase
 
@@ -225,6 +225,8 @@ verify_enabled = true
 **Sign-ups must be off.** Supabase lets anyone sign up by default, with the publishable key every visitor already has, and every new user gets a panel profile (`editor`, active): left on, a stranger can create a user and edit drafts. Users come only from invitations and `linkchar-cms admin`. `supabase init` writes `enable_signup = true` and hosted projects start with "Allow new users to sign up" on; `linkchar-cms doctor` fails until it is off.
 
 Hosted projects set the same values in the dashboard (Authentication → URL configuration and Sign In / Providers → Email).
+
+**Data API privileges.** Hosted projects created with "Default privileges for new entities" off give `anon`, `authenticated` and `service_role` nothing on new tables, not even the secret key. The package migrations grant every role they rely on, so they work with the toggle on or off, and turning it on later fixes nothing for tables that already exist. Set `auto_expose_new_tables = false` under `[api]` so the local database behaves like such a project: the project's own tables then need their own grants, locally and hosted alike. `linkchar-cms doctor` fails when the secret key cannot read a package table.
 
 **Email templates.** Supabase's default invitation and recovery emails link to `/auth/v1/verify?token=…&redirect_to=<site_url>`; the panel only accepts `/dashboard/auth/confirm?token_hash=…&type=…`, so without templates nobody can accept an invitation or reset a password. Each project ships its own, with `{{ .SiteURL }}` and its `basePath`. `linkchar-cms templates` writes both in the panel language (the `emails.*` catalog keys, so `messages` can reword them) and adds them to `config.toml`; it never rewrites an existing template, and `--check` fails while one is missing or links elsewhere. What it writes:
 
