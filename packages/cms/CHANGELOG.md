@@ -1,5 +1,14 @@
 # @linkcharsoft/cms
 
+## 0.10.3
+
+### Patch Changes
+
+- 1fa3d8e: `linkchar-cms admin --password` on a user that already existed set the password but left an unconfirmed email unconfirmed, so a user first invited with `admin --email` alone still got "Email not confirmed" at sign-in. It now confirms the email along with the password.
+- 7136055: The route handlers of the panel (email confirmation, sign-out, Draft Mode on and off) built their redirects from `request.url`, which behind a proxy such as Amplify Hosting carries the internal host: invitation and recovery links sent the browser to `https://localhost:3000/...`. They now answer with a relative `Location`, so the browser stays on the host it asked.
+  
+  To update a project: update the package; the generated routes stay the same.
+
 ## 0.10.2
 
 ### Patch Changes
