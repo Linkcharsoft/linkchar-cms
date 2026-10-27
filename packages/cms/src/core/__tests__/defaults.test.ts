@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildDefaults, newBlock, withDefaults } from '../defaults'
+import { buildDefaults, newBlock, withDefaults, withItemKeys } from '../defaults'
 import { block, blocks, boolean, button, group, list, relation, relations, row, text } from '../fields'
 import { openingHours } from '../kinds/openingHours'
 import { config } from './helpers'
@@ -69,6 +69,40 @@ describe('newBlock', () => {
     const created = newBlock(config, 'cita', fields.content.blocks.cita)
     expect(created).toMatchObject({ _type: 'cita', quote: { es: '' } })
     expect(created._key).toMatch(/^[0-9a-f-]{36}$/)
+  })
+})
+
+describe('withItemKeys', () => {
+  const uuid = /^[0-9a-f-]{36}$/
+  const nested = {
+    features: list({ label: 'Features' }, { name: text({ label: 'Nombre' }), steps: list({ label: 'Pasos' }, { text: text({ label: 'Texto' }) }) }),
+    meta: group({ label: 'Meta' }, { links: list({ label: 'Links' }, { label: text({ label: 'Texto' }) }) }),
+    content: fields.content
+  }
+
+  it('keeps the keys the data has and makes up the missing ones', () => {
+    const value = withItemKeys(nested, { features: [{ _key: 'f1', name: { es: 'Uno' } }, { name: { es: 'Dos' } }], title: 'sin campo' })
+    const features = value.features as { _key: string }[]
+    expect(features[0]).toEqual({ _key: 'f1', name: { es: 'Uno' } })
+    expect(features[1]._key).toMatch(uuid)
+    expect(value.title).toBe('sin campo')
+  })
+
+  it('reuses the stored item key in the same place, so writing the same content again changes nothing', () => {
+    const data = { features: [{ name: { es: 'Uno' }, steps: [{ text: { es: 'a' } }] }], meta: { links: [{ label: { es: 'Blog' } }] } }
+    const first = withItemKeys(nested, data)
+    expect(withItemKeys(nested, data, first)).toEqual(first)
+  })
+
+  it('reuses a block key only for a block of the same type, and never twice in a list', () => {
+    const stored = { content: [{ _key: 'b1', _type: 'cita', quote: { es: 'Hola' } }, { _key: 'b2', _type: 'otro' }] }
+    const value = withItemKeys(nested, { content: [{ _type: 'cita', quote: { es: 'Chau' } }, { _type: 'cita', quote: { es: 'Otra' } }] }, stored)
+    const [kept, other] = value.content as { _key: string }[]
+    expect(kept._key).toBe('b1')
+    expect(other._key).toMatch(uuid)
+
+    const swapped = withItemKeys(nested, { features: [{ _key: 'f2', name: { es: 'Dos' } }, { name: { es: 'Uno' } }] }, { features: [{ _key: 'f1' }, { _key: 'f2' }] })
+    expect((swapped.features as { _key: string }[])[1]._key).toMatch(uuid)
   })
 })
 

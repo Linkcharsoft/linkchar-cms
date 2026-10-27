@@ -50,9 +50,11 @@ import cmsPreset from '@linkcharsoft/cms/tailwind'
 export default { presets: [cmsPreset], content: ['./src/**/*.{ts,tsx}'] }
 ```
 
+PostCSS runs Tailwind through `@linkcharsoft/cms/tailwind/postcss`, the same Tailwind run per stylesheet. With `tailwindcss: {}`, Tailwind 3 keeps the panel's `@config` for every stylesheet compiled after it, so the site's Sass compiles with the panel config: `@apply` of the project's own screens and colors fails (`The inf-xs:… class does not exist`), in `next build` on a different file each time and in `next dev` on every route once the panel has been opened.
+
 ```js
 // postcss.config.js
-module.exports = { plugins: { tailwindcss: {}, autoprefixer: {} } }
+module.exports = { plugins: { '@linkcharsoft/cms/tailwind/postcss': {}, autoprefixer: {} } }
 ```
 
 Tailwind 4 is not supported: the preset and the panel classes are Tailwind 3.
@@ -83,7 +85,7 @@ pnpm exec linkchar-cms admin --email ana@acme.com --password '…'  # the first 
 pnpm exec linkchar-cms doctor                                     # everything above, checked
 ```
 
-`doctor` checks the config, routes, migrations and email templates, the variables and `site.url`, that Supabase answers with the package tables and a superadmin, the GitHub Packages token and `minimumReleaseAgeExclude`, and on Windows the Supabase ports: keep them below 49152, because Windows reserves blocks of the ports above it (Hyper-V, WSL, Docker) and a reserved port leaves a container without its host port. The project's check script keeps the generated parts honest:
+`doctor` checks the config, routes, migrations and email templates, the variables and `site.url`, that Supabase answers with the package tables and a superadmin, the GitHub Packages token and `minimumReleaseAgeExclude`, the Tailwind plugin in the PostCSS config, and on Windows the Supabase ports: keep them below 49152, because Windows reserves blocks of the ports above it (Hyper-V, WSL, Docker) and a reserved port leaves a container without its host port. The project's check script keeps the generated parts honest:
 
 ```json
 "check": "… && linkchar-cms routes --check && linkchar-cms migrations sync --check && linkchar-cms templates --check"
@@ -633,7 +635,7 @@ CMS_IMPORT_PASSWORD='…' pnpm exec linkchar-cms import scripts/import-content.t
 ```
 
 - `media({ file, folder, alt, caption })` processes an image like the panel's uploader (upright, without metadata, within 2560 px, WebP, blur preview) and needs `sharp` (`pnpm add -D sharp`); PDFs go as they are. The same bytes give back the file already in the library, so the script can run again.
-- `upsert(entry, { data, match })` writes `data` in its stored shape (localized maps, media ids) and returns `{ id, created, adjusted }`. A page or singleton is the one of its entry; a collection document is found again by its slug in the default locale (or `match: { id }`, `match: { slug }`), and a new one goes visible at the end of the list, so the script's order is the order of an orderable collection.
+- `upsert(entry, { data, match })` writes `data` in its stored shape (localized maps, media ids) and returns `{ id, created, adjusted }`. A page or singleton is the one of its entry; a collection document is found again by its slug in the default locale (or `match: { id }`, `match: { slug }`), and a new one goes visible at the end of the list, so the script's order is the order of an orderable collection. List and block items need no `_key`: one missing takes the key of the stored item in the same place (a new one the first time), so running the import again leaves the content as it was. A `_key` the script sets is kept; it must be unique within its list. A new collection document is validated before it is created, so invalid data throws and leaves nothing behind; if the save fails after that (the network, the database), the empty draft it leaves goes when someone opens that collection in the panel a day later.
 - `publish()` publishes what the import touched, in one publish and one build, and lists in `skipped` the documents still missing content, which stay out as in Publicar. `--no-publish` makes it report without publishing.
 - The environment (or `--env-file`, `.env.local` by default) needs `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` and `SUPABASE_SECRET_KEY` (it only updates the publish log). `CMS_BUILD_HOOK_URL` triggers the Amplify build, a local Supabase runs the mock one, and a hosted project without a hook gets no build: retry it from Publicar. A user with two-step verification passes the current code with `--otp`.
 - The script runs outside Next, loaded with jiti and the `tsconfig` paths: it can't import `server-only` modules (`src/cms/server.ts`) or files only Next understands (static images, CSS).

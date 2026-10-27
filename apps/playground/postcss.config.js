@@ -1,6 +1,6 @@
 module.exports = {
   plugins: {
-    tailwindcss: {},
+    '@linkcharsoft/cms/tailwind/postcss': {},
     autoprefixer: {}
   }
 }

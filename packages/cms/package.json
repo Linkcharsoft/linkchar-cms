@@ -33,6 +33,7 @@
       "default": "./next/index.js"
     },
     "./tailwind": "./tailwind/preset.js",
+    "./tailwind/postcss": "./tailwind/postcss.cjs",
     "./package.json": "./package.json"
   },
   "bin": {

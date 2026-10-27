@@ -77,6 +77,13 @@ export const authChecks = text => {
 /** @param {string} text pnpm-workspace.yaml */
 export const excludesPackageFromQuarantine = text => /minimumReleaseAgeExclude:[\s\S]*?-\s*['"]?@linkcharsoft\/cms['"]?/.test(text)
 
+const POSTCSS_CONFIGS = ['postcss.config.js', 'postcss.config.cjs', 'postcss.config.mjs', 'postcss.config.ts', 'postcss.config.json', '.postcssrc.json', '.postcssrc']
+
+/** @param {string} text the project's PostCSS config @returns {CheckType} */
+export const postcssCheck = text => (/@linkcharsoft\/cms\/tailwind\/postcss/.test(text)
+  ? { level: 'ok', text: 'PostCSS runs Tailwind per stylesheet (@linkcharsoft/cms/tailwind/postcss)' }
+  : { level: 'fail', text: 'The PostCSS config runs tailwindcss directly: the panel\'s @config reaches the site\'s stylesheets and next build fails on the project\'s own classes. Replace tailwindcss: {} with \'@linkcharsoft/cms/tailwind/postcss\': {}' })
+
 const run = promisify(execFile)
 const shell = promisify(exec)
 
@@ -144,6 +151,8 @@ export const environmentChecks = async ({ root, supabaseDir, env, siteUrl, fetch
   if (existsSync(workspace) && !excludesPackageFromQuarantine(await readFile(workspace, 'utf8'))) {
     checks.push({ level: 'warn', text: 'pnpm-workspace.yaml lacks minimumReleaseAgeExclude: [\'@linkcharsoft/cms\']: a version released today will not install' })
   }
+  const postcssConfig = POSTCSS_CONFIGS.map(name => join(root, name)).find(path => existsSync(path))
+  if (postcssConfig) checks.push(postcssCheck(await readFile(postcssConfig, 'utf8')))
 
   const configToml = join(supabaseDir, 'config.toml')
   if (process.platform === 'win32' && existsSync(configToml)) {

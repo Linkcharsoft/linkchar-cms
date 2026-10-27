@@ -286,6 +286,7 @@ export const nextSteps = ({ basePath, panelLocale }, { root, sourceDir }, change
     ...(kept(join(app, 'sitemap.ts')) ? [`${project(join(app, 'sitemap.ts'))} exists: return cms.site.sitemap() from it.`] : []),
     'next.config.ts: wrap the config with withCms() from \'@linkcharsoft/cms/next\'.',
     'tailwind.config: presets: [cmsPreset] from \'@linkcharsoft/cms/tailwind\'; the panel stylesheet scans the package on its own.',
+    'postcss.config.js: \'@linkcharsoft/cms/tailwind/postcss\': {} in place of tailwindcss: {}.',
     '.env.local: NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY, SUPABASE_SECRET_KEY, NEXT_PUBLIC_SITE_URL.',
     'supabase/config.toml [auth]: enable_signup = false (only invited users get in), minimum_password_length = 10, password_requirements = "letters_digits", and [auth.mfa.totp] enroll_enabled and verify_enabled = true.',
     'supabase start, then supabase db reset: it applies the package migrations.',

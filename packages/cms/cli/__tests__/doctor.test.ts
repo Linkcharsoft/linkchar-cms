@@ -2,7 +2,7 @@ import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { authChecks, configPorts, environmentChecks, excludesPackageFromQuarantine, parseExcludedRanges, portChecks } from '../doctor.js'
+import { authChecks, configPorts, environmentChecks, excludesPackageFromQuarantine, parseExcludedRanges, portChecks, postcssCheck } from '../doctor.js'
 
 const NETSH = `
 Protocol tcp Port Exclusion Ranges
@@ -110,5 +110,14 @@ describe('environmentChecks', () => {
     expect(checks.find(check => check.level === 'warn')?.text).toContain('minimumReleaseAgeExclude')
     await rm(root, { recursive: true, force: true })
     expect(excludesPackageFromQuarantine('minimumReleaseAgeExclude:\n  - \'@linkcharsoft/cms\'\n')).toBe(true)
+  })
+
+  it('fails while PostCSS runs tailwindcss directly, which lets the panel config reach the site', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'cms-doctor-'))
+    await writeFile(join(root, 'postcss.config.js'), 'module.exports = { plugins: { tailwindcss: {}, autoprefixer: {} } }\n')
+    const checks = await environmentChecks({ root, supabaseDir: join(root, 'supabase'), env, siteUrl: 'https://acme.com', fetch: answer([{ id: 'u1' }]) })
+    expect(checks.find(check => check.level === 'fail')?.text).toContain('\'@linkcharsoft/cms/tailwind/postcss\': {}')
+    await rm(root, { recursive: true, force: true })
+    expect(postcssCheck('module.exports = { plugins: { \'@linkcharsoft/cms/tailwind/postcss\': {}, autoprefixer: {} } }').level).toBe('ok')
   })
 })

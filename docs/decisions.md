@@ -43,7 +43,7 @@ One line per decision that still shapes the package. Each is settled; reopening 
 
 ## Panel
 
-- Formik stays, with the core validators; PrimeReact runs unstyled with the package's passthrough; the theme is a Tailwind 3 preset with `cms-` tokens and `color-mix()` derivations; the panel stylesheet compiles with the package's own config (`@config`), so panel classes never reach the site CSS.
+- Formik stays, with the core validators; PrimeReact runs unstyled with the package's passthrough; the theme is a Tailwind 3 preset with `cms-` tokens and `color-mix()` derivations; the panel stylesheet compiles with the package's own config (`@config`), so panel classes never reach the site CSS. PostCSS runs Tailwind per stylesheet (`@linkcharsoft/cms/tailwind/postcss`): Tailwind 3 keeps a `@config` for every later file of a shared plugin.
 - Never copy props into state during render in panel components: a poll that sets equal values leaves stale updates React replays over fresh props (`PublishStatus`, 0.3.x).
 - The header counts only the changes the next publish takes; the editor announces each save (`cms:saved`) and the header refreshes, instead of `router.refresh()` per autosave.
 - Guided tours have neutral ids (`welcome`, `pages`, `document`…) and never start while a field has the focus.
