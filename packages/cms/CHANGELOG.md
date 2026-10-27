@@ -1,5 +1,19 @@
 # @linkcharsoft/cms
 
+## 0.10.1
+
+### Patch Changes
+
+- 4ceac1a: `upsert()` of an import rejected list and block items without a `_key` ("Valor inválido" on every item), which the README never asked for. An item without one now takes the key of the stored item in the same place (of the same block type), or a new one when there is none, so running the import again writes the same JSON and leaves published content unchanged instead of pending. Keys the script sets are kept. Core exports `withItemKeys`.
+  
+  To update a project: nothing. Scripts that set their own `_key`s keep them.
+- 5401194: `upsert()` of an import created a new collection document before saving its data, so data that failed validation left an empty draft without a slug: the next run couldn't find it and created another one. The data is now validated first (the same draft checks the save runs), and invalid data throws without creating anything or logging a `document.create`.
+  
+  To update a project: nothing. An empty draft a failed import left behind goes when someone opens that collection in the panel a day later, or delete it from the list.
+- 3b355c5: `next build` failed on sites with their own Tailwind theme since 0.10.0, and `next dev` answered 500 on every route once the panel had been opened: Tailwind 3 keeps the `@config` of the panel stylesheet for every later stylesheet of the same PostCSS plugin, and Next runs every stylesheet through one, so site Sass modules compiled with the panel config (`The inf-xs:grid-cols-[…] class does not exist` for the project's own screens and colors under `@apply`), and site stylesheets compiled after the panel's could lose their utilities without an error. Which file failed changed from one build to the next. `@linkcharsoft/cms/tailwind/postcss` is the same Tailwind run per stylesheet, so the panel config stays in the panel stylesheet. `linkchar-cms doctor` fails while the project's PostCSS config runs `tailwindcss` directly, and `init` lists the change among the steps left by hand.
+  
+  To update a project: in `postcss.config.js`, replace `tailwindcss: {}` with `'@linkcharsoft/cms/tailwind/postcss': {}`. A project that patched `tailwindcss` with `pnpm patch` to get around it removes the patch (`pnpm patch-remove tailwindcss@3.4.19`).
+
 ## 0.10.0
 
 ### Minor Changes
