@@ -1,5 +1,4 @@
 import { draftMode } from 'next/headers'
-import { NextResponse } from 'next/server'
 import { panelPaths } from '../core/paths'
 import { safePreviewPath } from '../core/preview'
 import { canPreview } from './auth'
@@ -9,7 +8,8 @@ import type { EmailOtpType } from '@supabase/supabase-js'
 // Reasons the sign-in screen explains; anything else reads as a deactivated user.
 export const SIGN_OUT_REASONS = ['inactivo', 'sesion'] as const
 
-const redirectTo = (request: Request, path: string) => NextResponse.redirect(new URL(path, request.url), 303)
+// Relative on purpose: behind a proxy (Amplify) request.url carries the internal host, e.g. localhost:3000.
+const redirectTo = (path: string) => new Response(null, { status: 303, headers: { Location: path } })
 
 // Landing point of the invite and recovery emails. Fixed targets per type: no `next` param, so no open redirect.
 export const confirmEmailLink = async (ctx: CmsContextType, request: Request) => {
@@ -20,10 +20,10 @@ export const confirmEmailLink = async (ctx: CmsContextType, request: Request) =>
   const type = searchParams.get('type') as EmailOtpType | null
   const target = type ? targets[type] : undefined
 
-  if (!tokenHash || !type || !target) return redirectTo(request, `${paths.login}?error=link-invalido`)
+  if (!tokenHash || !type || !target) return redirectTo(`${paths.login}?error=link-invalido`)
 
   const { error } = await ctx.db.auth.verifyOtp({ type, token_hash: tokenHash })
-  return redirectTo(request, error ? `${paths.login}?error=link-vencido` : target)
+  return redirectTo(error ? `${paths.login}?error=link-vencido` : target)
 }
 
 // requireRole() lands here when the session can't be used: signing out first avoids a proxy ↔ layout redirect loop.
@@ -31,7 +31,7 @@ export const signOutTo = async (ctx: CmsContextType, request: Request) => {
   await ctx.db.auth.signOut({ scope: 'local' })
   const reason = new URL(request.url).searchParams.get('error')
   const known = (SIGN_OUT_REASONS as readonly (string | null)[]).includes(reason) ? reason : 'inactivo'
-  return redirectTo(request, `${panelPaths(ctx.config).login}?error=${known}`)
+  return redirectTo(`${panelPaths(ctx.config).login}?error=${known}`)
 }
 
 // Panel preview: a signed-in, active panel user opens `?path=` of the site in Draft Mode.
@@ -43,12 +43,12 @@ export const enableDraft = async (ctx: CmsContextType, request: Request) => {
 
   const draft = await draftMode()
   draft.enable()
-  return redirectTo(request, path)
+  return redirectTo(path)
 }
 
 // Leaves the preview (clears the Draft Mode cookie) and goes back to the published site.
-export const disableDraft = async (_ctx: CmsContextType, request: Request) => {
+export const disableDraft = async () => {
   const draft = await draftMode()
   draft.disable()
-  return redirectTo(request, '/')
+  return redirectTo('/')
 }
