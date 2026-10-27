@@ -288,7 +288,7 @@ export const nextSteps = ({ basePath, panelLocale }, { root, sourceDir }, change
     'tailwind.config: presets: [cmsPreset] from \'@linkcharsoft/cms/tailwind\'; the panel stylesheet scans the package on its own.',
     'postcss.config.js: \'@linkcharsoft/cms/tailwind/postcss\': {} in place of tailwindcss: {}.',
     '.env.local: NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY, SUPABASE_SECRET_KEY, NEXT_PUBLIC_SITE_URL.',
-    'supabase/config.toml [auth]: enable_signup = false (only invited users get in), minimum_password_length = 10, password_requirements = "letters_digits", and [auth.mfa.totp] enroll_enabled and verify_enabled = true.',
+    'supabase/config.toml [auth]: enable_signup = false (only invited users get in), minimum_password_length = 10, password_requirements = "letters_digits", and [auth.mfa.totp] enroll_enabled and verify_enabled = true; [api] auto_expose_new_tables = false, like a hosted project created today.',
     'supabase start, then supabase db reset: it applies the package migrations.',
     'linkchar-cms admin --email … --password … creates the first superadmin.',
     'package.json "check": linkchar-cms routes --check && linkchar-cms migrations sync --check && linkchar-cms templates --check.'
