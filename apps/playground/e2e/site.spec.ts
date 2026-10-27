@@ -80,6 +80,16 @@ test('a missing translation keeps a post out of the publication', async ({ page 
   }
 })
 
+// The site's Sass applies the project's own screens and colors, which the panel's Tailwind config doesn't have.
+test('the site styles compile with the project theme, not the panel one', async ({ page }) => {
+  const header = page.getByTestId('site-header')
+  await page.goto('/')
+  await expect(header).toHaveCSS('background-color', 'rgba(18, 14, 28, 0.92)')
+  await expect(header).toHaveCSS('padding-left', '48px')
+  await page.setViewportSize({ width: 600, height: 800 })
+  await expect(header).toHaveCSS('flex-direction', 'column')
+})
+
 test('the sitemap lists every page in both languages', async ({ request }) => {
   const sitemap = await (await request.get('/sitemap.xml')).text()
   expect(sitemap).toContain('<loc>http://localhost:3100/blog/luz-natural</loc>')

@@ -6,6 +6,7 @@ import cmsConfig from '../../cms.config'
 import type { LocaleType } from '@linkcharsoft/cms/core'
 import type { Route } from 'next'
 import type { ReactNode } from 'react'
+import './SiteFrame.sass'
 
 interface Props {
   locale: LocaleType
@@ -31,7 +32,7 @@ const SiteFrame = async ({ locale, urls, children }: Props) => {
 
   return (
     <>
-      <header>
+      <header className='SiteFrame__Header' data-testid='site-header'>
         <nav aria-label={cmsConfig.branding.name}>
           <ul>
             {links.map(link => link.href && <li key={link.href}><Link href={link.href as Route}>{link.label}</Link></li>)}
