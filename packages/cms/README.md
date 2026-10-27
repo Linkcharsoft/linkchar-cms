@@ -256,7 +256,7 @@ pnpm exec linkchar-cms admin --email ana@acme.com --password '…' --name 'Ana' 
 pnpm exec linkchar-cms admin --email ana@acme.com                              # invited by email instead (needs SMTP)
 ```
 
-An existing user is only promoted. By hand, the same promotion is:
+An existing user is promoted; with `--password` it also gets that password and a confirmed email, so a pending invitation can sign in. By hand, the same promotion is:
 
 ```sql
 update public.profiles set role = 'superadmin', can_publish = true

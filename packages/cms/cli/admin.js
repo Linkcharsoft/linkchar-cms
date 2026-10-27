@@ -9,7 +9,7 @@ import { CliError } from './migrations.js'
  *   auth: { admin: {
  *     createUser: (attributes: { email: string, password: string, email_confirm: boolean, user_metadata: Record<string, string> }) => Promise<{ data: { user: AuthUserType | null }, error: AuthErrorType }>,
  *     inviteUserByEmail: (email: string, options: { data: Record<string, string> }) => Promise<{ data: { user: AuthUserType | null }, error: AuthErrorType }>,
- *     updateUserById: (id: string, attributes: { password: string }) => Promise<{ error: AuthErrorType }>,
+ *     updateUserById: (id: string, attributes: { password: string, email_confirm: boolean }) => Promise<{ error: AuthErrorType }>,
  *     listUsers: (options: { page: number, perPage: number }) => Promise<{ data: { users: AuthUserType[] }, error: AuthErrorType }>
  *   } },
  *   from: (table: 'profiles') => { update: (values: Record<string, unknown>) => { eq: (column: 'id', value: string) => { select: (columns: 'id') => { maybeSingle: () => Promise<{ data: { id: string } | null, error: AuthErrorType }> } } } }
@@ -54,7 +54,7 @@ export const createSuperadmin = async (client, { email, password, name = '' }) =
   let status = 'promoted'
   let user = await findUser(client, email)
   if (user && password) {
-    const { error } = await client.auth.admin.updateUserById(user.id, { password })
+    const { error } = await client.auth.admin.updateUserById(user.id, { password, email_confirm: true })
     if (error) throw new CliError(`Could not set the password: ${error.message}`)
   }
   if (!user && password) {

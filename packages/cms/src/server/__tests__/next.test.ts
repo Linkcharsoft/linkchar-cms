@@ -81,26 +81,36 @@ describe('createCmsServer', () => {
     expect((await cms.proxy(request('/dashboard/paginas'))).headers.get('location')).toBeNull()
   })
 
-  it('lands email links on their fixed screen', async () => {
+  it('lands email links on their fixed screen of the public host', async () => {
     const verifyOtp = vi.fn(async ({ token_hash }: { token_hash: string }) => ({ error: token_hash === 'old' ? { code: 'otp_expired' } : null }))
     db.authApi = { verifyOtp }
     const cms = createCmsServer({ config, supabase })
-    const confirm = async (query: string) => (await cms.handlers.authConfirm(new Request(`http://localhost/dashboard/auth/confirm?${query}`))).headers.get('location')
+    const confirm = async (query: string) => (await cms.handlers.authConfirm(new Request(`https://localhost:3000/dashboard/auth/confirm?${query}`))).headers.get('location')
 
-    expect(await confirm('token_hash=t1&type=invite')).toBe('http://localhost/dashboard/invitacion')
-    expect(await confirm('token_hash=t1&type=recovery')).toBe('http://localhost/dashboard/restablecer-contrasena')
-    expect(await confirm('token_hash=old&type=recovery')).toBe('http://localhost/dashboard/login?error=link-vencido')
-    expect(await confirm('token_hash=t1&type=signup')).toBe('http://localhost/dashboard/login?error=link-invalido')
+    expect(await confirm('token_hash=t1&type=invite')).toBe('/dashboard/invitacion')
+    expect(await confirm('token_hash=t1&type=recovery')).toBe('/dashboard/restablecer-contrasena')
+    expect(await confirm('token_hash=old&type=recovery')).toBe('/dashboard/login?error=link-vencido')
+    expect(await confirm('token_hash=t1&type=signup')).toBe('/dashboard/login?error=link-invalido')
     expect(verifyOtp).toHaveBeenCalledTimes(3)
   })
 
   it('signs out with a reason the sign-in screen knows', async () => {
     const cms = createCmsServer({ config, supabase })
-    const signout = async (query: string) => (await cms.handlers.signout(new Request(`http://localhost/dashboard/auth/signout${query}`))).headers.get('location')
+    const signout = async (query: string) => (await cms.handlers.signout(new Request(`https://localhost:3000/dashboard/auth/signout${query}`))).headers.get('location')
 
-    expect(await signout('?error=sesion')).toBe('http://localhost/dashboard/login?error=sesion')
-    expect(await signout('?error=<script>')).toBe('http://localhost/dashboard/login?error=inactivo')
-    expect(await signout('')).toBe('http://localhost/dashboard/login?error=inactivo')
+    expect(await signout('?error=sesion')).toBe('/dashboard/login?error=sesion')
+    expect(await signout('?error=<script>')).toBe('/dashboard/login?error=inactivo')
+    expect(await signout('')).toBe('/dashboard/login?error=inactivo')
+  })
+
+  it('enters and leaves Draft Mode on the public host', async () => {
+    signIn(db, { id: 'u1' })
+    const cms = createCmsServer({ config, supabase })
+    const internal = (path: string) => new Request(`https://localhost:3000${path}`)
+
+    const entered = await cms.handlers.draft(internal('/api/cms/draft?path=/blog/hola'))
+    expect([entered.status, entered.headers.get('location')]).toEqual([303, '/blog/hola'])
+    expect((await cms.handlers.disableDraft(internal('/api/cms/disable-draft'))).headers.get('location')).toBe('/')
   })
 
   it('lists for the CLI every action the project re-exports', () => {

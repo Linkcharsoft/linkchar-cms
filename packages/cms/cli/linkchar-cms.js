@@ -136,7 +136,7 @@ const admin = async ({ email, password, name, 'env-file': envFile }) => {
   const { createClient } = await import('@supabase/supabase-js')
   const client = createClient(url, secretKey, { auth: { persistSession: false, autoRefreshToken: false } })
   const { status } = await createSuperadmin(/** @type {import('./admin.js').AdminClientType} */ (/** @type {unknown} */ (client)), { email, password, name })
-  const how = { created: 'created with the given password', invited: 'invited: the email links to the panel', promoted: password ? 'already existed; password updated' : 'already existed' }[status]
+  const how = { created: 'created with the given password', invited: 'invited: the email links to the panel', promoted: password ? 'already existed; password updated, email confirmed' : 'already existed' }[status]
   console.log(`Superadmin ${email} at ${url}: ${how}.`)
   return 0
 }
