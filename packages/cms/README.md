@@ -50,7 +50,7 @@ import cmsPreset from '@linkcharsoft/cms/tailwind'
 export default { presets: [cmsPreset], content: ['./src/**/*.{ts,tsx}'] }
 ```
 
-PostCSS runs Tailwind through `@linkcharsoft/cms/tailwind/postcss`, the same Tailwind run per stylesheet. With `tailwindcss: {}`, Tailwind 3 keeps the panel's `@config` for every stylesheet compiled after it in the same build, so the site's Sass compiles with the panel config: `@apply` of the project's own screens and colors fails (`The inf-xs:… class does not exist`), on a different file each build.
+PostCSS runs Tailwind through `@linkcharsoft/cms/tailwind/postcss`, the same Tailwind run per stylesheet. With `tailwindcss: {}`, Tailwind 3 keeps the panel's `@config` for every stylesheet compiled after it, so the site's Sass compiles with the panel config: `@apply` of the project's own screens and colors fails (`The inf-xs:… class does not exist`), in `next build` on a different file each time and in `next dev` on every route once the panel has been opened.
 
 ```js
 // postcss.config.js
