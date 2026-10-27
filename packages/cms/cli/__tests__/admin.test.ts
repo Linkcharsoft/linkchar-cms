@@ -31,10 +31,10 @@ describe('createSuperadmin', () => {
     expect(admin.createUser).not.toHaveBeenCalled()
   })
 
-  it('promotes a user that already exists, whatever the case of the email', async () => {
+  it('promotes a user that already exists, whatever the case of the email, and confirms it along with the password', async () => {
     const { client, admin, update } = fakeClient([{ id: 'u1', email: 'Ana@Acme.com' }])
     expect((await createSuperadmin(client, { email: 'ana@acme.com', password: 'Otra12345' })).status).toBe('promoted')
-    expect(admin.updateUserById).toHaveBeenCalledWith('u1', { password: 'Otra12345' })
+    expect(admin.updateUserById).toHaveBeenCalledWith('u1', { password: 'Otra12345', email_confirm: true })
     expect(admin.inviteUserByEmail).not.toHaveBeenCalled()
     expect(update).toHaveBeenCalledWith({ role: 'superadmin', can_publish: true, active: true })
   })
