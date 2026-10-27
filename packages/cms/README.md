@@ -50,9 +50,11 @@ import cmsPreset from '@linkcharsoft/cms/tailwind'
 export default { presets: [cmsPreset], content: ['./src/**/*.{ts,tsx}'] }
 ```
 
+PostCSS runs Tailwind through `@linkcharsoft/cms/tailwind/postcss`, the same Tailwind run per stylesheet. With `tailwindcss: {}`, Tailwind 3 keeps the panel's `@config` for every stylesheet compiled after it in the same build, so the site's Sass compiles with the panel config: `@apply` of the project's own screens and colors fails (`The inf-xs:… class does not exist`), on a different file each build.
+
 ```js
 // postcss.config.js
-module.exports = { plugins: { tailwindcss: {}, autoprefixer: {} } }
+module.exports = { plugins: { '@linkcharsoft/cms/tailwind/postcss': {}, autoprefixer: {} } }
 ```
 
 Tailwind 4 is not supported: the preset and the panel classes are Tailwind 3.
@@ -83,7 +85,7 @@ pnpm exec linkchar-cms admin --email ana@acme.com --password '…'  # the first 
 pnpm exec linkchar-cms doctor                                     # everything above, checked
 ```
 
-`doctor` checks the config, routes, migrations and email templates, the variables and `site.url`, that Supabase answers with the package tables and a superadmin, the GitHub Packages token and `minimumReleaseAgeExclude`, and on Windows the Supabase ports: keep them below 49152, because Windows reserves blocks of the ports above it (Hyper-V, WSL, Docker) and a reserved port leaves a container without its host port. The project's check script keeps the generated parts honest:
+`doctor` checks the config, routes, migrations and email templates, the variables and `site.url`, that Supabase answers with the package tables and a superadmin, the GitHub Packages token and `minimumReleaseAgeExclude`, the Tailwind plugin in the PostCSS config, and on Windows the Supabase ports: keep them below 49152, because Windows reserves blocks of the ports above it (Hyper-V, WSL, Docker) and a reserved port leaves a container without its host port. The project's check script keeps the generated parts honest:
 
 ```json
 "check": "… && linkchar-cms routes --check && linkchar-cms migrations sync --check && linkchar-cms templates --check"
