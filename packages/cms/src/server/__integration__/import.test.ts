@@ -102,6 +102,23 @@ describe('an import session', () => {
     await expect(session.upsert('nope', { data: {} })).rejects.toThrow('"nope" is not an entry')
     await expect(session.upsert('posts', { data: { title: { es: 'Sin slug' } } })).rejects.toThrow('match.slug')
   })
+
+  it('gives list items without a key the stored ones, so running the import again leaves the content as it was', async () => {
+    const stored = async () => (await admin.from('documents').select('id, data').eq('key', 'settings').maybeSingle()).data as { id: string, data: Record<string, unknown> } | null
+    // A fresh database has no settings row until the first save.
+    const before = await stored()
+    const networks = [{ network: 'instagram', link: `https://instagram.com/${stamp}` }, { network: 'behance', link: `https://behance.net/${stamp}` }]
+
+    const { id } = await session.upsert('settings', { data: { networks } })
+    try {
+      const first = await stored()
+      expect((first?.data.networks as { _key: string }[]).map(item => item._key)).toEqual([expect.stringMatching(/^[0-9a-f-]{36}$/), expect.stringMatching(/^[0-9a-f-]{36}$/)])
+      await session.upsert('settings', { data: { networks } })
+      expect((await stored())?.data).toEqual(first?.data)
+    } finally {
+      await (before ? admin.from('documents').update({ data: before.data }).eq('id', id) : admin.from('documents').delete().eq('id', id))
+    }
+  })
 })
 
 describe('linkchar-cms import', () => {

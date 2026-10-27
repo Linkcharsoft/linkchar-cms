@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises'
 import { basename, extname, resolve } from 'node:path'
 import { createClient } from '@supabase/supabase-js'
 import { translatorFor } from '../core/config'
-import { withDefaults } from '../core/defaults'
+import { withDefaults, withItemKeys } from '../core/defaults'
 import { getEntry } from '../core/entries'
 import { consoleLogger } from '../core/logger'
 import { buildMediaPath, isImageMime, MAX_IMAGE_DIMENSION, MEDIA_BUCKET } from '../core/media'
@@ -220,12 +220,13 @@ export const createImportSession = async (options: ImportSessionOptionsType) => 
     if (!entry) throw new CmsImportError(`"${entryId}" is not an entry of the schema`)
 
     const found = await findDocument(entryId, match, data)
+    const patch = withItemKeys(entry.fields, data, found?.data)
     const added = !found && entry.kind === 'collection' ? await addDocument(ctx, entryId) : null
     if (added && !added.ok) throw failed(entryId, added.error)
     const fresh = added?.ok ? added : null
 
     const base = withDefaults(config, entry.fields, found?.data ?? fresh?.data ?? {}) as DataRecord
-    const saved = await saveDocument(ctx, { entryId, id: found?.id ?? fresh?.id ?? null, patch: data, base })
+    const saved = await saveDocument(ctx, { entryId, id: found?.id ?? fresh?.id ?? null, patch, base })
     if (saved.status === 'invalid') throw new CmsImportError(`${entryId}: ${Object.entries(saved.errors).map(([path, message]) => `${path} ${message}`).join('; ')}`)
     if (saved.status === 'conflict') throw new CmsImportError(`${entryId}: someone saved ${saved.keys.join(', ')} while importing`)
     if (saved.status === 'error') throw failed(entryId, saved.error)
