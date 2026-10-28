@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 import { QA } from './support/db'
-import { signIn, watchConsole } from './support/panel'
+import { autosaveText, signIn, watchConsole } from './support/panel'
 
 // The same app built with NEXT_PUBLIC_CMS_PANEL_LOCALE=en: one option turns the whole panel into English.
 test('the panel speaks English with panelLocale "en"', async ({ page }) => {
@@ -16,7 +16,7 @@ test('the panel speaks English with panelLocale "en"', async ({ page }) => {
 
   await page.goto('/dashboard/paginas/home')
   await page.waitForLoadState('networkidle')
-  await expect(page.locator('[data-tour=autosave]')).toHaveText('No changes')
+  await expect(autosaveText(page)).toHaveText('No changes')
   await expect(page.getByRole('button', { name: 'Preview' })).toBeVisible()
   await expect(page.locator('body')).not.toContainText('Guardado')
   console.expectClean()

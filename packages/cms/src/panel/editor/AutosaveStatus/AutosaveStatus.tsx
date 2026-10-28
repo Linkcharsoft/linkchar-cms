@@ -40,7 +40,7 @@ const AutosaveStatus = ({ status, savedAt, onRetry }: Props) => {
   return (
     <div className={classNames('AutosaveStatus', `AutosaveStatus--${tone}`)} data-tour='autosave'>
       <i className={classNames('pi', icon)} aria-hidden='true' />
-      {text}
+      <span className='AutosaveStatus__Text'>{text}</span>
       <span role='status' aria-live='polite' className='sr-only'>{announced}</span>
       {status === 'error' && onRetry && (
         <CustomButton type='button' variant='ghost' size='xs' onClick={onRetry}>

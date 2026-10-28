@@ -26,7 +26,10 @@ export const watchConsole = (page: Page) => {
   return { expectClean: () => expect(errors).toEqual([]) }
 }
 
-export const autosaved = (page: Page) => expect(page.locator('[data-tour=autosave]')).toContainText(/Guardado|Saved/, { timeout: 15_000 })
+// The visible text only: the status also holds a live region that keeps the last outcome.
+export const autosaveText = (page: Page) => page.locator('[data-tour=autosave] .AutosaveStatus__Text')
+
+export const autosaved = (page: Page) => expect(autosaveText(page)).toContainText(/Guardado|Saved/, { timeout: 15_000 })
 
 export const toast = (page: Page, text: string | RegExp) =>
   expect(page.locator('[data-pc-name=toast][role=alert]').filter({ hasText: text }).first()).toBeVisible()
