@@ -2,7 +2,7 @@
 import { useField } from 'formik'
 import { Calendar } from 'primereact/calendar'
 import InputContainer from '../../primitives/InputContainer/InputContainer'
-import { describedBy, fieldId, useFieldError, useFieldLabel, useText } from '../fieldUtils'
+import { describedBy, errorId, fieldId, useFieldError, useFieldLabel, useText } from '../fieldUtils'
 import { useLocaleNote } from '../LocaleNote/LocaleNote'
 import type { DateField, DatetimeField } from '../../../core/fields'
 
@@ -45,9 +45,10 @@ const DateInput = ({ name, field }: Props) => {
         showIcon
         showButtonBar
         invalid={!!error}
-        aria-describedby={describedBy(name, field)}
+        aria-invalid={error ? true : undefined}
+        aria-describedby={describedBy(name, field, error && errorId(name))}
         onChange={event => {
-          setValue(toStored(event.value, withTime))
+          setValue(toStored(event.value, withTime), true)
           setTouched(true, false)
         }}
       />
