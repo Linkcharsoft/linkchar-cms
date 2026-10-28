@@ -149,6 +149,7 @@ const editor = {
       presets: 'Colores sugeridos para {label}',
       preset: 'Usar {value}'
     },
+    cards: 'Opciones de {label}',
     button: {
       text: 'Texto del botón',
       style: 'Estilo',

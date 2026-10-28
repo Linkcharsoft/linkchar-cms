@@ -37,6 +37,13 @@ import {
 import { openingHours } from '@linkcharsoft/cms/core/opening-hours'
 import { rating } from './fields/rating'
 
+// Mosaic sketches the panel draws as cards: 1-based grid cells, like CSS grid lines.
+const GALLERY_LAYOUTS = [
+  { label: { es: 'Mosaico', en: 'Mosaic' }, value: 'mosaic', preview: { grid: { columns: 3, rows: 2, cells: [{ column: 1, row: 1, columnSpan: 2, rowSpan: 2 }, { column: 3, row: 1 }, { column: 3, row: 2 }] } } },
+  { label: { es: 'Grilla', en: 'Grid' }, value: 'grid', preview: { grid: { columns: 3, rows: 2, cells: [{ column: 1, row: 1 }, { column: 2, row: 1 }, { column: 3, row: 1 }, { column: 1, row: 2 }, { column: 2, row: 2 }, { column: 3, row: 2 }] } } },
+  { label: { es: 'Una por fila', en: 'One per row' }, value: 'stack', preview: { grid: { columns: 1, rows: 2, cells: [{ column: 1, row: 1 }, { column: 1, row: 2 }] } } }
+] as const
+
 const BUTTON_VARIANTS = [
   { label: 'Principal', value: 'primary' },
   { label: 'Secundario', value: 'secondary' }
@@ -93,6 +100,7 @@ export const schema = defineSchema({
     extra: blocks({ label: 'Bloques al final', max: 8 }, {
       texto: block('Texto', { body: richText({ label: 'Texto', headings: [2, 3] }) }, { icon: 'pi-align-left' }),
       galeria: block('Galería', {
+        layout: select({ label: { es: 'Disposición', en: 'Layout' }, display: 'cards', options: GALLERY_LAYOUTS, default: 'grid' }),
         images: gallery({ label: 'Imágenes', max: 12, folder: 'proyectos' })
       }, { icon: 'pi-images' }),
       cita: block('Cita', { quote: textarea({ label: 'Cita', required: true }), author: text({ label: 'Autor' }) }, { icon: 'pi-comment' })

@@ -420,6 +420,22 @@ The package ships `text`, `textarea`, `email`, `phone`, `url`, `video`, `slug`, 
 
 `color({ label: 'Color de marca', presets: ['#1f5fa8', '#0e0e13'] })` stores one `#rrggbb` in lower case (a stored `#1F5FA8` is repaired on read; `red` or `#abc` is "Usá un color como #1f5fa8"). The input is the browser's color picker next to the hex, and `presets` adds swatches the editor picks with one click; the version history shows each color with its swatch. Imports take the same hex.
 
+`select` shows a dropdown, or one card per option with `display: 'cards'`: every option then needs a serializable `preview`, a PrimeIcons name (`{ icon: 'pi-th-large' }`), an image (`{ image: '/layouts/mosaic.svg' }`, a path or an https URL) or a mosaic sketch the panel draws (`{ grid: { columns, rows, cells: [{ column, row, columnSpan?, rowSpan? }] } }`, 1-based like CSS grid lines). `defineCmsConfig` rejects cards with an option that has no preview, a preview without `display: 'cards'`, and a cell outside its grid. `multiSelect` has no cards. A gallery block that lets the editor pick its layout:
+
+```ts
+layout: select({
+  label: 'Disposición',
+  display: 'cards',
+  default: 'grid',
+  options: [
+    { label: 'Mosaico', value: 'mosaic', preview: { grid: { columns: 3, rows: 2, cells: [{ column: 1, row: 1, columnSpan: 2, rowSpan: 2 }, { column: 3, row: 1 }, { column: 3, row: 2 }] } } },
+    { label: 'Grilla', value: 'grid', preview: { grid: { columns: 3, rows: 2, cells: [{ column: 1, row: 1 }, { column: 2, row: 1 }, { column: 3, row: 1 }, { column: 1, row: 2 }, { column: 2, row: 2 }, { column: 3, row: 2 }] } } }
+  ]
+})
+```
+
+The cards are a radio group: arrows move between them, the chosen one has the brand border.
+
 Every kind is one `defineField` call: default, normalization, emptiness, validation, references, diff summary and localization. A project adds its own; this is the playground's rating kind, complete:
 
 ```ts

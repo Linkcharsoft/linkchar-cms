@@ -1,5 +1,6 @@
 import { createTranslator } from './i18n/translator'
 import { BUILTIN_FIELDS } from './kinds/builtins'
+import { selectDisplayProblem } from './kinds/select'
 import { AUTH_SEGMENT, DEFAULT_PANEL_SEGMENTS } from './paths'
 import { pathProblems } from './urls'
 import { dataFields } from './walk'
@@ -174,6 +175,8 @@ const checkFields = (ctx: CheckContextType, fields: FieldsRecord, where: string)
     if (field.kind === 'richText' && field.inline && field.headings?.length) {
       throw new CmsConfigError(`${path} is inline: it can't have headings.`)
     }
+    const display = field.kind === 'select' ? selectDisplayProblem(field) : null
+    if (display) throw new CmsConfigError(`${path} ${display}`)
     if (field.kind === 'slug' && !keys.includes(field.from)) {
       throw new CmsConfigError(`${path} is generated from "${field.from}", which is not a field next to it.`)
     }
