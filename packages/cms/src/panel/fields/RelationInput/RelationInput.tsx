@@ -11,9 +11,10 @@ import CreateRelatedDialog from '../../editor/CreateRelatedDialog/CreateRelatedD
 import CustomButton from '../../primitives/CustomButton/CustomButton'
 import InputContainer from '../../primitives/InputContainer/InputContainer'
 import Notice from '../../primitives/Notice/Notice'
-import { describedBy, fieldId, useFieldError, useFieldLabel, useText } from '../fieldUtils'
+import { describedBy, errorId, fieldId, useFieldError, useFieldLabel, useText } from '../fieldUtils'
 import { useLocaleNote } from '../LocaleNote/LocaleNote'
 import { ReferencesContext } from '../referencesContext'
+import { useSearchPicker } from './useSearchPicker'
 import type { RelationField } from '../../../core/kinds/relation'
 import type { RelationRefType } from '../../../core/relations'
 import type { RelationOptionType } from '../../../server/documents'
@@ -39,9 +40,9 @@ const RelationInput = ({ name, field }: Props) => {
   const label = useFieldLabel()
   const initialLabels = useContext(ReferencesContext).relations
   const [labels, setLabels] = useState(initialLabels)
-  const [suggestions, setSuggestions] = useState<OptionType[]>([])
   const [lastQuery, setLastQuery] = useState('')
-  const [creating, setCreating] = useState(false)
+  // null: closed; otherwise the title the dialog starts with (the search typed, or nothing from the "New" button).
+  const [creating, setCreating] = useState<string | null>(null)
   const [{ value }, , { setValue, setTouched }] = useField<string | string[] | null>(name)
   const error = useFieldError(name)
   const id = fieldId(name)
@@ -77,7 +78,7 @@ const RelationInput = ({ name, field }: Props) => {
     )
   }
 
-  const search = async (query: string) => {
+  const fetchOptions = async (query: string): Promise<OptionType[]> => {
     setLastQuery(query)
     const results = await actions.searchRelation(field.to, query)
     setLabels(current => ({ ...current, ...Object.fromEntries(results.map(({ id: resultId, ...ref }) => [resultId, ref])) }))
@@ -86,59 +87,74 @@ const RelationInput = ({ name, field }: Props) => {
     const createOption = target && {
       id: '', label: name ? t('relationInput.create', { name }) : collectionNewLabel(target, textCtx), kind: '', status: 'new' as const, trashed: false, create: true
     }
-    setSuggestions(createOption ? [...options, createOption] : options)
+    return createOption ? [...options, createOption] : options
   }
 
   const commit = (next: string[]) => {
-    setValue(field.multiple ? next : (next[0] ?? null))
+    setValue(field.multiple ? next : (next[0] ?? null), true)
     setTouched(true, false)
   }
+
+  const pick = (picked: OptionType[]) => {
+    if (picked.some(option => option.create)) {
+      setCreating(lastQuery)
+      return
+    }
+    commit(picked.map(option => option.id))
+  }
+
+  const picker = useSearchPicker<OptionType>({
+    fetch: fetchOptions,
+    selected: ids[0] ? toOption(ids[0]) : null,
+    onPick: option => pick(option ? [option] : [])
+  })
 
   const created = ({ id: createdId, ...ref }: RelationOptionType) => {
     setLabels(current => ({ ...current, [createdId]: ref }))
     commit(field.multiple ? [...ids, createdId] : [createdId])
-    setCreating(false)
+    setCreating(null)
   }
 
   return (
     <InputContainer label={label(field)} htmlFor={id} error={error} help={text(field.help)} badge={languages.badge}>
       <AutoComplete
+        ref={picker.ref}
         inputId={id}
         multiple={field.multiple}
         dropdown
-        forceSelection
+        forceSelection={field.multiple}
         field='label'
-        value={field.multiple ? ids.map(toOption) : (ids[0] ? toOption(ids[0]) : null)}
-        suggestions={suggestions}
-        completeMethod={event => void search(event.query)}
+        value={field.multiple ? ids.map(toOption) : picker.value}
+        suggestions={picker.suggestions}
+        completeMethod={event => void picker.search(event.query)}
         placeholder={target ? t('relationInput.search', { name: text(target.label).toLocaleLowerCase(textCtx.locale) }) : t('relationInput.searchAny')}
         emptyMessage={t('relationInput.empty')}
         itemTemplate={optionTemplate}
         invalid={!!error}
-        aria-describedby={describedBy(name, field)}
+        aria-invalid={error ? true : undefined}
+        aria-describedby={describedBy(name, field, error && errorId(name))}
         className='RelationInput'
         inputClassName='RelationInput__Input'
+        onFocus={picker.onFocus}
+        onBlur={picker.onBlur}
         onChange={event => {
-          const selected = event.value as OptionType | OptionType[] | string | null
-          if (typeof selected === 'string') return
-          const picked = Array.isArray(selected) ? selected : selected ? [selected] : []
-          if (picked.some(option => option.create)) {
-            setCreating(true)
+          if (!field.multiple) {
+            picker.onChange(event)
             return
           }
-          commit(picked.map(option => option.id))
+          pick((event.value as OptionType[] | null) ?? [])
         }}
       />
       {notices.map(notice => (
         <Notice key={notice.id} tone={notice.missing ? 'warning' : 'info'}>{notice.text}</Notice>
       ))}
       {target && (
-        <CustomButton type='button' variant='ghost' size='sm' className='RelationInput__Create' onClick={() => setCreating(true)}>
+        <CustomButton type='button' variant='ghost' size='sm' className='RelationInput__Create' onClick={() => setCreating('')}>
           <i className='pi pi-plus' aria-hidden='true' />
           {collectionNewLabel(target, textCtx)}
         </CustomButton>
       )}
-      {creating && <CreateRelatedDialog entryId={field.to} initialTitle={lastQuery} onCreated={created} onHide={() => setCreating(false)} />}
+      {creating !== null && <CreateRelatedDialog entryId={field.to} initialTitle={creating} onCreated={created} onHide={() => setCreating(null)} />}
     </InputContainer>
   )
 }
