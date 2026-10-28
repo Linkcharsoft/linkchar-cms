@@ -1,0 +1,27 @@
+// A white tile: favicons are drawn for a light browser tab and can vanish on the dark sidebar.
+.ProductIcon
+  display: inline-flex
+  flex-shrink: 0
+  align-items: center
+  justify-content: center
+  overflow: hidden
+  @apply bg-cms-surface text-cms-primary
+
+  &__Image
+    width: 100%
+    height: 100%
+    object-fit: contain
+
+  &--Medium
+    width: 32px
+    height: 32px
+    padding: 4px
+    border-radius: 8px
+    @apply cms-text-bold-12
+
+  &--Large
+    width: 56px
+    height: 56px
+    padding: 8px
+    border-radius: 14px
+    @apply cms-text-bold-20

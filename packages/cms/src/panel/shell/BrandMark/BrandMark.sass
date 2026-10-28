@@ -1,0 +1,32 @@
+.BrandMark
+  display: inline-flex
+  align-items: center
+  gap: 8px
+  @apply text-cms-sidebar-ink
+
+  &__Star
+    flex-shrink: 0
+    @apply text-cms-accent
+
+  &__Name
+    letter-spacing: -0.01em
+    @apply font-cms-display
+
+  &__Tag
+    padding: 1px 8px
+    border-radius: 999px
+    @apply cms-text-semibold-12 bg-cms-sidebar-active text-cms-sidebar-ink
+
+  &--Small
+    @apply cms-text-semibold-14
+
+    .BrandMark__Star
+      width: 12px
+      height: 12px
+
+  &--Medium
+    @apply cms-text-semibold-20
+
+    .BrandMark__Star
+      width: 16px
+      height: 16px

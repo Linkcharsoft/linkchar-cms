@@ -4,7 +4,7 @@ Linkchar's CMS for Next.js projects: a content schema in code, Supabase storage,
 
 > The package ships the core, the server layer (Supabase queries and actions, with a `logger` the project provides), publishing (Amplify and a local mock), the migrations, the editor panel with its theme and catalogs (`es`, `en`) and its per-language editing, the site readers (`cms.site`, `@linkcharsoft/cms/site`), `withCms` (`@linkcharsoft/cms/next`) and the `linkchar-cms` CLI (`init`, `routes`, `migrations sync`, `templates`, `admin`, `doctor`, `import`). The changes of each version are in [CHANGELOG.md](./CHANGELOG.md), which ships with the package.
 
-Sections: [Install](#install) · [Start a project](#start-a-project) · [Configure](#configure) · [Schema texts](#schema-texts) · [Localized content](#localized-content) · [URLs per locale](#urls-per-locale) · [Links](#links) · [Database](#database) · [Supabase](#supabase) · [Server](#server) · [Site](#site) · [Next config](#next-config) · [Field kinds](#field-kinds) · [Panel](#panel) · [Theme](#theme) · [Panel texts](#panel-texts) · [Extensions](#extensions) · [Amplify setup](#amplify-setup) · [Import content](#import-content) · [Upgrade](#upgrade) · [Development](#development)
+Sections: [Install](#install) · [Start a project](#start-a-project) · [Configure](#configure) · [Schema texts](#schema-texts) · [Localized content](#localized-content) · [URLs per locale](#urls-per-locale) · [Links](#links) · [Database](#database) · [Supabase](#supabase) · [Server](#server) · [Site](#site) · [Next config](#next-config) · [Field kinds](#field-kinds) · [Panel](#panel) · [Brand](#brand) · [Panel texts](#panel-texts) · [Extensions](#extensions) · [Amplify setup](#amplify-setup) · [Import content](#import-content) · [Upgrade](#upgrade) · [Development](#development)
 
 ## Install
 
@@ -72,7 +72,7 @@ It writes only the files that don't exist yet and never touches the rest:
 - `cms.config.ts` with the site defaults (`site.defaults`) and `Register` (config and database types);
 - `src/cms/schema.ts` (a `settings` singleton and a home page, to rewrite with the real schema) and `src/cms/server.ts` (Amplify when `CMS_BUILD_HOOK_URL` is set, the mock build otherwise);
 - `src/types/supabase.ts`, which re-exports the package types until `supabase gen types` replaces it;
-- the panel's root layout with its theme (`app/(cms)/layout.tsx`, `theme.css`);
+- the panel's root layout (`app/(cms)/layout.tsx`);
 - the site under `app/(site)/`: a root layout that renders `DraftRefresh` in Draft Mode, the home, the 404 and the catch-all that makes unmatched URLs reach it, plus `app/sitemap.ts` and `proxy.ts`.
 
 A project whose site already has its root layout under a dynamic segment (`app/[lang]/layout.tsx`) keeps it there: `init` writes nothing under `app/(site)/`, sets `prefixDefaultLocale: true` and says where `DraftRefresh` goes.
@@ -228,7 +228,7 @@ Hosted projects set the same values in the dashboard (Authentication → URL con
 
 **Data API privileges.** Hosted projects created with "Default privileges for new entities" off give `anon`, `authenticated` and `service_role` nothing on new tables, not even the secret key. The package migrations grant every role they rely on, so they work with the toggle on or off, and turning it on later fixes nothing for tables that already exist. Set `auto_expose_new_tables = false` under `[api]` so the local database behaves like such a project: the project's own tables then need their own grants, locally and hosted alike. `linkchar-cms doctor` fails when the secret key cannot read a package table.
 
-**Email templates.** Supabase's default invitation and recovery emails link to `/auth/v1/verify?token=…&redirect_to=<site_url>`; the panel only accepts `/dashboard/auth/confirm?token_hash=…&type=…`, so without templates nobody can accept an invitation or reset a password. Each project ships its own, with `{{ .SiteURL }}` and its `basePath`. `linkchar-cms templates` writes both in the panel language (the `emails.*` catalog keys, so `messages` can reword them) and adds them to `config.toml`; it never rewrites an existing template, and `--check` fails while one is missing or links elsewhere. What it writes:
+**Email templates.** Supabase's default invitation and recovery emails link to `/auth/v1/verify?token=…&redirect_to=<site_url>`; the panel only accepts `/dashboard/auth/confirm?token_hash=…&type=…`, so without templates nobody can accept an invitation or reset a password. Each project ships its own, with `{{ .SiteURL }}` and its `basePath`. `linkchar-cms templates` writes both in the panel language (the `emails.*` catalog keys, so `messages` can reword them) with Inferencia's brand and the product name (`branding.name`), and adds them to `config.toml`. It never rewrites a template the project edited; one still as 0.10 wrote it takes the branded version. `--check` fails while one is missing, unbranded or links elsewhere. What it writes:
 
 ```toml
 [auth.email.template.invite]
@@ -240,14 +240,7 @@ subject = "Elegí una contraseña nueva"
 content_path = "./supabase/templates/recovery.html"
 ```
 
-```html
-<!-- supabase/templates/invite.html -->
-<h2>Te invitaron al panel de contenido</h2>
-<p>Para crear tu usuario, elegí tu contraseña desde este link:</p>
-<p><a href="{{ .SiteURL }}/dashboard/auth/confirm?token_hash={{ .TokenHash }}&amp;type=invite">Crear mi usuario</a></p>
-```
-
-The recovery template is the same link with `type=recovery`. `config.toml` templates apply to the local Supabase after `supabase stop && supabase start`; the hosted project takes them from Authentication → Emails (the CLI pushes them with `supabase config push`). Locally, Mailpit shows every email at the `MAILPIT_URL` that `supabase status` prints.
+`supabase/templates/invite.html` is a table with inline styles (email clients drop `<style>`, flexbox and SVG): the dark Inferencia header with the product name, the title, the text, a violet button to `{{ .SiteURL }}/dashboard/auth/confirm?token_hash={{ .TokenHash }}&amp;type=invite` and the note for who didn't expect it. The recovery template is the same with `type=recovery`. `config.toml` templates apply to the local Supabase after `supabase stop && supabase start`; the hosted project takes them from Authentication → Emails (the CLI pushes them with `supabase config push`). Locally, Mailpit shows every email at the `MAILPIT_URL` that `supabase status` prints.
 
 **First superadmin.** Invitations come from the panel, so the first user comes from the CLI, with `NEXT_PUBLIC_SUPABASE_URL` and `SUPABASE_SECRET_KEY` from the environment or `--env-file` (`.env.local` by default):
 
@@ -531,7 +524,7 @@ pnpm exec linkchar-cms routes --check  # CI: exit 1 when a file is missing or st
 - `src/app/(cms)/<basePath>/…`: one file per screen (`export default route.Page`), the layouts, `loading.tsx`, and the email link and sign-out handlers.
 - `src/app/api/cms/{build-status,draft,disable-draft}/route.ts`: the build webhook and the preview's Draft Mode.
 - `src/cms/actions.ts`: `'use server'`, re-exports every action the browser calls.
-- Created once and then owned by the project: `src/app/(cms)/layout.tsx` (the panel's root layout, where the theme CSS and fonts go) and `src/cms/client.ts` (`createCmsClient`, where project inputs are registered).
+- Created once and then owned by the project: `src/app/(cms)/layout.tsx` (the panel's root layout) and `src/cms/client.ts` (`createCmsClient`, where project inputs are registered).
 
 The command only rewrites or deletes files that start with its marker line, and reads `cms.config.ts` to know `basePath` and `paths`. A file without the marker belongs to the project and is never touched. Re-run it after upgrading the package or changing `basePath`/`paths`.
 
@@ -545,25 +538,21 @@ A document with missing content reads "Incompleto" in the editor, the tables (wh
 
 Uploading a file the library already has (same bytes, SHA-256 of the original file) offers the existing one instead of a copy. Drafts created with "Nuevo …" and never touched disappear after a day; the overview warns about hidden drafts nobody touched for two weeks.
 
-## Theme
+## Brand
 
-Three variables re-style the whole panel, PrimeReact included. Set them on `:root` in the project's CSS, imported from the panel's root layout:
+The panel is an Inferencia product and looks the same in every project: a dark sidebar signed "Inferencia CMS", a light workspace, the brand violet (`#6e14be`) for actions and the magenta star as the accent on dark. The tokens live on `.CmsRoot`, so a project's `:root` doesn't reach them. Text is Hanken Grotesk and headings Bricolage Grotesque, both under the SIL Open Font License, bundled through Fontsource. The theme is Tailwind 3 only.
 
-```css
-:root {
-  --cms-primary: #0f7a5c;
-  --cms-sidebar: #12302a;     /* optional: by default, the primary darkened */
-  --cms-on-primary: #ffffff;  /* optional: text on the primary; keep it at 4.5:1 against --cms-primary */
-}
-.CmsRoot {
-  --cms-font-sans: var(--font-inter), system-ui, sans-serif;  /* next/font variables live on <body> */
-  --cms-font-display: var(--font-manrope), sans-serif;
+What belongs to each project is the product slot, at the top of the sidebar and on the sign-in screens:
+
+```ts
+branding: {
+  name: 'Acme',                                    // also the browser tab title: "Pages · Acme"
+  icon: '/icon.svg',                               // optional: a square image, a path or an https URL
+  footer: { es: 'Soporte: hola@acme.com', en: 'Support: hola@acme.com' }  // optional, under the sidebar
 }
 ```
 
-Hovers, tints, rings and the sidebar states derive from those with `color-mix()`; neutrals and the error, warning and success colors are fixed. Every derived value is also a variable (`--cms-primary-50`, `--cms-sidebar-hover`…), so a project can pin one. The root layout passes classes to `<body>` with `rootLayout(cms, CmsClient, { className: inter.variable })`. The theme is Tailwind 3 only.
-
-Before settling a brand color, check it: `contrastRatio('#0f7a5c', '#ffffff')` from `@linkcharsoft/cms/core` must reach `MIN_TEXT_CONTRAST` (4.5); below it, darken the primary or set `--cms-on-primary`.
+Without `icon`, `withCms` takes the favicon at build: `app/icon.svg`, `icon.png` or `apple-icon.png` (under `src/` too), then `public/icon.svg` or `favicon.svg`, then the largest `favicon*.png` or `icon*.png` in `public/`, then `favicon.ico`. `doctor` says which one it found; with none, the panel shows the initials of the name. The icon sits on a white tile, so a favicon drawn for a light tab still shows on the dark sidebar.
 
 ## Panel texts
 

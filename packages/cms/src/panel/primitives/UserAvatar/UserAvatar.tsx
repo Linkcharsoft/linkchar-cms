@@ -3,6 +3,7 @@ import './UserAvatar.sass'
 import Image from 'next/image'
 import { mediaPublicUrl } from '../../../core/media'
 import { useCms } from '../../client/context'
+import { initials } from './initials'
 
 const SIZE_CLASSES = { small: 'UserAvatar UserAvatar--Small', large: 'UserAvatar UserAvatar--Large' }
 
@@ -11,9 +12,6 @@ interface Props {
   avatar: string | null
   size?: 'small' | 'large'
 }
-
-const initials = (name: string) =>
-  name.split(/\s+/).filter(Boolean).slice(0, 2).map(word => word[0]?.toUpperCase()).join('') || '?'
 
 const UserAvatar = ({ name, avatar, size = 'small' }: Props) => {
   const { supabase } = useCms()

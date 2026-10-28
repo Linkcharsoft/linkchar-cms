@@ -18,7 +18,9 @@ export type RedirectsFetcherType = (url: string, init: { headers: Record<string,
 
 export declare const readRedirects: (supabaseUrl: string, publishableKey: string, fetcher?: RedirectsFetcherType) => Promise<CmsRedirectType[]>
 
-// The package compiled with the project, Supabase images allowed, and the redirects of past publishes.
+export declare const findBrandIcon: (root?: string) => { url: string, file: string } | null
+
+// The package compiled with the project, Supabase images allowed, the redirects of past publishes and the product icon.
 export declare const withCms: (nextConfig?: NextConfig, options?: WithCmsOptionsType) => NextConfig
 
 export default withCms

@@ -2,8 +2,8 @@
 import { existsSync } from 'node:fs'
 import { readFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
-import { fileURLToPath } from 'node:url'
 import { parseArgs } from 'node:util'
+import { findBrandIcon } from '../next/index.js'
 import { createSuperadmin, readEnvFile } from './admin.js'
 import { authChecks, environmentChecks } from './doctor.js'
 import { importSettings, runImport } from './import.js'
@@ -24,7 +24,6 @@ const USAGE = `Usage:
   linkchar-cms templates [--config cms.config.ts] [--dir supabase] [--check]
   linkchar-cms admin --email ana@acme.com [--password …] [--name "Ana"] [--env-file .env.local]
   linkchar-cms doctor [--config cms.config.ts] [--src src] [--dir supabase] [--env-file .env.local]
-  linkchar-cms contrast <primary> [--on #ffffff]
   linkchar-cms import <script.ts> --email ana@acme.com [--otp 123456] [--no-publish] [--config cms.config.ts] [--env-file .env.local]
 
   --dir     The project's Supabase folder (default: ./supabase)
@@ -35,8 +34,7 @@ const USAGE = `Usage:
   init writes the files a project owns (cms.config.ts, src/cms, the panel and site layouts) where none exist,
   then runs templates, routes and migrations sync, and lists what is left to wire by hand.
   admin makes the first superadmin with SUPABASE_SECRET_KEY: created with --password, else invited by email.
-  doctor checks routes, migrations, templates, variables, Supabase, the package registry and the ports.
-  contrast checks a panel primary against the text on it (exit 1 below 4.5:1).
+  doctor checks routes, the panel icon, migrations, templates, variables, Supabase, the package registry and the ports.
   import runs the script's default export with a session signed in as --email (password in CMS_IMPORT_PASSWORD):
   cms.media(), cms.upsert() and cms.publish(); --no-publish makes cms.publish() report without publishing.`
 
@@ -86,13 +84,13 @@ const routes = async ({ config, src, check }) => {
 /** @param {{ config: string, dir: string, check: boolean }} options */
 const templates = async ({ config, dir, check }) => {
   const loaded = await loadConfig(resolve(config))
-  const changes = await syncTemplates({ supabaseDir: resolve(dir), basePath: loaded.basePath, t: await translatorOf(loaded), write: !check })
+  const changes = await syncTemplates({ supabaseDir: resolve(dir), basePath: loaded.basePath, t: await translatorOf(loaded), product: loaded.branding?.name, write: !check })
   print('Email templates', changes, check)
 
   if (changes.some(change => change.status === 'stale')) {
     console.warn(`\nAn email template does not link to ${loaded.basePath}/auth/confirm: fix its href, or delete it and run this again.`)
   }
-  return check && changes.some(change => change.status === 'added' || change.status === 'stale') ? 1 : 0
+  return check && changes.some(change => change.status !== 'same' && change.status !== 'kept') ? 1 : 0
 }
 
 /**
@@ -141,6 +139,18 @@ const admin = async ({ email, password, name, 'env-file': envFile }) => {
   return 0
 }
 
+/**
+ * @param {import('./routes.js').RoutesConfigType} config
+ * @returns {import('./doctor.js').CheckType}
+ */
+const brandIconCheck = ({ branding }) => {
+  if (branding?.icon) return { level: 'ok', text: `Panel icon: ${branding.icon} (branding.icon)` }
+  const found = findBrandIcon(resolve('.'))
+  return found
+    ? { level: 'ok', text: `Panel icon: ${found.url} (from ${found.file})` }
+    : { level: 'warn', text: 'No product icon: add app/icon.svg or set branding.icon (the panel shows initials meanwhile)' }
+}
+
 /** @param {{ config: string, src?: string, dir: string, 'env-file': string }} options */
 const doctor = async ({ config, src, dir, 'env-file': envFile }) => {
   /** @type {import('./doctor.js').CheckType[]} */
@@ -163,6 +173,7 @@ const doctor = async ({ config, src, dir, 'env-file': envFile }) => {
     checks.push(behind > 0 || proxy !== 'ok'
       ? { level: 'fail', text: `Panel routes are behind (${behind} files${proxy === 'ok' ? '' : `, proxy ${proxy}`}): linkchar-cms routes` }
       : { level: 'ok', text: 'Panel routes and proxy are up to date' })
+    checks.push(brandIconCheck(loaded))
   }
   if (existsSync(join(supabaseDir, 'config.toml'))) {
     checks.push(...authChecks(await readFile(join(supabaseDir, 'config.toml'), 'utf8')))
@@ -171,8 +182,8 @@ const doctor = async ({ config, src, dir, 'env-file': envFile }) => {
       : { level: 'fail', text: 'Migrations are behind the package: linkchar-cms migrations sync' })
     if (loaded) {
       const emails = await syncTemplates({ supabaseDir, basePath: loaded.basePath, t: await translatorOf(loaded), write: false })
-      checks.push(emails.some(change => change.status === 'added' || change.status === 'stale')
-        ? { level: 'fail', text: 'Email templates are missing or link elsewhere: linkchar-cms templates' }
+      checks.push(emails.some(change => change.status !== 'same' && change.status !== 'kept')
+        ? { level: 'fail', text: 'Email templates are missing, unbranded or link elsewhere: linkchar-cms templates' }
         : { level: 'ok', text: 'Email templates link to the panel' })
     }
   } else {
@@ -198,25 +209,6 @@ const importContent = async (script, { config, email, password, otp, publish, 'e
   return 0
 }
 
-/** @param {string | undefined} color @param {{ on: string }} options */
-const contrast = async (color, { on }) => {
-  if (!color) throw new CliError('Usage: linkchar-cms contrast <primary> [--on #ffffff]')
-  const { createJiti } = await import('jiti')
-  const { contrastRatio, MIN_TEXT_CONTRAST } = /** @type {typeof import('../src/core/contrast')} */ (
-    await createJiti(import.meta.url).import(fileURLToPath(new URL('../src/core/contrast.ts', import.meta.url)))
-  )
-  /** @type {number} */
-  let ratio
-  try {
-    ratio = contrastRatio(color, on)
-  } catch (error) {
-    throw new CliError(error instanceof Error ? error.message : String(error))
-  }
-  const passes = ratio >= MIN_TEXT_CONTRAST
-  console.log(`${color} under ${on}: ${ratio.toFixed(2)}:1, ${passes ? 'passes' : 'below'} ${MIN_TEXT_CONTRAST}:1${passes ? '' : ' (darken the primary or set --cms-on-primary)'}`)
-  return passes ? 0 : 1
-}
-
 const main = async () => {
   const { positionals, values } = parseArgs({
     allowPositionals: true,
@@ -232,7 +224,6 @@ const main = async () => {
       otp: { type: 'string' },
       publish: { type: 'boolean', default: true },
       'env-file': { type: 'string', default: '.env.local' },
-      on: { type: 'string', default: '#ffffff' },
       'base-path': { type: 'string', default: '/dashboard' },
       locales: { type: 'string', default: 'es' },
       'panel-locale': { type: 'string', default: 'es' },
@@ -245,7 +236,6 @@ const main = async () => {
   if (command === 'init') return init(values)
   if (command === 'admin') return admin(values)
   if (command === 'doctor') return doctor(values)
-  if (positionals[0] === 'contrast') return contrast(positionals[1], values)
   if (positionals[0] === 'import') return importContent(positionals[1], values)
   if (command === 'migrations sync') return migrations(values)
   if (command === 'routes') return routes(values)
