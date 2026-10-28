@@ -31,7 +31,8 @@
     min-height: 44px
     border-radius: 8px
     text-decoration: none
-    @apply text-cms-sidebar-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-cms-accent
+    @apply text-cms-sidebar-ink
+    @include cms.focus-outline-dark
 
   &__ProductName
     overflow: hidden
@@ -47,7 +48,8 @@
     min-height: 44px
     border-radius: 8px
     cursor: pointer
-    @apply text-cms-sidebar-ink hover:bg-cms-sidebar-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-cms-accent lg:hidden
+    @apply text-cms-sidebar-ink hover:bg-cms-sidebar-hover lg:hidden
+    @include cms.focus-outline-dark
 
   &__Drawer
     display: none
@@ -89,7 +91,8 @@
     border-radius: 8px
     text-decoration: none
     transition: background-color .2s
-    @apply cms-text-medium-14 text-cms-sidebar-muted hover:bg-cms-sidebar-hover hover:text-cms-sidebar-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-cms-accent
+    @apply cms-text-medium-14 text-cms-sidebar-muted hover:bg-cms-sidebar-hover hover:text-cms-sidebar-ink
+    @include cms.focus-outline-dark
 
     &--Active
       box-shadow: inset 3px 0 0 var(--cms-accent)

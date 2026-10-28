@@ -1,3 +1,5 @@
+@use '../../theme/mixins' as cms
+
 .CollectionTabs
   margin-bottom: 20px
   overflow-x: auto
@@ -15,7 +17,8 @@
     margin-bottom: -1px
     border-bottom: 2px solid transparent
     white-space: nowrap
-    @apply cms-text-medium-16 text-cms-ink-600 hover:text-cms-ink-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-cms-primary
+    @apply cms-text-medium-16 text-cms-ink-600 hover:text-cms-ink-900
+    @include cms.focus-ring
 
     &--Active
       @apply border-cms-primary cms-text-bold-16 text-cms-ink-900

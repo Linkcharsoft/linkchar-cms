@@ -1,3 +1,5 @@
+@use '../../theme/mixins' as cms
+
 .HelpMenu
   &__Label
     @apply sr-only sm:not-sr-only
@@ -42,3 +44,7 @@
 
   .driver-popover-close-btn
     @apply text-cms-ink-600 hover:text-cms-ink-900
+
+  // driver.js sets outline: 0 on its buttons, so the base rule never reaches them.
+  .driver-popover-footer button, .driver-popover-close-btn
+    @include cms.focus-ring

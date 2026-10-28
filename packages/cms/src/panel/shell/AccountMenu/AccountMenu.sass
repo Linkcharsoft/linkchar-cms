@@ -1,3 +1,5 @@
+@use '../../theme/mixins' as cms
+
 .AccountMenu
   display: flex
   align-items: center
@@ -12,7 +14,8 @@
   font-family: inherit
   text-align: left
   cursor: pointer
-  @apply hover:bg-cms-neutral-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cms-primary-ring
+  @apply hover:bg-cms-neutral-50
+  @include cms.focus-ring
 
   // Hidden on phones only visually: the name and role are still the button's name.
   &__Who

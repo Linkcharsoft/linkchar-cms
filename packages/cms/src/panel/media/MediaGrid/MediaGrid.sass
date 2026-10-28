@@ -14,7 +14,8 @@
     border-radius: 12px
     text-align: left
     cursor: pointer
-    @apply bg-cms-surface border border-cms-border hover:border-cms-primary focus-visible:ring-2 focus-visible:ring-cms-primary-ring
+    @apply bg-cms-surface border border-cms-border hover:border-cms-primary
+    @include cms.focus-ring
 
     &--Selected
       @apply border-cms-primary ring-2 ring-cms-primary-ring

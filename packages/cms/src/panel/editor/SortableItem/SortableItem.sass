@@ -1,3 +1,5 @@
+@use '../../theme/mixins' as cms
+
 .SortableItem
   position: relative
   border-radius: 12px
@@ -22,7 +24,8 @@
     border-radius: 8px
     cursor: grab
     touch-action: none
-    @apply text-cms-ink-600 hover:bg-cms-primary-50 focus-visible:ring-2 focus-visible:ring-cms-primary-ring
+    @apply text-cms-ink-600 hover:bg-cms-primary-50
+    @include cms.focus-ring
 
   &__Toggle
     flex: 1
@@ -35,7 +38,8 @@
     border-radius: 8px
     text-align: left
     cursor: pointer
-    @apply text-cms-ink-900 hover:bg-cms-neutral-50 focus-visible:ring-2 focus-visible:ring-cms-primary-ring
+    @apply text-cms-ink-900 hover:bg-cms-neutral-50
+    @include cms.focus-ring
 
   &__Static
     flex: 1

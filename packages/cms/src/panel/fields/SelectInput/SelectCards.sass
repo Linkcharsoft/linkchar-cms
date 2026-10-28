@@ -1,3 +1,5 @@
+@use '../../theme/mixins' as cms
+
 .SelectCards
   display: grid
   grid-template-columns: repeat(auto-fill, minmax(min(132px, 100%), 1fr))
@@ -16,8 +18,7 @@
     @apply border border-cms-border-strong bg-cms-surface text-cms-ink-700
     &:hover
       @apply border-cms-primary
-    &:focus-visible
-      @apply outline-none ring-2 ring-cms-primary-ring
+    @include cms.focus-ring
 
   &__Card--Checked
     @apply border-cms-primary bg-cms-primary-50 text-cms-ink-900 ring-1 ring-cms-primary

@@ -1,3 +1,5 @@
+@use '../../theme/mixins' as cms
+
 .CustomButton
   --CustomButton-size: 44px
   position: relative
@@ -17,11 +19,7 @@
   user-select: none
   transition: background-color .2s, border-color .2s, color .2s, box-shadow .2s
 
-  &:focus
-    outline: none
-
-  &:focus-visible
-    @apply ring-2 ring-cms-primary-ring ring-offset-2
+  @include cms.focus-ring(true)
 
   // Variants
   &--Primary

@@ -20,7 +20,8 @@
     text-align: left
     cursor: pointer
     transition: border-color .2s, background-color .2s
-    @apply bg-cms-surface border border-cms-border hover:border-cms-primary hover:bg-cms-neutral-50 focus-visible:ring-2 focus-visible:ring-cms-primary-ring
+    @apply bg-cms-surface border border-cms-border hover:border-cms-primary hover:bg-cms-neutral-50
+    @include cms.focus-ring
 
   &__Thumb
     width: 100%

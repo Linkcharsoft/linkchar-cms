@@ -1,3 +1,5 @@
+@use '../../theme/mixins' as cms
+
 .PageSection
   // Lands below what's sticky when the outline or a #hash scrolls to it: the section select, the editor bar or both.
   scroll-margin-top: calc(var(--cms-header-height, 0px) + 4.5rem)
@@ -35,7 +37,8 @@
     border-radius: 12px
     text-align: left
     cursor: pointer
-    @apply text-cms-ink-900 hover:bg-cms-neutral-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-cms-primary
+    @apply text-cms-ink-900 hover:bg-cms-neutral-50
+    @include cms.focus-ring
 
   &__Icon
     display: flex
