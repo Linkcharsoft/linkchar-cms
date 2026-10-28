@@ -144,8 +144,15 @@ const editor = {
     placeholders: {
       url: 'https://',
       video: 'https://www.youtube.com/watch?v=…',
-      phone: '+1 555 …'
+      phone: '+1 555 …',
+      color: '#1f5fa8'
     },
+    color: {
+      pick: 'Pick {label} with the color picker',
+      presets: 'Suggested colors for {label}',
+      preset: 'Use {value}'
+    },
+    cards: 'Options of {label}',
     button: {
       text: 'Button text',
       style: 'Style',

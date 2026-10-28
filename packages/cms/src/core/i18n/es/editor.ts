@@ -141,8 +141,15 @@ const editor = {
     placeholders: {
       url: 'https://',
       video: 'https://www.youtube.com/watch?v=…',
-      phone: '+54 9 351 …'
+      phone: '+54 9 351 …',
+      color: '#1f5fa8'
     },
+    color: {
+      pick: 'Elegir {label} con el selector',
+      presets: 'Colores sugeridos para {label}',
+      preset: 'Usar {value}'
+    },
+    cards: 'Opciones de {label}',
     button: {
       text: 'Texto del botón',
       style: 'Estilo',

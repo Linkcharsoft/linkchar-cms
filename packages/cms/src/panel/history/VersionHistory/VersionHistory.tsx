@@ -3,6 +3,7 @@ import './VersionHistory.sass'
 import { Sidebar } from 'primereact/sidebar'
 import { useState } from 'react'
 import { dayOf } from '../../../core/dates'
+import { isHexColor } from '../../../core/kinds/color'
 import { useCms, useFormatDate, useT } from '../../client/context'
 import { useConfirm } from '../../primitives/ConfirmAction/ConfirmAction'
 import CustomButton from '../../primitives/CustomButton/CustomButton'
@@ -30,6 +31,11 @@ interface PreviewType {
   diff: FieldDiffType[] | null
 }
 
+// A color summary ("#1F5FA8") gets its swatch; any other summary is plain text.
+const Summary = ({ value }: { value: string }) => (isHexColor(value)
+  ? <span className='VersionHistory__Color'><span className='VersionHistory__Swatch' style={{ backgroundColor: value }} aria-hidden='true' />{value}</span>
+  : value)
+
 const DiffList = ({ diff }: { diff: FieldDiffType[] }) => {
   const { t } = useT()
   return (
@@ -37,8 +43,8 @@ const DiffList = ({ diff }: { diff: FieldDiffType[] }) => {
       {diff.map(change => (
         <div key={change.path} className='VersionHistory__Change'>
           <dt className='VersionHistory__ChangeLabel'>{change.label}</dt>
-          <dd className='VersionHistory__ChangeValue'><span className='VersionHistory__ChangeTag'>{t('editor.history.now')}</span>{change.current}</dd>
-          <dd className='VersionHistory__ChangeValue'><span className='VersionHistory__ChangeTag'>{t('editor.history.version')}</span>{change.version}</dd>
+          <dd className='VersionHistory__ChangeValue'><span className='VersionHistory__ChangeTag'>{t('editor.history.now')}</span><Summary value={change.current} /></dd>
+          <dd className='VersionHistory__ChangeValue'><span className='VersionHistory__ChangeTag'>{t('editor.history.version')}</span><Summary value={change.version} /></dd>
         </div>
       ))}
     </dl>

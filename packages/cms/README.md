@@ -416,86 +416,106 @@ export default withCms({ reactStrictMode: true })
 
 ## Field kinds
 
-Every kind is one `defineField` call: default, normalization, emptiness, validation, references, diff summary and localization. A project adds its own; this is the playground's color kind, complete:
+The package ships `text`, `textarea`, `email`, `phone`, `url`, `video`, `slug`, `richText`, `number`, `boolean`, `date`, `datetime`, `select`, `multiSelect`, `color`, `link`, `button`, `image`, `gallery`, `file`, `relation` and `relations`, plus the structural `group`, `list` and `blocks`; `openingHours` is opt-in from `@linkcharsoft/cms/core/opening-hours`.
+
+`color({ label: 'Color de marca', presets: ['#1f5fa8', '#0e0e13'] })` stores one `#rrggbb` in lower case (a stored `#1F5FA8` is repaired on read; `red` or `#abc` is "Usá un color como #1f5fa8"). The input is the browser's color picker next to the hex, and `presets` adds swatches the editor picks with one click; the version history shows each color with its swatch. Imports take the same hex.
+
+`select` shows a dropdown, or one card per option with `display: 'cards'`: every option then needs a serializable `preview`, a PrimeIcons name (`{ icon: 'pi-th-large' }`), an image (`{ image: '/layouts/mosaic.svg' }`, a path or an https URL) or a mosaic sketch the panel draws (`{ grid: { columns, rows, cells: [{ column, row, columnSpan?, rowSpan? }] } }`, 1-based like CSS grid lines). `defineCmsConfig` rejects cards with an option that has no preview, a preview without `display: 'cards'`, and a cell outside its grid. `multiSelect` has no cards. A gallery block that lets the editor pick its layout:
 
 ```ts
-// src/cms/fields/color.ts
+layout: select({
+  label: 'Disposición',
+  display: 'cards',
+  default: 'grid',
+  options: [
+    { label: 'Mosaico', value: 'mosaic', preview: { grid: { columns: 3, rows: 2, cells: [{ column: 1, row: 1, columnSpan: 2, rowSpan: 2 }, { column: 3, row: 1 }, { column: 3, row: 2 }] } } },
+    { label: 'Grilla', value: 'grid', preview: { grid: { columns: 3, rows: 2, cells: [{ column: 1, row: 1 }, { column: 2, row: 1 }, { column: 3, row: 1 }, { column: 1, row: 2 }, { column: 2, row: 2 }, { column: 3, row: 2 }] } } }
+  ]
+})
+```
+
+The cards are a radio group: arrows move between them, the chosen one has the brand border.
+
+Every kind is one `defineField` call: default, normalization, emptiness, validation, references, diff summary and localization. A project adds its own; this is the playground's rating kind, complete:
+
+```ts
+// src/cms/fields/rating.ts
 import { defineField, issue, noReferences } from '@linkcharsoft/cms/core'
 import type { BaseOptions } from '@linkcharsoft/cms/core'
 
-export interface ColorField extends BaseOptions<string> {
-  kind: 'color'
-  swatches?: readonly string[]
+export interface RatingField extends BaseOptions<number> {
+  kind: 'rating'
+  stars: number
 }
 
 declare module '@linkcharsoft/cms/core' {
   interface FieldTypes<F> {
-    color: { field: ColorField, value: string, localize: false }
+    rating: { field: RatingField, value: number, localize: false }
   }
 }
 
-const HEX = /^#[0-9a-f]{6}$/i
-
-export const color = defineField({
-  kind: 'color',
+export const rating = defineField({
+  kind: 'rating',
   localize: false,
-  defaultValue: () => '',
-  normalize: value => (typeof value === 'string' && HEX.test(value) ? value.toLowerCase() : ''),
-  isEmpty: value => typeof value !== 'string' || !value,
-  validate: (value, _field, ctx) => {
-    if (value === null || value === undefined || value === '') return ctx.required ? [issue('required')] : []
-    return typeof value === 'string' && HEX.test(value) ? [] : [{ ...issue('pattern'), message: { es: 'Usá un color como #1f5fa8', en: 'Use a color like #1f5fa8' } }]
+  defaultValue: () => 0,
+  normalize: value => (typeof value === 'number' && Number.isInteger(value) && value >= 0 ? value : 0),
+  isEmpty: value => !value,
+  validate: (value, field, ctx) => {
+    if (value === null || value === undefined || value === 0) return ctx.required ? [issue('required')] : []
+    if (typeof value !== 'number' || !Number.isInteger(value) || value < 0) return [issue('number')]
+    return value > field.stars ? [issue('max', { max: field.stars })] : []
   },
   references: noReferences,
-  summarize: value => String(value).toUpperCase()
+  summarize: value => '★'.repeat(Number(value))
 })
 ```
 
-`cms.config.ts` registers it with `fields: [color]` and the schema uses it as `color({ label: 'Color de marca', default: '#1f5fa8' })`. Leaving out a part, or returning the wrong value type, is a type error. A schema that uses a kind the config does not register fails when `defineCmsConfig` runs. Per field, `validate` adds a rule (sync or async) and `component` replaces the panel input.
+`cms.config.ts` registers it with `fields: [rating]` and the schema uses it as `rating({ label: 'Satisfacción del cliente', stars: 5 })`. Leaving out a part, or returning the wrong value type, is a type error. A schema that uses a kind the config does not register fails when `defineCmsConfig` runs. Per field, `validate` adds a rule (sync or async) and `component` replaces the panel input. An `issue(code)` names a message of the `validation.*` catalog (`required`, `number`, `max`…); `{ ...issue('pattern'), message: { es, en } }` carries its own text.
 
 The panel input of a project kind is registered on the client, never in the config (the config also reaches the proxy and the site, which must not bundle panel code). It is a `'use client'` component that receives `{ name, field }` and binds with the package's Formik helpers:
 
 ```tsx
-// src/cms/fields/ColorInput.tsx
+// src/cms/fields/RatingInput.tsx
 'use client'
 import { describedBy, fieldId, InputContainer, useField, useFieldError, useFieldLabel, useText } from '@linkcharsoft/cms/panel'
-import type { ColorField } from './color'
+import type { RatingField } from './rating'
 import type { FieldInputPropsType } from '@linkcharsoft/cms/panel'
 
-const ColorInput = ({ name, field }: FieldInputPropsType<ColorField>) => {
+const RatingInput = ({ name, field }: FieldInputPropsType<RatingField>) => {
   const text = useText()
   const label = useFieldLabel()
-  const [{ value, onBlur }, , { setValue }] = useField<string>(name)
+  const [{ value }, , { setValue, setTouched }] = useField<number>(name)
   const error = useFieldError(name)
   const id = fieldId(name)
+  const stars = Array.from({ length: field.stars }, (_, index) => index + 1)
+
+  const pick = (star: number) => {
+    void setValue(star === value ? 0 : star, false)
+    void setTouched(true, true)
+  }
 
   return (
     <InputContainer label={label(field)} htmlFor={id} error={error} help={text(field.help)}>
-      <div className='flex items-center gap-3'>
-        <input
-          type='color'
-          aria-label={label(field)}
-          className='h-11 w-14 cursor-pointer rounded-lg border border-cms-border-strong bg-cms-surface'
-          value={value || '#000000'}
-          onChange={event => setValue(event.target.value)}
-        />
-        <input
-          id={id}
-          name={name}
-          value={value ?? ''}
-          placeholder='#1f5fa8'
-          autoComplete='off'
-          aria-describedby={describedBy(name, field)}
-          className='h-11 flex-1 rounded-lg border border-cms-border-strong px-3 cms-text-regular-14'
-          onBlur={onBlur}
-          onChange={event => setValue(event.target.value)}
-        />
+      <div id={id} role='radiogroup' aria-label={text(field.label)} aria-describedby={describedBy(name, field)} className='flex gap-1'>
+        {stars.map(star => (
+          <button
+            key={star}
+            type='button'
+            role='radio'
+            aria-checked={star === value}
+            aria-label={`${star} / ${field.stars}`}
+            className='flex h-11 w-11 items-center justify-center rounded-lg text-xl text-cms-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-cms-primary-ring'
+            onClick={() => pick(star)}
+          >
+            <i className={star <= value ? 'pi pi-star-fill' : 'pi pi-star'} aria-hidden='true' />
+          </button>
+        ))}
       </div>
     </InputContainer>
   )
 }
 
-export default ColorInput
+export default RatingInput
 ```
 
 ```ts
@@ -505,7 +525,7 @@ import { createCmsClient } from '@linkcharsoft/cms/panel/client'
 import cmsConfig from '../../cms.config'
 import * as actions from './actions'
 
-export const CmsClient = createCmsClient({ config: cmsConfig, actions, inputs: { color: () => import('./fields/ColorInput') } })
+export const CmsClient = createCmsClient({ config: cmsConfig, actions, inputs: { rating: () => import('./fields/RatingInput') } })
 ```
 
 A field's own `component` wins over the project's input for its kind, which wins over the package's. A kind without an input fails in the panel with a message that says where to add it. For translated fields, bind with `useValuePath(name, field)`: it points at `name.<locale>` for the language being edited.

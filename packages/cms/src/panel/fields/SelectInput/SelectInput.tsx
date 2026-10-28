@@ -6,6 +6,7 @@ import { useT } from '../../client/context'
 import InputContainer from '../../primitives/InputContainer/InputContainer'
 import { describedBy, fieldId, useFieldError, useFieldLabel, useText } from '../fieldUtils'
 import { useLocaleNote } from '../LocaleNote/LocaleNote'
+import SelectCards from './SelectCards'
 import type { MultiSelectField, SelectField } from '../../../core/fields'
 
 interface Props {
@@ -21,6 +22,27 @@ const SelectInput = ({ name, field }: Props) => {
   const error = useFieldError(name)
   const id = fieldId(name)
   const languages = useLocaleNote(name, field)
+
+  if (field.kind === 'select' && field.display === 'cards') {
+    return (
+      <InputContainer label={label(field)} htmlFor={id} error={error} help={text(field.help)} badge={languages.badge}>
+        <SelectCards
+          id={id}
+          name={name}
+          options={field.options}
+          value={typeof value === 'string' ? value : null}
+          label={t('fields.cards', { label: text(field.label) })}
+          invalid={!!error}
+          describedBy={describedBy(name, field)}
+          text={option => text(option.label)}
+          onChange={next => {
+            setValue(next, false)
+            setTouched(true, true)
+          }}
+        />
+      </InputContainer>
+    )
+  }
 
   const common = {
     inputId: id,

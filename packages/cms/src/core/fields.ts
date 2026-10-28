@@ -197,6 +197,7 @@ export const isStructural = (field: DataField): field is StructuralField =>
 
 export * from './kinds/boolean'
 export * from './kinds/button'
+export * from './kinds/color'
 export * from './kinds/dates'
 export * from './kinds/link'
 export * from './kinds/media'
