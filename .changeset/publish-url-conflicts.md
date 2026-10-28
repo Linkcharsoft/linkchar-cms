@@ -1,7 +1,0 @@
----
-'@linkcharsoft/cms': minor
----
-
-A URL another document still holds on the site no longer aborts the whole publish with a generic message. Publish now lists, on each change, the live document that holds its URL: when that document's own pending change frees it (its URL moved, or it is being removed), the item stays tickable and warns "La URL /blog/casa la usa "Casa" en el sitio: marcalo también para que salgan juntos." while the other is unticked; when nothing frees it, the item can't be ticked and says to change one of the two URLs. `publishChanges` refuses such a selection before touching the database and answers `conflicts: [{ id, takenBy }]`; the screen marks both documents and names them in the toast. Documents whose URL moves are published first, since `publish_site` now takes them in the given order, and the new migration `20261029000000_publish_conflicts.sql` makes it report the holder of a taken slug or URL in the error detail. The editor warns on save too: a slug free among drafts but live on another document shows "En el sitio, "Casa" todavía usa esta URL…" under the field (`saveDocument` returns it as `warnings`, the document is saved). `PendingChangeType.urlConflicts`, `unfreedConflicts` and `UrlConflictType` are new in `@linkcharsoft/cms/core`.
-
-To update a project: `linkchar-cms migrations sync`, then `supabase db push` (new migration `20261029000000_publish_conflicts.sql`).
