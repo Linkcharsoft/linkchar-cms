@@ -288,7 +288,7 @@ const PublishPanel = ({ changes, history, canPublish, highlight }: Props) => {
   return (
     <div className='PublishPanel'>
       <section className='PublishPanel__Card' aria-labelledby='pending-title' data-tour='publish-pending'>
-        <div className='PublishPanel__Header'>
+        <div className='PublishPanel__Header' data-tour='publish-summary'>
           <div>
             <h2 id='pending-title' className='PublishPanel__CardTitle'>{t('publishPanel.pending')}</h2>
             <p className='PublishPanel__Meta'>{changes.length === 0 ? t('publishPanel.allLive') : summary}</p>
@@ -335,7 +335,7 @@ const PublishPanel = ({ changes, history, canPublish, highlight }: Props) => {
       </section>
 
       <section className='PublishPanel__Card' aria-labelledby='history-title' data-tour='publish-history'>
-        <h2 id='history-title' className='PublishPanel__CardTitle'>{t('publishPanel.history')}</h2>
+        <h2 id='history-title' className='PublishPanel__CardTitle' data-tour='publish-log'>{t('publishPanel.history')}</h2>
         {history.length === 0
           ? <EmptyState compact icon='pi pi-send' title={t('publishPanel.historyEmpty')} />
           : (

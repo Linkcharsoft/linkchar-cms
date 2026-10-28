@@ -86,7 +86,7 @@ const CollectionTable = ({ entryId, singularLabel, orderable, items, total, page
   )
 
   return (
-    <div className='CollectionTable' data-tour='collection-list'>
+    <div className='CollectionTable'>
       <DashboardToolbar>
         <SearchInput
           initialValue={search || undefined}
@@ -132,6 +132,7 @@ const CollectionTable = ({ entryId, singularLabel, orderable, items, total, page
             />
           )}
         className='CollectionTable__Table'
+        pt={{ bodyRow: { 'data-tour': 'collection-row' } }}
       >
         {canReorder && <Column rowReorder className='CollectionTable__Handle' header={<span className='sr-only'>{t('listColumns.reorder')}</span>} />}
         <Column header={t('collectionList.title')} body={titleTemplate} />

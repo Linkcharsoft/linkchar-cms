@@ -3,7 +3,7 @@
   flex-direction: column
   gap: 8px
   position: sticky
-  top: 7rem
+  top: calc(var(--cms-header-height, 0px) + 7rem)
   @apply lg:flex
 
   &__Title
@@ -71,7 +71,10 @@
   // Phones and tablets: the outline becomes a select that stays at the top while scrolling.
   &__Mobile
     position: sticky
-    top: 0
+    top: var(--cms-header-height, 0px)
     z-index: 10
     padding: 8px 0
-    @apply bg-cms-neutral-50 md:top-24 lg:hidden
+    @apply bg-cms-neutral-50 lg:hidden
+
+    @media (min-width: 768px)
+      top: calc(var(--cms-header-height, 0px) + 6rem)

@@ -247,7 +247,7 @@ const UsersTable = ({ title, users, currentUserId, currentRole }: Props) => {
         title={title}
         subtitle={t('usersScreen.subtitle')}
         actions={(
-          <CustomButton type='button' onClick={() => setDialog({})} data-tour='users-invite'>
+          <CustomButton type='button' onClick={() => setDialog({})}>
             <i className='pi pi-user-plus' aria-hidden='true' />
             {t('usersScreen.invite')}
           </CustomButton>

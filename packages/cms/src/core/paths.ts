@@ -1,8 +1,11 @@
+import { localePrefix } from './urls'
 import type { CmsConfigType } from './config'
 import type { SchemaEntry } from './define'
 
 export interface PanelPathsType {
   home: string
+  // The published site's front page: the default locale's prefix when it has one.
+  siteHome: string
   pages: string
   media: string
   publish: string
@@ -84,6 +87,7 @@ export const panelPaths = (config: CmsConfigType): PanelPathsType => {
 
   const paths: PanelPathsType = {
     home: base,
+    siteHome: localePrefix(config, config.defaultLocale) || '/',
     pages: at('pages'),
     media: at('media'),
     publish: at('publish'),

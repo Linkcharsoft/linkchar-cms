@@ -13,7 +13,7 @@ test.describe.configure({ mode: 'serial' })
 test('an invited user creates the account from the email link', async ({ page, browser, baseURL }) => {
   await signIn(page, QA.super.email)
   await page.goto('/dashboard/usuarios')
-  await page.locator('[data-tour=users-invite]').click()
+  await page.getByRole('button', { name: 'Invitar usuario' }).click()
   await page.locator('#user-email').fill(email)
   await page.locator('#user-name').fill('E2E Invitado')
   await page.getByRole('button', { name: 'Enviar invitación' }).click()

@@ -14,12 +14,26 @@ export const TOUR_IDS = ['welcome', 'pages', 'page-editor', 'site', 'document', 
 
 export type TourIdType = typeof TOUR_IDS[number]
 
-export interface TourStepType {
+export type TourSideType = 'top' | 'right' | 'bottom' | 'left'
+
+export type TourAlignType = 'start' | 'center' | 'end'
+
+interface PlacementType {
+  side?: TourSideType
+  align?: TourAlignType
+}
+
+export interface TourStepType extends PlacementType {
   // data-tour anchor; a step without one (or whose anchor isn't on screen) shows as a centered card.
   anchor?: string
   title: string
   description: string
 }
+
+// Where the card goes next to its anchor: beside the sidebar, under a header button (right-aligned), under a field.
+const RIGHT: PlacementType = { side: 'right', align: 'start' }
+const BELOW: PlacementType = { side: 'bottom', align: 'start' }
+const BELOW_END: PlacementType = { side: 'bottom', align: 'end' }
 
 export interface TourType {
   id: TourIdType
@@ -62,8 +76,8 @@ export const buildTours = (config: CmsConfigType): TourType[] => {
   const items = navItems(config)
   const entries = entriesOf(config)
   const listOf = (values: string[]) => new Intl.ListFormat(locale, { type: 'conjunction' }).format(values)
-  const step = (key: StepKeyType, anchor?: string): TourStepType =>
-    ({ ...(anchor ? { anchor } : {}), title: translate(`tours.${key}.title`), description: translate(`tours.${key}.description`) })
+  const step = (key: StepKeyType, anchor?: string, placement: PlacementType = BELOW): TourStepType =>
+    ({ ...(anchor ? { anchor, ...placement } : {}), title: translate(`tours.${key}.title`), description: translate(`tours.${key}.description`) })
 
   const pages = entries.filter((pair): pair is [string, PageEntry] => pair[1].kind === 'page')
   const singletons = entries.filter(([, entry]) => entry.kind === 'singleton')
@@ -96,6 +110,7 @@ export const buildTours = (config: CmsConfigType): TourType[] => {
         step('welcome.intro'),
         {
           anchor: 'nav',
+          ...RIGHT,
           title: t('tours.welcome.nav.title'),
           description: [...navSentence('content', contentGroup), ...navSentence('site', siteGroup)].join(' ')
         },
@@ -105,15 +120,16 @@ export const buildTours = (config: CmsConfigType): TourType[] => {
         ...(pages.length > 0
           ? [{
             anchor: 'overview-pages',
+            ...BELOW,
             title: t('tours.welcome.pages.title', { pages: items.pages.label.toLocaleLowerCase(locale) }),
             description: t('tours.welcome.pages.description')
           }]
           : []),
         step('welcome.recent', 'overview-recent'),
-        step('welcome.publish', 'publish'),
-        step('welcome.viewSite', 'view-site'),
-        { anchor: 'account', title: t('tours.welcome.account.title'), description: t('tours.welcome.account.description', { account: t('shell.account') }) },
-        { anchor: 'help', title: t('tours.welcome.help.title'), description: t('tours.welcome.help.description', { help: t('help.button') }) }
+        step('welcome.publish', 'publish', BELOW_END),
+        step('welcome.viewSite', 'view-site', BELOW_END),
+        { anchor: 'account', ...BELOW, title: t('tours.welcome.account.title'), description: t('tours.welcome.account.description', { account: t('shell.account') }) },
+        { anchor: 'help', ...BELOW_END, title: t('tours.welcome.help.title'), description: t('tours.welcome.help.description', { help: t('help.button') }) }
       ]
     },
     pages.length > 0 ? {
@@ -122,9 +138,9 @@ export const buildTours = (config: CmsConfigType): TourType[] => {
       path: paths.pages,
       matches: exactly(paths.pages),
       steps: [
-        step('pages.list', 'pages-list'),
+        step('pages.list', 'pages-row'),
         ...(used.length > 0
-          ? [{ anchor: 'pages-list', title: t('tours.pages.uses.title'), description: t('tours.pages.uses.description', { example: entryNavLabel(config, used[0].id) }) }]
+          ? [{ anchor: 'pages-row', ...BELOW, title: t('tours.pages.uses.title'), description: t('tours.pages.uses.description', { example: entryNavLabel(config, used[0].id) }) }]
           : [])
       ]
     } : null,
@@ -134,13 +150,13 @@ export const buildTours = (config: CmsConfigType): TourType[] => {
       path: paths.page(pages[0][0]),
       matches: depthUnder(`${paths.pages}/`, 1),
       steps: [
-        step('pageEditor.outline', 'outline'),
-        step('pageEditor.form', 'form'),
+        step('pageEditor.outline', 'outline', RIGHT),
+        step('pageEditor.form', 'section'),
         step('pageEditor.autosave', 'autosave'),
         step('pageEditor.missing', 'missing'),
-        step('pageEditor.preview', 'preview'),
-        step('pageEditor.history', 'history'),
-        step('publish.after', 'publish')
+        step('pageEditor.preview', 'preview', BELOW_END),
+        step('pageEditor.history', 'history', BELOW_END),
+        step('publish.after', 'publish', BELOW_END)
       ]
     } : null,
     singletons.length > 0 ? {
@@ -148,7 +164,7 @@ export const buildTours = (config: CmsConfigType): TourType[] => {
       title: t('tours.site.title'),
       path: paths.site(singletons[0][0]),
       matches: depthUnder(paths.site(''), 1),
-      steps: [step('site.form', 'form'), step('site.autosave', 'autosave'), step('site.history', 'history'), step('publish.after', 'publish')]
+      steps: [step('site.form', 'field'), step('site.autosave', 'autosave'), step('site.history', 'history', BELOW_END), step('publish.after', 'publish', BELOW_END)]
     } : null,
     collections.length > 0 ? {
       id: 'document',
@@ -158,7 +174,8 @@ export const buildTours = (config: CmsConfigType): TourType[] => {
       steps: [
         step('document.visibility', 'visibility'),
         {
-          anchor: 'form',
+          anchor: 'field',
+          ...BELOW,
           title: t('tours.document.form.title'),
           description: [
             t('tours.document.form.description'),
@@ -167,8 +184,8 @@ export const buildTours = (config: CmsConfigType): TourType[] => {
           ].join(' ')
         },
         step('document.autosave', 'autosave'),
-        step('document.preview', 'preview'),
-        step('document.history', 'history')
+        step('document.preview', 'preview', BELOW_END),
+        step('document.history', 'history', BELOW_END)
       ]
     } : null,
     listed.length > 0 ? {
@@ -177,8 +194,8 @@ export const buildTours = (config: CmsConfigType): TourType[] => {
       path: paths.collection(listed[0][0]),
       matches: depthUnder(paths.collection(''), 1),
       steps: [
-        step('collection.create', 'collection-new'),
-        step('collection.list', 'collection-list'),
+        step('collection.create', 'collection-new', BELOW_END),
+        step('collection.list', 'collection-row'),
         ...(related
           ? [{
             title: t('tours.collection.related.title'),
@@ -188,7 +205,7 @@ export const buildTours = (config: CmsConfigType): TourType[] => {
             })
           }]
           : []),
-        step('collection.publish', 'publish')
+        step('collection.publish', 'publish', BELOW_END)
       ]
     } : null,
     {
@@ -203,7 +220,7 @@ export const buildTours = (config: CmsConfigType): TourType[] => {
       title: t('tours.publish.title'),
       path: paths.publish,
       matches: exactly(paths.publish),
-      steps: [step('publish.pending', 'publish-pending'), step('publish.button', 'publish-button'), step('publish.history', 'publish-history')]
+      steps: [step('publish.pending', 'publish-summary'), step('publish.button', 'publish-button', BELOW_END), step('publish.history', 'publish-log')]
     },
     {
       id: 'account',
@@ -213,6 +230,7 @@ export const buildTours = (config: CmsConfigType): TourType[] => {
       steps: [
         {
           anchor: 'account-password',
+          ...BELOW,
           title: t('tours.account.password.title'),
           description: t('tours.account.password.description', { option: t('account.signOutOthers') })
         },
