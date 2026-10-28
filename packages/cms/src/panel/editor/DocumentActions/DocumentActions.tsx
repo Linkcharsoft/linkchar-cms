@@ -3,7 +3,7 @@ import './DocumentActions.sass'
 import { useRouter } from 'next/navigation'
 import { InputSwitch } from 'primereact/inputswitch'
 import { useState } from 'react'
-import { useCms, usePaths, useT } from '../../client/context'
+import { useCms, usePaths, useT, useTextContext } from '../../client/context'
 import { useConfirm } from '../../primitives/ConfirmAction/ConfirmAction'
 import CustomButton from '../../primitives/CustomButton/CustomButton'
 import { useNotify } from '../../providers/notify'
@@ -23,6 +23,7 @@ interface Props {
 const DocumentActions = ({ entryId, documentId, title, visible = true, canHide = true, compact = false }: Props) => {
   const { t } = useT()
   const { actions } = useCms()
+  const { translator } = useTextContext()
   const paths = usePaths()
   const router = useRouter()
   const notify = useNotify()
@@ -30,6 +31,7 @@ const DocumentActions = ({ entryId, documentId, title, visible = true, canHide =
   const name = title ? `"${title}"` : t('editor.document.thisContent')
   const [shown, setShown] = useState(visible)
   const [lastVisible, setLastVisible] = useState(visible)
+  const [duplicating, setDuplicating] = useState(false)
 
   if (visible !== lastVisible) {
     setLastVisible(visible)
@@ -50,6 +52,18 @@ const DocumentActions = ({ entryId, documentId, title, visible = true, canHide =
       detail: t('editor.document.nextPublish')
     })
     router.refresh()
+  }
+
+  // The action redirects to the copy; the button stays busy meanwhile so a second click can't make another.
+  const duplicate = async () => {
+    if (duplicating) return
+    setDuplicating(true)
+    try {
+      const result = await actions.duplicateDocument(entryId, documentId)
+      if (!result.ok) notify({ severity: 'error', summary: t('editor.document.duplicateFailed'), detail: translator.translate(result.error) })
+    } finally {
+      setDuplicating(false)
+    }
   }
 
   const askTrash = async () => {
@@ -95,7 +109,8 @@ const DocumentActions = ({ entryId, documentId, title, visible = true, canHide =
           iconOnly
           icon='pi pi-copy'
           aria-label={title ? t('editor.document.duplicateNamed', { name: title }) : t('editor.document.duplicate')}
-          onClick={() => actions.duplicateDocument(entryId, documentId)}
+          loading={duplicating}
+          onClick={duplicate}
         />
         <CustomButton
           type='button'
@@ -118,7 +133,7 @@ const DocumentActions = ({ entryId, documentId, title, visible = true, canHide =
           <label htmlFor={`${documentId}-visible`} className='DocumentActions__Label'>{t('editor.document.showOnSite')}</label>
         </div>
       )}
-      <CustomButton type='button' variant='secondary' size='sm' onClick={() => actions.duplicateDocument(entryId, documentId)}>
+      <CustomButton type='button' variant='secondary' size='sm' loading={duplicating} onClick={duplicate}>
         <i className='pi pi-copy' aria-hidden='true' />
         {t('editor.document.duplicate')}
       </CustomButton>

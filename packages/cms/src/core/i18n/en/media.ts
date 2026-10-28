@@ -134,14 +134,20 @@ const media = {
     completeAlt: 'Fill in',
     completeAltOf: 'Fill in the alt text in {language}',
     trashed: 'It\'s in the trash: restore it from {media} or choose another one.',
-    missing: 'The chosen file no longer exists. Choose another one.'
+    missing: 'The chosen file no longer exists. Choose another one.',
+    removeHeader: 'Remove the file',
+    removeMessage: 'Remove "{title}" from {label}? The file stays in Media.'
   },
   gallery: {
     add: 'Add images',
     override: 'Use other images for {language}',
     restore: 'Back to the original images',
     noOriginal: 'No images in {language}.',
-    removed: 'Deleted image'
+    removed: 'Deleted image',
+    removeHeader: 'Remove image',
+    removeMessage: 'Remove "{title}" from the gallery? The image stays in Media.',
+    remove: 'Remove',
+    overMax: { one: 'There is room for {count} more image: the first ones were added and the rest left out.', other: 'There is room for {count} more images: the first ones were added and the rest left out.' }
   }
 } satisfies CatalogType<typeof es>
 

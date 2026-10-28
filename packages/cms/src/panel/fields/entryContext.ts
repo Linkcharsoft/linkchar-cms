@@ -6,6 +6,8 @@ export interface EntryContextType {
   entryId: string | null
   // Language being edited: translated fields bind to `name.<locale>`.
   locale: string
+  // The document has been published at least once: its URL is live.
+  published?: boolean
 }
 
 export const EntryContext = createContext<EntryContextType>({ entryId: null, locale: '' })

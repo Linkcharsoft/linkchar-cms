@@ -6,6 +6,7 @@ import { pageSections } from '../../../core/pages'
 import { useCms, useT } from '../../client/context'
 import { useText } from '../fieldUtils'
 import { ReferencesContext } from '../referencesContext'
+import { useSearchPicker } from '../RelationInput/useSearchPicker'
 
 export interface EntryTargetType {
   entry?: string
@@ -31,7 +32,6 @@ const EntryPicker = ({ value, onChange, label, inputId, invalid = false }: Props
   const text = useText()
   const references = use(ReferencesContext).relations
   const [found, setFound] = useState<Record<string, string>>({})
-  const [suggestions, setSuggestions] = useState<DocumentOptionType[]>([])
 
   const entries = Object.entries(config.schema)
     .filter(([, entry]) => entry.path)
@@ -42,12 +42,18 @@ const EntryPicker = ({ value, onChange, label, inputId, invalid = false }: Props
     : []
   const documentLabel = value.id ? found[value.id] ?? references[value.id]?.label ?? t('relationInput.gone') : null
 
-  const search = async (query: string) => {
-    if (!value.entry) return
+  const fetchDocuments = async (query: string): Promise<DocumentOptionType[]> => {
+    if (!value.entry) return []
     const results = await actions.searchRelation(value.entry, query)
     setFound(current => ({ ...current, ...Object.fromEntries(results.map(result => [result.id, result.label])) }))
-    setSuggestions(results.map(result => ({ id: result.id, label: result.label })))
+    return results.map(result => ({ id: result.id, label: result.label }))
   }
+
+  const picker = useSearchPicker<DocumentOptionType>({
+    fetch: fetchDocuments,
+    selected: value.id ? { id: value.id, label: documentLabel ?? '' } : null,
+    onPick: option => onChange({ entry: value.entry, id: option?.id })
+  })
 
   return (
     <div className='LinkInput__Entry'>
@@ -66,22 +72,22 @@ const EntryPicker = ({ value, onChange, label, inputId, invalid = false }: Props
       />
       {entry?.kind === 'collection' && (
         <AutoComplete
+          ref={picker.ref}
           inputId={`${inputId}-document`}
           aria-label={t('fields.link.documentOf', { label })}
           dropdown
-          forceSelection
           field='label'
-          value={value.id ? { id: value.id, label: documentLabel } : null}
-          suggestions={suggestions}
-          completeMethod={event => void search(event.query)}
+          value={picker.value}
+          suggestions={picker.suggestions}
+          completeMethod={event => void picker.search(event.query)}
           placeholder={t('relationInput.search', { name: text(entry.label).toLocaleLowerCase(config.panelLocale) })}
+          emptyMessage={t('relationInput.empty')}
           invalid={invalid && !value.id}
           className='LinkInput__Href'
           inputClassName='w-full'
-          onChange={event => {
-            if (typeof event.value === 'string') return
-            onChange({ entry: value.entry, id: (event.value as DocumentOptionType | null)?.id })
-          }}
+          onFocus={picker.onFocus}
+          onBlur={picker.onBlur}
+          onChange={picker.onChange}
         />
       )}
       {anchors.length > 0 && (

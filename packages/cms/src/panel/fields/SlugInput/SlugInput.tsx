@@ -9,7 +9,7 @@ import { useCms, useT } from '../../client/context'
 import CustomButton from '../../primitives/CustomButton/CustomButton'
 import InputContainer from '../../primitives/InputContainer/InputContainer'
 import { EntryContext } from '../entryContext'
-import { describedBy, fieldId, useFieldError, useFieldLabel, useText, useValuePath } from '../fieldUtils'
+import { describedBy, errorId, fieldId, useFieldError, useFieldLabel, useText, useValuePath } from '../fieldUtils'
 import { useLocaleNote } from '../LocaleNote/LocaleNote'
 import type { SlugField } from '../../../core/fields'
 
@@ -21,11 +21,12 @@ interface Props {
 // "casa-2" still follows "Casa": the server picks a free variant when another document has the slug.
 const followsSource = (value: string, source: string) => value === slugify(source) || new RegExp(`^${slugify(source)}-\\d+$`).test(value)
 
-// Follows the source field (e.g. the title) in the same language until the editor types a slug by hand.
+// Follows the source field (e.g. the title) in the same language until the editor types a slug by hand,
+// or until the document is published: a live URL only changes on purpose ("Generar de nuevo").
 const SlugInput = ({ name, field }: Props) => {
   const { t } = useT()
   const { config } = useCms()
-  const { locale } = use(EntryContext)
+  const { locale, published = false } = use(EntryContext)
   const text = useText()
   const label = useFieldLabel()
   const path = useValuePath(name, field)
@@ -37,7 +38,7 @@ const SlugInput = ({ name, field }: Props) => {
 
   const sourceValue = getIn(values, name.split('.').slice(0, -1).concat(field.from).join('.'))
   const source = String((isLocaleMap(sourceValue, config.locales) ? sourceValue[locale || config.defaultLocale] : sourceValue) ?? '')
-  const [isManual, setIsManual] = useState(() => !!value && !followsSource(value, source))
+  const [isManual, setIsManual] = useState(() => !!value && (published || !followsSource(value, source)))
 
   useEffect(() => {
     if (!isManual && !followsSource(value ?? '', source)) setValue(slugify(source))
@@ -54,7 +55,8 @@ const SlugInput = ({ name, field }: Props) => {
           autoComplete='off'
           className='SlugInput__Input'
           invalid={!!error}
-          aria-describedby={describedBy(name, field, languages.describedBy)}
+          aria-invalid={error ? true : undefined}
+          aria-describedby={describedBy(name, field, error && errorId(name), languages.describedBy)}
           onBlur={event => {
             setValue(slugify(value ?? ''))
             onBlur(event)
@@ -65,7 +67,16 @@ const SlugInput = ({ name, field }: Props) => {
           }}
         />
         {isManual && (
-          <CustomButton type='button' variant='ghost' size='sm' onClick={() => setIsManual(false)}>
+          <CustomButton
+            type='button'
+            variant='ghost'
+            size='sm'
+            tooltip={published ? t('fields.slugPublished') : undefined}
+            onClick={() => {
+              setValue(slugify(source))
+              setIsManual(published)
+            }}
+          >
             {t('fields.regenerateSlug')}
           </CustomButton>
         )}

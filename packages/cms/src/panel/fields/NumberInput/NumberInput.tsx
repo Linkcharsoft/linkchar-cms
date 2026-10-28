@@ -3,7 +3,7 @@ import { useField } from 'formik'
 import { InputNumber } from 'primereact/inputnumber'
 import { useCms } from '../../client/context'
 import InputContainer from '../../primitives/InputContainer/InputContainer'
-import { describedBy, fieldId, useFieldError, useFieldLabel, useText } from '../fieldUtils'
+import { describedBy, errorId, fieldId, useFieldError, useFieldLabel, useText } from '../fieldUtils'
 import { useLocaleNote } from '../LocaleNote/LocaleNote'
 import type { NumberField } from '../../../core/fields'
 
@@ -33,7 +33,8 @@ const NumberInput = ({ name, field }: Props) => {
         useGrouping={false}
         locale={config.panelLocale}
         invalid={!!error}
-        aria-describedby={describedBy(name, field)}
+        aria-invalid={error ? true : undefined}
+        aria-describedby={describedBy(name, field, error && errorId(name))}
         onBlur={onBlur}
         onValueChange={event => setValue(event.value ?? null)}
       />

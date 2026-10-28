@@ -29,7 +29,8 @@ const editor = {
       partial: 'Guardado, salvo la URL: ya la usa otro contenido',
       invalid: 'Hay campos para corregir',
       conflict: 'Otra persona guardó cambios',
-      error: 'Error al guardar, reintentando al editar'
+      error: 'No se pudo guardar',
+      retry: 'Reintentar'
     },
     conflict: {
       header: 'Otra persona guardó cambios',
@@ -50,6 +51,7 @@ const editor = {
       usedBy: 'Lo usan estos contenidos, que al publicar van a quedar sin él:',
       trashFailed: 'No se pudo mandar a la papelera',
       trashed: 'Enviado a la papelera',
+      duplicateFailed: 'No se pudo duplicar',
       duplicate: 'Duplicar',
       duplicateNamed: 'Duplicar {name}',
       trash: 'Papelera',
@@ -137,7 +139,9 @@ const editor = {
     chooseOne: 'Elegí una opción',
     chooseMany: 'Elegí una o más opciones',
     regenerateSlug: 'Generar de nuevo',
+    slugPublished: 'La dirección ya está publicada: cambiarla deja un redireccionamiento desde la anterior.',
     issues: { one: '{count} campo por revisar', other: '{count} campos por revisar' },
+    counter: '{count} de {max} caracteres',
     placeholders: {
       url: 'https://',
       video: 'https://www.youtube.com/watch?v=…',

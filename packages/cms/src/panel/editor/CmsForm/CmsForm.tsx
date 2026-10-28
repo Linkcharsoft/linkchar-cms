@@ -333,7 +333,7 @@ const CmsForm = ({
             meta={(
               <>
                 {shownStatus && <Tag value={t(`documentStatus.${displayStatus(shownStatus, isIncomplete)}`)} severity={DOCUMENT_SEVERITIES[displayStatus(shownStatus, isIncomplete)]} />}
-                <AutosaveStatus status={autosave.status} savedAt={autosave.savedAt} />
+                <AutosaveStatus status={autosave.status} savedAt={autosave.savedAt} onRetry={autosave.retry} />
                 {multilingual && (
                   <Dropdown
                     inputId={`${entryId}-locale`}
@@ -410,7 +410,7 @@ const CmsForm = ({
             onSubmit={event => event.preventDefault()}
           >
             <FormFocusContext value={{ issues, reveal }}>
-              <EntryContext value={{ entryId, locale }}>
+              <EntryContext value={{ entryId, locale, published: status !== null && status !== 'new' && status !== 'hidden' }}>
                 <ReferencesContext value={references}>
                   <MediaRegistryContext value={registry}>
                     <RemountContext value={remounts}>

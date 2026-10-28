@@ -183,3 +183,48 @@ describe('useAutosave', () => {
     expect(unload()).toBe(false)
   })
 })
+
+describe('useAutosave retries', () => {
+  it('tries a failed save again with growing delays, then waits for retry() or an edit', async () => {
+    const save = vi.fn(async (): Promise<AutosaveOutcomeType> => 'error')
+    const { result, rerender } = renderHook(
+      ({ values }: { values: ValuesType }) => useAutosave({ values, save, delay: 100 }),
+      { initialProps: { values: { title: 'Casa' } } }
+    )
+    await act(() => rerender({ values: { title: 'Casa nueva' } }))
+    await act(() => vi.advanceTimersByTimeAsync(100))
+    expect(save).toHaveBeenCalledTimes(1)
+    expect(result.current.status).toBe('error')
+
+    await act(() => vi.advanceTimersByTimeAsync(2999))
+    expect(save).toHaveBeenCalledTimes(1)
+    await act(() => vi.advanceTimersByTimeAsync(1))
+    expect(save).toHaveBeenCalledTimes(2)
+    await act(() => vi.advanceTimersByTimeAsync(6000))
+    expect(save).toHaveBeenCalledTimes(3)
+    await act(() => vi.advanceTimersByTimeAsync(12000))
+    expect(save).toHaveBeenCalledTimes(4)
+    await act(() => vi.advanceTimersByTimeAsync(24000))
+    expect(save).toHaveBeenCalledTimes(5)
+    await act(() => vi.advanceTimersByTimeAsync(60000))
+    expect(save).toHaveBeenCalledTimes(5)
+
+    save.mockResolvedValue('saved')
+    act(() => result.current.retry())
+    await act(() => vi.advanceTimersByTimeAsync(0))
+    expect(save).toHaveBeenCalledTimes(6)
+    expect(result.current.status).toBe('saved')
+    expect(result.current.isDirty).toBe(false)
+  })
+
+  it('does not retry invalid or conflicting saves on its own', async () => {
+    for (const outcome of ['invalid', 'conflict'] as const) {
+      const { save, change, tick, unmount } = setup({ outcome })
+      await change('Casa nueva')
+      await tick(2000)
+      await tick(60000)
+      expect(save).toHaveBeenCalledTimes(1)
+      unmount()
+    }
+  })
+})

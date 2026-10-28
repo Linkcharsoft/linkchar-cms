@@ -131,14 +131,20 @@ const media = {
     completeAlt: 'Completar',
     completeAltOf: 'Completar el texto alternativo en {language}',
     trashed: 'Está en la papelera: restauralo desde {media} o elegí otro.',
-    missing: 'El archivo elegido ya no existe. Elegí otro.'
+    missing: 'El archivo elegido ya no existe. Elegí otro.',
+    removeHeader: 'Quitar el archivo',
+    removeMessage: '¿Quitar "{title}" de {label}? El archivo sigue en Media.'
   },
   gallery: {
     add: 'Agregar imágenes',
     override: 'Usar otras imágenes para {language}',
     restore: 'Volver a las originales',
     noOriginal: 'Sin imágenes en {language}.',
-    removed: 'Imagen eliminada'
+    removed: 'Imagen eliminada',
+    removeHeader: 'Quitar imagen',
+    removeMessage: '¿Quitar "{title}" de la galería? La imagen sigue en Media.',
+    remove: 'Quitar',
+    overMax: { one: 'Entra {count} imagen más: se agregaron las primeras y el resto quedó afuera.', other: 'Entran {count} imágenes más: se agregaron las primeras y el resto quedó afuera.' }
   }
 } as const
 

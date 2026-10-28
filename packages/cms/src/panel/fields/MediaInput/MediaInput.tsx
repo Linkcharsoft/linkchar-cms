@@ -9,6 +9,7 @@ import { useCms, useT } from '../../client/context'
 import MediaDetails from '../../media/MediaDetails/MediaDetails'
 import MediaPicker from '../../media/MediaPicker/MediaPicker'
 import { useMediaText } from '../../media/mediaText'
+import { useConfirm } from '../../primitives/ConfirmAction/ConfirmAction'
 import CustomButton from '../../primitives/CustomButton/CustomButton'
 import InputContainer from '../../primitives/InputContainer/InputContainer'
 import { navItems } from '../../shell/navigation'
@@ -33,6 +34,7 @@ const MediaInput = ({ name, field }: Props) => {
   const text = useText()
   const label = useFieldLabel()
   const mediaText = useMediaText()
+  const confirm = useConfirm()
   const variant = useMediaVariant(name)
   const [{ value }, , { setValue, setTouched }] = useField<string | null>(variant.path)
   const error = useFieldError(variant.path)
@@ -57,9 +59,17 @@ const MediaInput = ({ name, field }: Props) => {
       variant.override(next?.id ?? null)
       return
     }
-    setValue(next?.id ?? null)
+    setValue(next?.id ?? null, true)
     setTouched(true, false)
   }
+
+  const askRemove = () => confirm({
+    header: t('mediaInput.removeHeader'),
+    message: t('mediaInput.removeMessage', { title: item?.filename || mediaText(item?.alt ?? {}), label: fieldName }),
+    acceptLabel: t('mediaInput.remove'),
+    tone: 'danger',
+    accept: () => commit(null)
+  })
 
   const badge = variant.translating
     ? <LocaleBadge own={variant.overridden}>{variant.overridden ? t('mediaInput.onlyFor', { language }) : t('mediaInput.sameAs', { language: original })}</LocaleBadge>
@@ -124,7 +134,7 @@ const MediaInput = ({ name, field }: Props) => {
                 </CustomButton>
                 {restoreButton}
                 {!variant.translating && (
-                  <CustomButton type='button' variant='ghost' size='sm' onClick={() => commit(null)}>
+                  <CustomButton type='button' variant='ghost' size='sm' onClick={askRemove}>
                     <i className='pi pi-times' aria-hidden='true' />
                     {t('mediaInput.remove')}
                   </CustomButton>

@@ -7,6 +7,7 @@ import { useState } from 'react'
 import { useT } from '../../client/context'
 import CustomButton from '../../primitives/CustomButton/CustomButton'
 import DialogFooter from '../../primitives/DialogFooter/DialogFooter'
+import { focusField } from '../../primitives/DialogFooter/focusField'
 import InputContainer from '../../primitives/InputContainer/InputContainer'
 
 export interface UrlDialogValueType {
@@ -49,6 +50,8 @@ const UrlDialog = ({ header, label, placeholder, initialValue, withNewTab = fals
       modal
       dismissableMask
       className='UrlDialog'
+      focusOnShow={false}
+      onShow={() => focusField('url-dialog-input')}
       onHide={onHide}
       footer={(
         <DialogFooter start={onRemove && <CustomButton type='button' variant='danger-ghost' onClick={onRemove}>{t('urlDialog.remove')}</CustomButton>}>

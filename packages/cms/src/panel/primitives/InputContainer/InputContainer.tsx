@@ -43,7 +43,7 @@ const InputContainer = ({
       {help && <p id={`${htmlFor}-help`} className='InputContainer__Help'>{help}</p>}
       {note}
       { children }
-      <InputError message={error}/>
+      <InputError id={`${htmlFor}-error`} message={error} />
     </div>
   )
 }
