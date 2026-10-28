@@ -32,7 +32,8 @@ const editor = {
       partial: 'Saved, except the URL: another item already uses it',
       invalid: 'Some fields need fixing',
       conflict: 'Someone else saved changes',
-      error: 'Saving failed, retrying when you edit'
+      error: 'Could not save',
+      retry: 'Retry'
     },
     conflict: {
       header: 'Someone else saved changes',
@@ -53,6 +54,7 @@ const editor = {
       usedBy: 'These items use it and will be left without it when you publish:',
       trashFailed: 'It could not be moved to the trash',
       trashed: 'Moved to the trash',
+      duplicateFailed: 'Could not duplicate',
       duplicate: 'Duplicate',
       duplicateNamed: 'Duplicate {name}',
       trash: 'Trash',
@@ -140,7 +142,9 @@ const editor = {
     chooseOne: 'Choose an option',
     chooseMany: 'Choose one or more options',
     regenerateSlug: 'Generate again',
+    slugPublished: 'This address is live: changing it leaves a redirect from the old one.',
     issues: { one: '{count} field to review', other: '{count} fields to review' },
+    counter: '{count} of {max} characters',
     placeholders: {
       url: 'https://',
       video: 'https://www.youtube.com/watch?v=…',
