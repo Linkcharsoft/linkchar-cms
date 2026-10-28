@@ -24,6 +24,7 @@ const core = {
     max: 'The maximum is {max}',
     date: 'Invalid date',
     option: 'Choose a valid option',
+    color: 'Use a color like #1f5fa8',
     maxOptions: 'Choose up to {max}',
     minOptions: 'Choose at least {min}',
     linkEntry: 'Choose a page or an item of the site',

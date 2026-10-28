@@ -4,6 +4,7 @@ import {
   boolean,
   button,
   collection,
+  color,
   date,
   datetime,
   defineSchema,
@@ -34,7 +35,7 @@ import {
   video
 } from '@linkcharsoft/cms/core'
 import { openingHours } from '@linkcharsoft/cms/core/opening-hours'
-import { color } from './fields/color'
+import { rating } from './fields/rating'
 
 const BUTTON_VARIANTS = [
   { label: 'Principal', value: 'primary' },
@@ -48,7 +49,7 @@ export const schema = defineSchema({
       siteName: text({ label: 'Nombre del sitio', required: true, localized: false, default: 'Estudio Norte' }),
       tagline: textarea({ label: 'Bajada', rows: 2, default: { es: 'Arquitectura e interiores', en: 'Architecture and interiors' } }),
       logo: image({ label: 'Logo', folder: 'sitio' }),
-      brandColor: color({ label: 'Color de marca', default: '#1f5fa8' })
+      brandColor: color({ label: 'Color de marca', default: '#1f5fa8', presets: ['#1f5fa8', '#0e0e13', '#6e14be', '#d92d20'] })
     }),
     contact: tab('Contacto', {
       info: note('Se muestran en el pie y en la página de contacto.'),
@@ -91,7 +92,9 @@ export const schema = defineSchema({
     }, { anchor: 'proyectos', uses: ['projects'], hideable: true }),
     extra: blocks({ label: 'Bloques al final', max: 8 }, {
       texto: block('Texto', { body: richText({ label: 'Texto', headings: [2, 3] }) }, { icon: 'pi-align-left' }),
-      galeria: block('Galería', { images: gallery({ label: 'Imágenes', max: 12, folder: 'proyectos' }) }, { icon: 'pi-images' }),
+      galeria: block('Galería', {
+        images: gallery({ label: 'Imágenes', max: 12, folder: 'proyectos' })
+      }, { icon: 'pi-images' }),
       cita: block('Cita', { quote: textarea({ label: 'Cita', required: true }), author: text({ label: 'Autor' }) }, { icon: 'pi-comment' })
     })
   }, {
@@ -129,6 +132,7 @@ export const schema = defineSchema({
           area: number({ label: 'Superficie (m²)', min: 0, step: 1 })
         }),
         client: text({ label: 'Cliente', localized: false }),
+        satisfaction: rating({ label: { es: 'Satisfacción del cliente', en: 'Client satisfaction' }, stars: 5 }),
         location: text({ label: 'Ubicación' }),
         category: relation({ label: 'Categoría', to: 'categories' })
       }),

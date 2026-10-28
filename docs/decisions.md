@@ -21,6 +21,7 @@ One line per decision that still shapes the package. Each is settled; reopening 
 ## Field kinds and catalogs
 
 - One `defineField` per kind, typed through `FieldTypes<F>`; built-in kinds use the same mechanism as project kinds.
+- `color` is a built-in kind (0.12): one `#rrggbb` in lower case, `presets` as swatches; the README's project-kind example is `rating`, which stays in the playground to exercise `createCmsClient({ inputs })`.
 - Core holds no panel inputs: a lazy `import()` in core would drag PrimeReact and Sass into the proxy and site bundles. Inputs live in a `'use client'` map in the panel; project kinds register theirs in `createCmsClient({ inputs })`. Resolution: `field.component`, then the project's input, then the package's.
 - Catalogs are TypeScript objects per locale; `es` is the mold and `en` `satisfies` it. Every user-facing text comes from a catalog (`texts.test.ts` fails on literals) and a project overrides keys with `messages`.
 - Server actions return catalog keys as errors, never prose; the panel translates.

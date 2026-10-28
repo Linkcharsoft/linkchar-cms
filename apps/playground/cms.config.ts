@@ -1,6 +1,6 @@
 import { defineCmsConfig } from '@linkcharsoft/cms/core'
 import { openingHours } from '@linkcharsoft/cms/core/opening-hours'
-import { color } from './src/cms/fields/color'
+import { rating } from './src/cms/fields/rating'
 import { schema } from './src/cms/schema'
 
 const cmsConfig = defineCmsConfig({
@@ -17,7 +17,7 @@ const cmsConfig = defineCmsConfig({
     { value: 'blog', label: 'Blog' },
     { value: 'equipo', label: 'Equipo' }
   ],
-  fields: [openingHours, color],
+  fields: [openingHours, rating],
   site: {
     url: process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3100',
     titleTemplate: '%s | Estudio Norte',

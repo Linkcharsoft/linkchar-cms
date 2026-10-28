@@ -1,5 +1,6 @@
 import { boolean } from './boolean'
 import { button } from './button'
+import { color } from './color'
 import { date, datetime } from './dates'
 import { link } from './link'
 import { file, gallery, image } from './media'
@@ -14,6 +15,6 @@ import type { FieldDefinitionType } from './registry'
 export const BUILTIN_FIELDS: readonly FieldDefinitionType[] = [
   text, textarea, email, phone, url, video, slug,
   richText, number, boolean, date, datetime,
-  select, multiSelect, link, button,
+  select, multiSelect, color, link, button,
   image, gallery, file, relationField
 ]
