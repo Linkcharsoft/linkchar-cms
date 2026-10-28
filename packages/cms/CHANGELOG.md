@@ -1,5 +1,22 @@
 # @linkcharsoft/cms
 
+## 0.11.0
+
+### Minor Changes
+
+- 54c5819: `linkchar-cms templates` writes the invitation and recovery emails with Inferencia's brand: a dark header with the star, the name and the product (`branding.name`), and a violet button, in tables with inline styles that email clients keep. A template still as 0.10 wrote it is rewritten (`updated`); one the project edited is kept, as before. `templates --check` and `doctor` fail while one is unbranded.
+  
+  To update a project: `linkchar-cms templates`, then `supabase stop && supabase start` locally and `supabase config push` (or paste them in Authentication → Emails) for the hosted project.
+- 4d42f0d: The panel wears Inferencia's brand in every project instead of each project's colors: a dark sidebar (`#0e0e13`) with the magenta star as its accent, a light workspace with violet-tinted neutrals, and the brand violet `#6e14be` for buttons, links and focus rings. Text is Hanken Grotesk and headings Bricolage Grotesque, both SIL Open Font License and bundled through Fontsource (`@fontsource-variable/*`), so the panel no longer depends on the project's fonts. The tokens moved from `:where(:root)` to `.CmsRoot`, which leaves a project's `:root { --cms-primary }` without effect, and Tailwind gets `cms-accent`. `rootLayout(cms, CmsClient)` loses its third argument, which only passed font classes to `<body>`. Every text and ground pair of the palette reaches 4.5:1, and a unit test keeps it there.
+  
+  To update a project: delete `src/app/(cms)/theme.css` (or the stylesheet that set `--cms-*`) and its import in `src/app/(cms)/layout.tsx`, and call `rootLayout(cms, CmsClient)` without options; drop the `next/font` the panel layout loaded for it.
+- 90dc842: What each project shows is now its product slot: `branding.name` and a square `branding.icon` at the top of the sidebar and on the sign-in screens, under the "Inferencia CMS" signature. `branding.logo` is now `branding.icon` and the config throws when it finds `logo`. Without `icon`, `withCms` takes the project's favicon at build (`app/icon.svg`, `icon.png`, `apple-icon.png`, then `public/icon.svg`, `favicon.svg`, the largest `favicon*.png`, then `favicon.ico`) and passes it as `CMS_BRAND_ICON`; `findBrandIcon` is exported from `@linkcharsoft/cms/next`, and `linkchar-cms doctor` says which file it found. With no icon at all, the sidebar shows the initials of the name. The sign-in screens moved to the dark brand ground, with the white card unchanged.
+  
+  To update a project: rename `branding.logo` to `branding.icon`, or remove it to use the favicon; set `icon` when the largest favicon is too small for 56px.
+- 9b70068: The per-project theme is gone: `linkchar-cms contrast` and its `--on` flag are removed, `contrastRatio` and `MIN_TEXT_CONTRAST` are no longer exported from `@linkcharsoft/cms/core`, `init` no longer writes `src/app/(cms)/theme.css`, and the README's Theme section is now Brand.
+  
+  To update a project: remove `linkchar-cms contrast` from scripts and CI.
+
 ## 0.10.3
 
 ### Patch Changes
