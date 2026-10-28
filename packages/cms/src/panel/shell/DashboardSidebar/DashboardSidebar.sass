@@ -6,6 +6,14 @@
   flex-shrink: 0
   @apply bg-cms-sidebar text-cms-sidebar-ink lg:sticky lg:top-0 lg:h-dvh lg:w-64
 
+  // On phones the open menu is a full-screen drawer over the page, with its own scroll.
+  &--Open
+    @media (max-width: 1023px)
+      position: fixed
+      inset: 0
+      z-index: 50
+      overflow: hidden
+
   &__Top
     display: flex
     align-items: center
