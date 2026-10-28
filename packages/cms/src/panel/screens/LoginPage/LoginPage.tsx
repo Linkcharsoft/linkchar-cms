@@ -30,11 +30,12 @@ const LoginPage = ({ error, next }: Props) => {
   const router = useRouter()
   const urlError = URL_ERRORS.find(code => code === error)
   const [submitError, setSubmitError] = useState<string | null>(urlError ? t(`auth.urlErrors.${urlError}`) : null)
+  const [navigating, setNavigating] = useState(false)
 
   const formik = useFormik<LoginFormType>({
     initialValues: { email: '', password: '' },
     validate: useFormValidation(validateLogin),
-    validateOnChange: false,
+    validateOnChange: true,
     validateOnBlur: false,
     onSubmit: async values => {
       setSubmitError(null)
@@ -43,6 +44,7 @@ const LoginPage = ({ error, next }: Props) => {
       if (result.redirectTo) {
         const target = safePanelPath(next, config)
         const to = !target ? result.redirectTo : result.redirectTo === paths.mfaVerify ? `${paths.mfaVerify}?next=${encodeURIComponent(target)}` : target
+        setNavigating(true)
         router.replace(to as Route)
         router.refresh()
       }
@@ -89,7 +91,7 @@ const LoginPage = ({ error, next }: Props) => {
           />
         </InputContainer>
 
-        <CustomButton type='submit' className='DashboardAuthLayout__Submit' loading={formik.isSubmitting}>
+        <CustomButton type='submit' className='DashboardAuthLayout__Submit' loading={formik.isSubmitting || navigating}>
           {t('auth.login.submit')}
         </CustomButton>
       </form>

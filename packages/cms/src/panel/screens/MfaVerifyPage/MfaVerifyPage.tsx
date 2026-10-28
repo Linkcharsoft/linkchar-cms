@@ -22,6 +22,11 @@ const MfaVerifyPage = ({ devices, next }: Props) => {
 
       <MfaChallengeForm devices={devices} next={next} />
 
+      <details className='DashboardAuthLayout__Details'>
+        <summary>{t('auth.mfa.lostDevice')}</summary>
+        <p>{t('auth.mfa.lostDeviceHelp')}</p>
+      </details>
+
       <form action={actions.logout} className='flex justify-center'>
         <CustomButton type='submit' variant='ghost' size='sm'>{t('auth.mfa.otherAccount')}</CustomButton>
       </form>

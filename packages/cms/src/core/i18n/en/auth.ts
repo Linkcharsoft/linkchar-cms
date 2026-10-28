@@ -8,6 +8,7 @@ const auth = {
     newPassword: 'New password',
     confirmPassword: 'Repeat the password',
     fullName: 'Full name',
+    passwordRules: 'At least {min} characters, with letters and numbers.',
     backToLogin: 'Back to sign in',
     login: {
       title: 'Sign in',
@@ -35,6 +36,7 @@ const auth = {
     invite: {
       title: 'Welcome',
       subtitle: 'To finish creating your user, tell us your name and choose a password.',
+      email: 'Your user',
       submit: 'Create my user'
     },
     mfa: {
@@ -44,6 +46,8 @@ const auth = {
       code: 'Code',
       submit: 'Verify',
       otherAccount: 'Use another account',
+      lostDevice: 'I do not have the phone',
+      lostDeviceHelp: 'Ask an administrator to reset your two-step verification from Users: you will be able to sign in with the password alone and set it up again with another phone.',
       rateLimit: 'Too many attempts. Wait a few minutes.',
       wrongCode: 'The code is wrong or expired. Try the one the app shows now.'
     }
