@@ -21,6 +21,9 @@ interface Props {
 // Gives the screen time to render its data before the first step measures anything.
 const START_DELAY = 700
 
+// While a field has the focus, the guide waits and looks again.
+const RETRY_DELAY = 1000
+
 // How long a step waits for an anchor that is still loading (the publish history, a list) before it is skipped.
 const WAIT_FOR_ANCHOR = 1500
 
@@ -110,12 +113,17 @@ const HelpMenu = ({ seenTours }: Props) => {
       ? tours.find(item => item.id === requested && item.matches(pathname))
       : current && !seen.has(current.id) ? current : null
     if (!tour) return
-    const timer = setTimeout(() => {
-      if (!requested && isEditing(document.activeElement)) return
+    let timer: number
+    const attempt = () => {
+      if (!requested && isEditing(document.activeElement)) {
+        timer = window.setTimeout(attempt, RETRY_DELAY)
+        return
+      }
       setRequested(null)
       startOnArrival(tour)
-    }, START_DELAY)
-    return () => clearTimeout(timer)
+    }
+    timer = window.setTimeout(attempt, START_DELAY)
+    return () => window.clearTimeout(timer)
   }, [pathname, requested, current, seen, tours])
 
   useEffect(() => () => observer.current?.disconnect(), [])

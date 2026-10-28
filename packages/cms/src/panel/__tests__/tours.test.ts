@@ -94,17 +94,16 @@ describe('guided tours', () => {
 })
 
 describe('isEditing', () => {
-  const element = (tag: string, inForm = false) => ({
-    matches: (selector: string) => selector.split(', ').some(part => part.startsWith(tag)),
-    closest: (selector: string) => (inForm && selector === '[data-tour="form"]' ? {} : null)
+  const element = (tag: string) => ({
+    matches: (selector: string) => selector.split(', ').some(part => part.startsWith(tag))
   })
 
-  it('is true inside fields and the editor form, false elsewhere', () => {
+  it('is true inside fields only: a focused button in the form does not hold the guide back', () => {
     expect(isEditing(null)).toBe(false)
     expect(isEditing(element('a'))).toBe(false)
     expect(isEditing(element('input'))).toBe(true)
     expect(isEditing(element('textarea'))).toBe(true)
     expect(isEditing(element('[contenteditable]'))).toBe(true)
-    expect(isEditing(element('button', true))).toBe(true)
+    expect(isEditing(element('button'))).toBe(false)
   })
 })
