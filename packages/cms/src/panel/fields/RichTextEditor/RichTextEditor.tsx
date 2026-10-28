@@ -97,24 +97,29 @@ const RichTextEditor = ({ id, label, value, headings: allowedHeadings = RICH_TEX
     })
   }
 
+  const attributes = (isInvalid: boolean) => ({
+    id,
+    role: 'textbox',
+    'aria-multiline': inline ? 'false' : 'true',
+    'aria-label': label,
+    'aria-invalid': isInvalid ? 'true' : 'false',
+    ...(describedBy ? { 'aria-describedby': describedBy } : {}),
+    class: 'RichTextEditor__Content'
+  })
+
   // Created once: re-applying options on each render loops onUpdate → setValue. Remount to load new content.
   const editor = useEditor({
     immediatelyRender: false,
     extensions: richTextExtensions(mediaId => lookupRef.current(mediaId), { headings, inline, marks }),
     content: value ?? undefined,
-    editorProps: {
-      attributes: {
-        id,
-        role: 'textbox',
-        'aria-multiline': inline ? 'false' : 'true',
-        'aria-label': label,
-        ...(describedBy ? { 'aria-describedby': describedBy } : {}),
-        class: 'RichTextEditor__Content'
-      }
-    },
+    editorProps: { attributes: attributes(invalid) },
     onUpdate: ({ editor: current }) => emitChange(current),
     onBlur: () => callbacks.current.onBlur()
   }, [])
+
+  useEffect(() => {
+    editor?.setOptions({ editorProps: { attributes: attributes(invalid) } })
+  }, [editor, invalid])
 
   useEffect(() => () => {
     if (pendingFrame.current === null || !editor) return
@@ -254,10 +259,10 @@ const RichTextEditor = ({ id, label, value, headings: allowedHeadings = RICH_TEX
           variant='ghost'
           size='xs'
           iconOnly
-          icon='pi pi-refresh'
+          icon='pi pi-undo'
           aria-label={t('richTextEditor.redo')}
           disabled={!state?.canRedo}
-          className='RichTextEditor__Tool'
+          className='RichTextEditor__Tool RichTextEditor__Tool--Redo'
           onClick={() => editor.chain().focus().redo().run()}
         />
       </div>
