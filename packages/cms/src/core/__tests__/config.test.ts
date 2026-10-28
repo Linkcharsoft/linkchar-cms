@@ -2,7 +2,7 @@ import { describe, expect, expectTypeOf, it } from 'vitest'
 import { defineCmsConfig, translatorFor } from '../config'
 import { collection, page, singleton } from '../define'
 import { getCollection, getEntry, getPage } from '../entries'
-import { image, relation, richText, section, slug, text } from '../fields'
+import { image, list, relation, richText, section, slug, text } from '../fields'
 
 const schema = {
   settings: singleton('Sitio', { name: text({ label: 'Nombre' }) }),
@@ -99,6 +99,7 @@ describe('defineCmsConfig', () => {
     expect(broken({ name: text({ label: 'Nombre' }) })).toThrow('titleField "title"')
     expect(broken({ title: text({ label: 'Título' }), cover: image({ label: 'Portada', folder: 'blog' }) })).toThrow('folder "blog"')
     expect(broken({ title: text({ label: 'Título' }), lead: richText({ label: 'Bajada', inline: true, headings: [2] }) })).toThrow('posts.lead is inline')
+    expect(broken({ title: text({ label: 'Título' }), tiles: list({ label: 'Mosaico', thumbnail: 'caption' }, { caption: text({ label: 'Texto' }) }) })).toThrow('posts.tiles.thumbnail "caption"')
   })
 })
 

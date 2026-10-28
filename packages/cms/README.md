@@ -512,6 +512,10 @@ A field's own `component` wins over the project's input for its kind, which wins
 
 To show what the package's inputs show while translating, pass `useLocaleNote(name, field)` to `InputContainer`: `badge` is "Same in every language" for a shared value, `note` the default language's text above a translation, and `describedBy` its id for the input (`describedBy(name, field, note.describedBy)`). `useEditingTranslation()` says whether another language than the default one is on screen; `useMediaVariant(name)` gives a file-like value its own version per language.
 
+### Lists and blocks
+
+`list({ label, min, max, itemLabel, singularLabel, thumbnail, open }, fields)` holds repeated items of the same fields; `blocks({ label, min, max, open }, { texto: block('Texto', fields, { icon, description, thumbnail }) })` holds items of different kinds. In the panel, items start open while there are at most three or the item has an image field; `open: true` or `false` fixes it, and "Expandir todo" / "Colapsar todo" switches the whole list. A collapsed item shows the value of `itemLabel`, the count of its fields with a problem, and its image as a thumbnail (`thumbnail` names the image field; the first one by default; a block's own image field is used the same way, while `thumbnail` on `block()` is the picture the block picker shows). `singularLabel` names one item ("servicio"): the button reads "Agregar servicio" and an item without a title "Servicio 3". With `min`, the legend reads "2 de 6, mínimo 1" and the last `min` items can't be removed; at `max`, "Agregar" and "Duplicar" stay visible but disabled, with the reason as their tooltip.
+
 ## Panel
 
 The panel lives in the project's app as small generated files that import the package and the project's `cms` instance:

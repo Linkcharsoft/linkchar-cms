@@ -13,16 +13,22 @@ interface Props {
   badge?: string
   icon?: string
   open?: boolean
-  canDuplicate?: boolean
-  // Static row (e.g. gallery thumbnails): no expand/collapse body.
+  // Fields with a problem inside, shown on the collapsed row.
+  issues?: number
   thumbnail?: ReactNode
+  // Without onToggle the row is static (e.g. gallery thumbnails): no expand/collapse body.
   onToggle?: () => void
   onDuplicate?: () => void
+  // Why duplicating or removing is off right now; the button stays, disabled, with the reason as its tooltip.
+  duplicateDisabledReason?: string
   onRemove: () => void
+  removeDisabledReason?: string
   children?: ReactNode
 }
 
-const SortableItem = ({ id, title, badge, icon, open = false, canDuplicate = false, thumbnail, onToggle, onDuplicate, onRemove, children }: Props) => {
+const SortableItem = ({
+  id, title, badge, icon, open = false, issues = 0, thumbnail, onToggle, onDuplicate, duplicateDisabledReason, onRemove, removeDisabledReason, children
+}: Props) => {
   const { t } = useT()
   const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({ id })
   const bodyId = `sortable-${id}`
@@ -48,9 +54,11 @@ const SortableItem = ({ id, title, badge, icon, open = false, canDuplicate = fal
 
         {onToggle ? (
           <button type='button' className='SortableItem__Toggle' aria-expanded={open} aria-controls={bodyId} onClick={onToggle}>
+            {thumbnail}
             {icon && <i className={classNames('pi', icon, 'SortableItem__Icon')} aria-hidden='true' />}
             {badge && <span className='SortableItem__Badge'>{badge}</span>}
             <span className='SortableItem__Title'>{title}</span>
+            {!open && issues > 0 && <span className='SortableItem__Issues' aria-label={t('fields.issues', { count: issues })}>{issues}</span>}
             <i className={classNames('pi', open ? 'pi-chevron-up' : 'pi-chevron-down')} aria-hidden='true' />
           </button>
         ) : (
@@ -60,10 +68,30 @@ const SortableItem = ({ id, title, badge, icon, open = false, canDuplicate = fal
           </div>
         )}
 
-        {canDuplicate && onDuplicate && (
-          <CustomButton type='button' variant='ghost' size='sm' iconOnly icon='pi pi-copy' aria-label={t('fields.sortable.duplicate', { title })} onClick={onDuplicate} />
+        {onDuplicate && (
+          <CustomButton
+            type='button'
+            variant='ghost'
+            size='sm'
+            iconOnly
+            icon='pi pi-copy'
+            aria-label={t('fields.sortable.duplicate', { title })}
+            disabled={!!duplicateDisabledReason}
+            tooltip={duplicateDisabledReason}
+            onClick={onDuplicate}
+          />
         )}
-        <CustomButton type='button' variant='danger-ghost' size='sm' iconOnly icon='pi pi-trash' aria-label={t('fields.sortable.remove', { title })} onClick={onRemove} />
+        <CustomButton
+          type='button'
+          variant='danger-ghost'
+          size='sm'
+          iconOnly
+          icon='pi pi-trash'
+          aria-label={t('fields.sortable.remove', { title })}
+          disabled={!!removeDisabledReason}
+          tooltip={removeDisabledReason}
+          onClick={onRemove}
+        />
       </div>
 
       {open && children && <div id={bodyId} className='SortableItem__Body'>{children}</div>}

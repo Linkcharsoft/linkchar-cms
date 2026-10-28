@@ -75,6 +75,12 @@ export interface ListField<F extends FieldsRecord = FieldsRecord> extends Struct
   max?: number
   // Data key whose value summarizes a collapsed item.
   itemLabel?: string
+  // Image field shown next to a collapsed item's title; the item's first image field when left out.
+  thumbnail?: string
+  // What one item is called ("servicio"): "Agregar servicio", "Servicio 3".
+  singularLabel?: TextType
+  // Whether items start open; left out, they do when there are at most 3 or the item has an image field.
+  open?: boolean
   // Missing keys are filled from the item fields' own defaults; list() types each item.
   default?: Record<string, unknown>[]
 }
@@ -90,6 +96,8 @@ export interface BlocksField<B extends Record<string, BlockDef> = Record<string,
   blocks: B
   min?: number
   max?: number
+  // Whether blocks start open; left out, they do when there are at most 3 or the block has an image field.
+  open?: boolean
 }
 
 // Presentational: they order the form but never store data of their own.

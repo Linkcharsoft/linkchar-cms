@@ -50,6 +50,32 @@
   &__Icon
     @apply text-cms-primary
 
+  &__Thumb
+    position: relative
+    display: flex
+    align-items: center
+    justify-content: center
+    flex-shrink: 0
+    width: 44px
+    height: 44px
+    overflow: hidden
+    border-radius: 6px
+    @apply bg-cms-neutral-100 text-cms-ink-400
+
+  &__ThumbImage
+    object-fit: contain
+
+  &__Issues
+    display: inline-flex
+    align-items: center
+    justify-content: center
+    flex-shrink: 0
+    min-width: 20px
+    height: 20px
+    padding: 0 6px
+    border-radius: 999px
+    @apply cms-text-semibold-12 bg-cms-warning-50 text-cms-warning-800
+
   &__Badge
     padding: 2px 8px
     border-radius: 999px

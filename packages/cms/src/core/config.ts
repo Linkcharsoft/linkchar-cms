@@ -177,6 +177,9 @@ const checkFields = (ctx: CheckContextType, fields: FieldsRecord, where: string)
     if (field.kind === 'slug' && !keys.includes(field.from)) {
       throw new CmsConfigError(`${path} is generated from "${field.from}", which is not a field next to it.`)
     }
+    if (field.kind === 'list' && field.thumbnail && dataFields(field.fields).find(([key]) => key === field.thumbnail)?.[1].kind !== 'image') {
+      throw new CmsConfigError(`${path}.thumbnail "${field.thumbnail}" is not an image field of its items.`)
+    }
     const { folder } = field as { folder?: string }
     if (folder && !folders.some(item => item.value === folder)) {
       throw new CmsConfigError(`${path} uploads to the folder "${folder}", which is not one of the mediaFolders.`)
