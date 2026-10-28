@@ -3,7 +3,7 @@ import type { CatalogType } from '../types'
 
 const status = {
   documentStatus: {
-    hidden: 'Draft',
+    hidden: 'Hidden',
     new: 'Ready to publish',
     incomplete: 'Incomplete',
     published: 'Published',

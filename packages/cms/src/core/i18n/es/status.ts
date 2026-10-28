@@ -1,6 +1,6 @@
 const status = {
   documentStatus: {
-    hidden: 'Borrador',
+    hidden: 'Oculto',
     new: 'Listo para publicar',
     incomplete: 'Incompleto',
     published: 'Publicado',
