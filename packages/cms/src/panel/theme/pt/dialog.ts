@@ -5,7 +5,7 @@ import type { DialogPassThroughMethodOptions, DialogPassThroughOptions } from 'p
 const dialog: DialogPassThroughOptions = {
   root: ({ state }: DialogPassThroughMethodOptions) => ({
     className: classNames(
-      'flex flex-col max-h-[90%] w-[min(640px,calc(100vw-32px))] m-0 bg-cms-surface rounded-2xl shadow-xl border-0',
+      'flex flex-col max-h-[90%] w-[min(var(--cms-dialog-width,640px),calc(100vw-32px))] m-0 bg-cms-surface rounded-2xl shadow-xl border-0',
       { '!w-screen !h-screen !max-h-full !top-0 !left-0 rounded-none': state.maximized }
     )
   }),

@@ -3,8 +3,9 @@
 
 $dialog-widths: (sm: 480px, md: 640px, lg: 960px)
 
+// The dialog passthrough reads this variable: a property would compete with its class at equal specificity.
 @mixin dialog-width($size: md)
-  width: min(map.get($dialog-widths, $size), calc(100vw - 32px))
+  --cms-dialog-width: #{map.get($dialog-widths, $size)}
 
 // Neutral ground that shows a transparent logo's edges without competing with the image.
 @mixin checkerboard($size: 10px)
