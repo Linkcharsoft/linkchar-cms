@@ -21,7 +21,12 @@ interface AutosaveType<T> {
   flush: () => Promise<boolean>
   // New baseline after loading values from the server (e.g. when resolving a conflict).
   markSaved: (values: T) => void
+  // Saves again right away after a failure, restarting the automatic retries.
+  retry: () => void
 }
+
+// A failed save is tried again at 3, 6, 12 and 24 seconds; after that only an edit or "Retry" saves.
+export const RETRY_DELAYS = [3000, 6000, 12000, 24000]
 
 // Saves `delay` ms after the last change, one request in flight at a time, and guards unload while unsaved.
 const useAutosave = <T>({ values, save, delay = 2000, enabled = true }: Options<T>): AutosaveType<T> => {
@@ -35,6 +40,8 @@ const useAutosave = <T>({ values, save, delay = 2000, enabled = true }: Options<
   const saving = useRef(false)
   const pending = useRef(false)
   const inflight = useRef<Promise<boolean>>(Promise.resolve(true))
+  const retries = useRef(0)
+  const retryTimer = useRef<ReturnType<typeof setTimeout>>(undefined)
 
   useEffect(() => {
     latest.current = { values, serialized, save }
@@ -54,6 +61,7 @@ const useAutosave = <T>({ values, save, delay = 2000, enabled = true }: Options<
   }
 
   const saveSnapshot = async (snapshot: T, snapshotJson: string, run: Options<T>['save']): Promise<boolean> => {
+    clearTimeout(retryTimer.current)
     saving.current = true
     setStatus('saving')
     let outcome: AutosaveOutcomeType
@@ -68,6 +76,7 @@ const useAutosave = <T>({ values, save, delay = 2000, enabled = true }: Options<
     setStatus(outcome)
 
     if (outcome === 'saved' || outcome === 'partial') {
+      retries.current = 0
       baselineRef.current = snapshotJson
       setBaseline(snapshotJson)
       setSavedAt(new Date())
@@ -79,15 +88,22 @@ const useAutosave = <T>({ values, save, delay = 2000, enabled = true }: Options<
     }
 
     pending.current = false
+    if (outcome === 'error' && retries.current < RETRY_DELAYS.length) {
+      retryTimer.current = setTimeout(() => void flush(), RETRY_DELAYS[retries.current])
+      retries.current += 1
+    }
     return false
   }
 
   useEffect(() => {
     if (!enabled || serialized === baselineRef.current) return
+    retries.current = 0
     setStatus(current => (current === 'saving' ? current : 'pending'))
     const timer = setTimeout(() => void flush(), delay)
     return () => clearTimeout(timer)
   }, [serialized, enabled, delay])
+
+  useEffect(() => () => clearTimeout(retryTimer.current), [])
 
   const isDirty = serialized !== baseline || status === 'saving'
 
@@ -105,7 +121,12 @@ const useAutosave = <T>({ values, save, delay = 2000, enabled = true }: Options<
     setStatus('idle')
   }
 
-  return { status, savedAt, isDirty, flush, markSaved }
+  const retry = () => {
+    retries.current = 0
+    void flush()
+  }
+
+  return { status, savedAt, isDirty, flush, markSaved, retry }
 }
 
 export default useAutosave
