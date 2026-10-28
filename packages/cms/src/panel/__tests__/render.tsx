@@ -28,13 +28,14 @@ interface FieldContextType {
   values: Record<string, unknown>
   locale?: string
   media?: Record<string, MediaItemType>
+  published?: boolean
 }
 
 // An input as the editor renders it: inside Formik, in one language, with the files it knows.
-export const renderField = (ui: ReactElement, { values, locale = 'es', media = {} }: FieldContextType, overrides: Partial<CmsPanelType> = {}) =>
+export const renderField = (ui: ReactElement, { values, locale = 'es', media = {}, published = false }: FieldContextType, overrides: Partial<CmsPanelType> = {}) =>
   renderPanel(
     <Formik initialValues={values} onSubmit={() => undefined}>
-      <EntryContext value={{ entryId: null, locale }}>
+      <EntryContext value={{ entryId: null, locale, published }}>
         <MediaRegistryContext value={{ media, remember: () => undefined }}>{ui}</MediaRegistryContext>
       </EntryContext>
     </Formik>,

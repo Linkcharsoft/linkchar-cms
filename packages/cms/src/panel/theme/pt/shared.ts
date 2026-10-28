@@ -2,9 +2,13 @@ import { classNames } from 'primereact/utils'
 
 export const DISABLED = 'opacity-60 select-none pointer-events-none cursor-default'
 
+// Focus, one convention (mirrored by the focus-* mixins of theme/mixins.sass and the base rule of styles.css):
+// inputs show the ring on any focus, everything else on light grounds on :focus-visible, dark grounds use the accent outline.
 export const FOCUS_RING = 'focus:outline-none focus:border-cms-primary focus:ring-2 focus:ring-cms-primary-ring'
 
 export const FOCUS_VISIBLE_RING = 'focus:outline-none focus-visible:ring-2 focus-visible:ring-cms-primary-ring'
+
+export const FOCUS_OUTLINE_DARK = 'focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cms-accent'
 
 export const fieldClasses = ({ invalid, disabled }: { invalid?: boolean, disabled?: boolean }) => classNames(
   'm-0 px-3 py-2.5 cms-text-regular-14 text-cms-ink-900 bg-cms-surface border rounded-lg appearance-none',

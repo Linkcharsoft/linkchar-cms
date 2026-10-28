@@ -29,7 +29,8 @@ const editor = {
       partial: 'Guardado, salvo la URL: ya la usa otro contenido',
       invalid: 'Hay campos para corregir',
       conflict: 'Otra persona guardó cambios',
-      error: 'Error al guardar, reintentando al editar'
+      error: 'No se pudo guardar',
+      retry: 'Reintentar'
     },
     conflict: {
       header: 'Otra persona guardó cambios',
@@ -50,6 +51,7 @@ const editor = {
       usedBy: 'Lo usan estos contenidos, que al publicar van a quedar sin él:',
       trashFailed: 'No se pudo mandar a la papelera',
       trashed: 'Enviado a la papelera',
+      duplicateFailed: 'No se pudo duplicar',
       duplicate: 'Duplicar',
       duplicateNamed: 'Duplicar {name}',
       trash: 'Papelera',
@@ -121,6 +123,9 @@ const editor = {
       empty: 'Todavía no hay versiones.',
       emptyHelp: 'Se guarda una al publicar y otra cada 15 minutos mientras editás.',
       showChanges: 'Ver cambios',
+      loadMore: 'Cargar más',
+      loadFailed: 'No pudimos cargar el historial.',
+      retryLoad: 'Reintentar',
       same: 'Es igual al borrador actual.',
       today: 'Hoy',
       yesterday: 'Ayer'
@@ -137,12 +142,21 @@ const editor = {
     chooseOne: 'Elegí una opción',
     chooseMany: 'Elegí una o más opciones',
     regenerateSlug: 'Generar de nuevo',
+    slugPublished: 'La dirección ya está publicada: cambiarla deja un redireccionamiento desde la anterior.',
     issues: { one: '{count} campo por revisar', other: '{count} campos por revisar' },
+    counter: '{count} de {max} caracteres',
     placeholders: {
       url: 'https://',
       video: 'https://www.youtube.com/watch?v=…',
-      phone: '+54 9 351 …'
+      phone: '+54 9 351 …',
+      color: '#1f5fa8'
     },
+    color: {
+      pick: 'Elegir {label} con el selector',
+      presets: 'Colores sugeridos para {label}',
+      preset: 'Usar {value}'
+    },
+    cards: 'Opciones de {label}',
     button: {
       text: 'Texto del botón',
       style: 'Estilo',
@@ -174,8 +188,15 @@ const editor = {
     },
     list: {
       add: 'Agregar',
+      addItem: 'Agregar {item}',
       count: '{count} de {max}',
+      countMin: '{count}, mínimo {min}',
+      countRange: '{count} de {max}, mínimo {min}',
       item: '{label} {number}',
+      full: 'Ya hay {max}: quitá uno para agregar otro',
+      atMin: 'Tiene que haber al menos {min}',
+      expandAll: 'Expandir todo',
+      collapseAll: 'Colapsar todo',
       removeHeader: 'Borrar elemento',
       removeMessage: '¿Borrar "{title}"?',
       remove: 'Borrar'
@@ -185,7 +206,8 @@ const editor = {
       removeHeader: 'Borrar bloque',
       removeMessage: '¿Borrar el bloque "{title}"?',
       empty: 'Sin contenido todavía',
-      fallback: 'Bloque'
+      fallback: 'Bloque',
+      unknown: 'Bloque "{type}", que ya no existe en el esquema: solo se puede borrar'
     },
     sortable: {
       move: 'Mover {title}',

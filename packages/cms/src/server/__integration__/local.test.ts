@@ -11,6 +11,7 @@ import { listCollection } from '../documents'
 import { saveDocument } from '../editing'
 import { getMediaUsage, listMedia } from '../media'
 import { getPendingChanges, publishChanges } from '../publish'
+import { settleBuilds } from './builds'
 import type { CmsClientType, CmsContextType, DataRecord } from '../context'
 import type { Database } from '../database'
 
@@ -124,6 +125,7 @@ describe('publishing against the database', () => {
     const publishOne = async () => {
       const change = (await getPendingChanges(superadmin)).find(item => item.id === id)!
       expect(change.problems).toEqual([])
+      await settleBuilds(admin)
       const result = await publishChanges(superadmin, { publish: [{ id, revision: change.revision }], remove: [] })
       expect(result).toMatchObject({ ok: true, published: 1, buildStatus: 'building' })
       const { data: latest } = await admin.from('publish_log').select('id').order('id', { ascending: false }).limit(1).single()

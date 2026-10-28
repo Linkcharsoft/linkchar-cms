@@ -32,7 +32,8 @@ const editor = {
       partial: 'Saved, except the URL: another item already uses it',
       invalid: 'Some fields need fixing',
       conflict: 'Someone else saved changes',
-      error: 'Saving failed, retrying when you edit'
+      error: 'Could not save',
+      retry: 'Retry'
     },
     conflict: {
       header: 'Someone else saved changes',
@@ -53,6 +54,7 @@ const editor = {
       usedBy: 'These items use it and will be left without it when you publish:',
       trashFailed: 'It could not be moved to the trash',
       trashed: 'Moved to the trash',
+      duplicateFailed: 'Could not duplicate',
       duplicate: 'Duplicate',
       duplicateNamed: 'Duplicate {name}',
       trash: 'Trash',
@@ -124,6 +126,9 @@ const editor = {
       empty: 'There are no versions yet.',
       emptyHelp: 'One is saved when publishing and another every 15 minutes while you edit.',
       showChanges: 'See changes',
+      loadMore: 'Load more',
+      loadFailed: 'We could not load the history.',
+      retryLoad: 'Retry',
       same: 'It is the same as the current draft.',
       today: 'Today',
       yesterday: 'Yesterday'
@@ -140,12 +145,21 @@ const editor = {
     chooseOne: 'Choose an option',
     chooseMany: 'Choose one or more options',
     regenerateSlug: 'Generate again',
+    slugPublished: 'This address is live: changing it leaves a redirect from the old one.',
     issues: { one: '{count} field to review', other: '{count} fields to review' },
+    counter: '{count} of {max} characters',
     placeholders: {
       url: 'https://',
       video: 'https://www.youtube.com/watch?v=…',
-      phone: '+1 555 …'
+      phone: '+1 555 …',
+      color: '#1f5fa8'
     },
+    color: {
+      pick: 'Pick {label} with the color picker',
+      presets: 'Suggested colors for {label}',
+      preset: 'Use {value}'
+    },
+    cards: 'Options of {label}',
     button: {
       text: 'Button text',
       style: 'Style',
@@ -177,8 +191,15 @@ const editor = {
     },
     list: {
       add: 'Add',
+      addItem: 'Add {item}',
       count: '{count} of {max}',
+      countMin: '{count}, at least {min}',
+      countRange: '{count} of {max}, at least {min}',
       item: '{label} {number}',
+      full: 'There are already {max}: remove one to add another',
+      atMin: 'There must be at least {min}',
+      expandAll: 'Expand all',
+      collapseAll: 'Collapse all',
       removeHeader: 'Delete item',
       removeMessage: 'Delete "{title}"?',
       remove: 'Delete'
@@ -188,7 +209,8 @@ const editor = {
       removeHeader: 'Delete block',
       removeMessage: 'Delete the block "{title}"?',
       empty: 'No content yet',
-      fallback: 'Block'
+      fallback: 'Block',
+      unknown: 'Block "{type}", no longer in the schema: it can only be deleted'
     },
     sortable: {
       move: 'Move {title}',

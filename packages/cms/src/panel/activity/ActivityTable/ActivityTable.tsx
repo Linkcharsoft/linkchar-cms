@@ -7,6 +7,7 @@ import { Column } from 'primereact/column'
 import { DataTable } from 'primereact/datatable'
 import { Dropdown } from 'primereact/dropdown'
 import { Paginator } from 'primereact/paginator'
+import { useState } from 'react'
 import { ACTIVITY_GROUPS, activityDetail, activityLabel } from '../../../core/activity'
 import { useT } from '../../client/context'
 import CustomButton from '../../primitives/CustomButton/CustomButton'
@@ -50,6 +51,8 @@ const ActivityTable = ({ items, total, page, pageSize, users, group, userId, fro
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const filtered = !!(group || userId || from || to)
+  // The first day picked, until a second one completes the range or the calendar closes (one day alone).
+  const [picking, setPicking] = useState<Date | null>(null)
 
   const groupOptions = [
     { label: t('activityScreen.allActions'), value: ALL },
@@ -105,7 +108,7 @@ const ActivityTable = ({ items, total, page, pageSize, users, group, userId, fro
           inputId='activity-dates'
           aria-label={t('activityScreen.dates')}
           selectionMode='range'
-          value={from ? [fromDay(from), fromDay(to || from)] : null}
+          value={picking ? [picking, null] : from ? [fromDay(from), fromDay(to || from)] : null}
           placeholder={t('activityScreen.dates')}
           maxDate={new Date()}
           readOnlyInput
@@ -113,8 +116,14 @@ const ActivityTable = ({ items, total, page, pageSize, users, group, userId, fro
           showButtonBar
           onChange={event => {
             const [start, end] = event.value ?? []
-            if (start && !end) return
+            if (start && !end) return setPicking(start)
+            setPicking(null)
             updateQuery({ desde: toDay(start), hasta: toDay(end) })
+          }}
+          onHide={() => {
+            if (!picking) return
+            setPicking(null)
+            updateQuery({ desde: toDay(picking), hasta: toDay(picking) })
           }}
         />
         {filtered && (

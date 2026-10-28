@@ -34,6 +34,11 @@ const lists = {
       title: 'Title'
     },
     reorderFailed: 'The order could not be saved',
+    moveUp: 'Move {title} up',
+    moveDown: 'Move {title} down',
+    reorderHint: 'To reorder, clear the search and the filters and pick "Manual order".',
+    backToManual: 'Show in manual order',
+    reorderPageOnly: 'Reordering happens within this page; the others keep their order.',
     createFailed: 'It could not be created',
     noResults: 'No results match those filters.',
     empty: 'There is no content yet.',
@@ -55,14 +60,19 @@ const lists = {
     selectAll: 'Select all',
     selectNone: 'Clear selection',
     noneSelected: 'Tick at least one change to publish.',
+    buildingNoticeNow: 'The site is updating with the publish that just started. You can publish the new changes once it finishes.',
+    buildingNotice: { one: 'The site is updating with the previous publish ({count} minute ago). You can publish the new changes once it finishes.', other: 'The site is updating with the previous publish ({count} minutes ago). You can publish the new changes once it finishes.' },
     groups: {
       new: 'New on the site',
       changed: 'With changes',
       removed: 'Removed from the site'
     },
-    sectionsChanged: 'Changed: ',
+    sectionsChanged: 'Changed: {sections}',
     urlChange: 'The URL changes from {from} to {to}. Old links will redirect to the new one.',
-    problems: 'Not published until these are filled in: ',
+    problems: 'Not published until these are filled in: {fields}.',
+    urlTaken: '"{name}" uses the URL {path} on the site. Change the URL of one of them.',
+    urlFreedBy: '"{name}" uses the URL {path} on the site: tick it too so they go out together.',
+    conflictDetail: 'Check: {names}.',
     confirm: {
       publishes: 'To be published:',
       removes: 'To be removed from the site:',
@@ -84,11 +94,14 @@ const lists = {
     retry: 'Retry',
     retryOf: 'Retry',
     retrying: 'Retrying the site update',
-    retryFailed: 'Could not retry'
+    retryFailed: 'Could not retry',
+    allInActivity: 'See all in Activity'
   },
   trashList: {
     subtitle: 'Content stays here for {days} days and is then deleted automatically. Images and files have their own trash in {media}.',
     content: 'Content',
+    searchPlaceholder: 'Search by title',
+    noResults: 'Nothing matches that search.',
     trashedAt: 'Moved to the trash',
     offSite: 'Off the site',
     empty: 'The trash is empty.',

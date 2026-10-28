@@ -74,7 +74,7 @@ test('a missing translation keeps a post out of the publication', async ({ page 
     await page.goto('/dashboard/publicar')
     await page.waitForLoadState('networkidle')
     const item = page.locator('[data-tour=publish-pending] li').filter({ hasText: 'E2E Solo en castellano' })
-    await expect(item).toContainText('No se publica hasta completar: Título (Inglés), Dirección (Inglés), Texto (Inglés).')
+    await expect(item).toContainText('No se publica hasta completar: Título (Inglés), Dirección (Inglés) y Texto (Inglés).')
   } finally {
     await admin.from('documents').delete().eq('id', post!.id)
   }

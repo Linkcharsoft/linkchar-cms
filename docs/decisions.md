@@ -17,10 +17,13 @@ One line per decision that still shapes the package. Each is settled; reopening 
 - Validation is the package's own: issue codes translated by the catalogs, no Yup. Error paths include the locale (`hero.title.es`), matching the stored shape.
 - A `new` or `changed` document with missing content displays as `incomplete`; the stored status does not change.
 - `publish_log.error_code` has no CHECK constraint on purpose, so a new code (`build_cancelled`) needs no migration.
+- `publish_site` publishes in the order given (documents freeing a URL first) and reports a taken slug or URL with both ids as JSON in the error DETAIL; the server pre-checks the same conflicts against `published_documents` so the panel can point at both documents before trying.
 
 ## Field kinds and catalogs
 
 - One `defineField` per kind, typed through `FieldTypes<F>`; built-in kinds use the same mechanism as project kinds.
+- `color` is a built-in kind (0.12): one `#rrggbb` in lower case, `presets` as swatches; the README's project-kind example is `rating`, which stays in the playground to exercise `createCmsClient({ inputs })`.
+- Select previews are serializable (`{ icon }`, `{ image }`, `{ grid }`), never components: the config crosses to the browser, the proxy and the site. Cards need `display: 'cards'` and a preview on every option; `multiSelect` has no cards.
 - Core holds no panel inputs: a lazy `import()` in core would drag PrimeReact and Sass into the proxy and site bundles. Inputs live in a `'use client'` map in the panel; project kinds register theirs in `createCmsClient({ inputs })`. Resolution: `field.component`, then the project's input, then the package's.
 - Catalogs are TypeScript objects per locale; `es` is the mold and `en` `satisfies` it. Every user-facing text comes from a catalog (`texts.test.ts` fails on literals) and a project overrides keys with `messages`.
 - Server actions return catalog keys as errors, never prose; the panel translates.
@@ -47,8 +50,12 @@ One line per decision that still shapes the package. Each is settled; reopening 
 - Formik stays, with the core validators; PrimeReact runs unstyled with the package's passthrough; the theme is a Tailwind 3 preset with `cms-` tokens and `color-mix()` derivations; the panel stylesheet compiles with the package's own config (`@config`), so panel classes never reach the site CSS. PostCSS runs Tailwind per stylesheet (`@linkcharsoft/cms/tailwind/postcss`): Tailwind 3 keeps a `@config` for every later file of a shared plugin.
 - Never copy props into state during render in panel components: a poll that sets equal values leaves stale updates React replays over fresh props (`PublishStatus`, 0.3.x).
 - The header counts only the changes the next publish takes; the editor announces each save (`cms:saved`) and the header refreshes, instead of `router.refresh()` per autosave.
-- Guided tours have neutral ids (`welcome`, `pages`, `document`…) and never start while a field has the focus.
+- One focus indicator: a 2 px ring in `--cms-primary-ring` on light grounds (`FOCUS_RING` for inputs on any focus, `FOCUS_VISIBLE_RING` and the `focus-ring` mixin elsewhere), a 2 px `--cms-accent` outline on the dark sidebar and sign-in ground; a base rule covers plain links and `focus.test.ts` rejects any other spelling. The ring mix is 65% of the primary: 55% fell under 3:1 on the panel greys.
+- Guided tours have neutral ids (`welcome`, `pages`, `document`…), never start while a field has the focus (they wait for the blur), resolve each anchor when its step shows (never cached: buttons re-mount), and point at small elements, never at a wrapper taller than the viewport.
+- List and block items start open up to three, or when the item has an image field (`open` fixes it); Formik's `touched` is kept per item, never on the array, so the errors inside survive adding or reordering. The rich text toolbar is not sticky: it would sit under the editor's sticky bar.
+- Opening hours may close past midnight (20:00 to 02:00); only the same opening and closing time is an error, and a closed day's hours are kept but not validated.
 - The duplicate check hashes the original file (SHA-256), not the processed blob: the canvas WebP differs per browser.
+- Thumbnails never crop (`contain` on a subtle checkerboard, in the library, the picker, the uploader and the inputs): logos and screenshots must be recognizable; only the focal point picker shows the image at its own ratio, and the site is where the focal point crops.
 - Untouched drafts are purged on reading a collection list, only when revision 1, equal timestamps, data equal to the schema defaults and no usage.
 
 ## Dependencies and releases

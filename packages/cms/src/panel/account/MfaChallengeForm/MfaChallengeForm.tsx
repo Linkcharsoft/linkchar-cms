@@ -4,6 +4,7 @@ import { Dropdown } from 'primereact/dropdown'
 import { InputText } from 'primereact/inputtext'
 import { useState } from 'react'
 import { validateMfaCode } from '../../../core/forms'
+import { safePanelPath } from '../../../core/paths'
 import { useCms, useT } from '../../client/context'
 import { useBrowserSupabase } from '../../client/supabase'
 import { submitWithFocus, useFormValidation } from '../../forms/formik'
@@ -15,18 +16,20 @@ import type { MfaDeviceType } from '../../../core/roles'
 
 interface Props {
   devices: MfaDeviceType[]
+  next?: string
 }
 
-const MfaChallengeForm = ({ devices }: Props) => {
+const MfaChallengeForm = ({ devices, next }: Props) => {
   const { t } = useT()
-  const { actions } = useCms()
+  const { actions, config } = useCms()
   const supabase = useBrowserSupabase()
   const [submitError, setSubmitError] = useState<string | null>(null)
+  const [navigating, setNavigating] = useState(false)
 
   const formik = useFormik<MfaCodeFormType>({
     initialValues: { factorId: devices[0]?.id ?? '', code: '' },
     validate: useFormValidation(validateMfaCode),
-    validateOnChange: false,
+    validateOnChange: true,
     validateOnBlur: false,
     onSubmit: async values => {
       setSubmitError(null)
@@ -37,7 +40,10 @@ const MfaChallengeForm = ({ devices }: Props) => {
       }
       const result = await actions.completeSecondFactor()
       // Full load: the client router cache still holds the redirects it got while the session was aal1.
-      if (result.redirectTo) window.location.replace(result.redirectTo)
+      if (result.redirectTo) {
+        setNavigating(true)
+        window.location.replace(safePanelPath(next, config) ?? result.redirectTo)
+      }
     }
   })
 
@@ -74,7 +80,7 @@ const MfaChallengeForm = ({ devices }: Props) => {
           />
         </InputContainer>
 
-        <CustomButton type='submit' className='DashboardAuthLayout__Submit' loading={formik.isSubmitting}>
+        <CustomButton type='submit' className='DashboardAuthLayout__Submit' loading={formik.isSubmitting || navigating}>
           {t('auth.mfa.submit')}
         </CustomButton>
       </form>

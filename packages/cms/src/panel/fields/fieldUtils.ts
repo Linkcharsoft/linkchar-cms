@@ -11,7 +11,10 @@ import type { TextType } from '../../core/text'
 
 export const fieldId = (name: string) => `cms-${name.replace(/\./g, '-')}`
 
-export const describedBy = (name: string, field: { help?: TextType }, ...extra: (string | undefined)[]) =>
+// The id of a field's error message, for aria-describedby while it shows.
+export const errorId = (name: string) => `${fieldId(name)}-error`
+
+export const describedBy = (name: string, field: { help?: TextType }, ...extra: (string | false | undefined)[]) =>
   [field.help ? `${fieldId(name)}-help` : undefined, ...extra].filter(Boolean).join(' ') || undefined
 
 // Schema texts (labels, help, placeholders) in the panel language.
@@ -65,8 +68,9 @@ export const useMediaVariant = (name: string): MediaVariantType => {
   const stored: unknown = getIn(values, name)
   const own = isLocaleMap(stored, config.locales) ? stored[current] : undefined
   const overridden = translating && !inheritsOriginal(own)
+  // Validated right away: the form only validates on blur, which a picked value never gets.
   const set = (value: unknown) => {
-    void setFieldValue(`${name}.${current}`, value)
+    void setFieldValue(`${name}.${current}`, value, true)
     void setFieldTouched(`${name}.${current}`, true, false)
   }
 

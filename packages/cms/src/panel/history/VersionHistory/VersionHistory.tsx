@@ -3,6 +3,7 @@ import './VersionHistory.sass'
 import { Sidebar } from 'primereact/sidebar'
 import { useState } from 'react'
 import { dayOf } from '../../../core/dates'
+import { isHexColor } from '../../../core/kinds/color'
 import { useCms, useFormatDate, useT } from '../../client/context'
 import { useConfirm } from '../../primitives/ConfirmAction/ConfirmAction'
 import CustomButton from '../../primitives/CustomButton/CustomButton'
@@ -30,6 +31,11 @@ interface PreviewType {
   diff: FieldDiffType[] | null
 }
 
+// A color summary ("#1F5FA8") gets its swatch; any other summary is plain text.
+const Summary = ({ value }: { value: string }) => (isHexColor(value)
+  ? <span className='VersionHistory__Color'><span className='VersionHistory__Swatch' style={{ backgroundColor: value }} aria-hidden='true' />{value}</span>
+  : value)
+
 const DiffList = ({ diff }: { diff: FieldDiffType[] }) => {
   const { t } = useT()
   return (
@@ -37,8 +43,8 @@ const DiffList = ({ diff }: { diff: FieldDiffType[] }) => {
       {diff.map(change => (
         <div key={change.path} className='VersionHistory__Change'>
           <dt className='VersionHistory__ChangeLabel'>{change.label}</dt>
-          <dd className='VersionHistory__ChangeValue'><span className='VersionHistory__ChangeTag'>{t('editor.history.now')}</span>{change.current}</dd>
-          <dd className='VersionHistory__ChangeValue'><span className='VersionHistory__ChangeTag'>{t('editor.history.version')}</span>{change.version}</dd>
+          <dd className='VersionHistory__ChangeValue'><span className='VersionHistory__ChangeTag'>{t('editor.history.now')}</span><Summary value={change.current} /></dd>
+          <dd className='VersionHistory__ChangeValue'><span className='VersionHistory__ChangeTag'>{t('editor.history.version')}</span><Summary value={change.version} /></dd>
         </div>
       ))}
     </dl>
@@ -52,15 +58,37 @@ const VersionHistory = ({ entryId, documentId, canDiscard, replace, sections, fl
   const formatDate = useFormatDate()
   const [visible, setVisible] = useState(false)
   const [versions, setVersions] = useState<VersionItemType[] | null>(null)
+  const [more, setMore] = useState(false)
+  const [failed, setFailed] = useState(false)
+  const [loadingMore, setLoadingMore] = useState(false)
   const [preview, setPreview] = useState<PreviewType | null>(null)
   const isPage = !!sections
   const scope = isPage ? t('editor.history.thePage') : t('editor.history.theDraft')
+
+  const load = async (before?: string) => {
+    setFailed(false)
+    try {
+      const page = await actions.listVersions(entryId, documentId, before)
+      setVersions(current => (before ? [...(current ?? []), ...page.items] : page.items))
+      setMore(page.more)
+    } catch {
+      setFailed(true)
+    }
+  }
 
   const open = async () => {
     setVisible(true)
     setVersions(null)
     setPreview(null)
-    setVersions(await actions.listVersions(entryId, documentId))
+    await load()
+  }
+
+  const loadMore = async () => {
+    const last = versions?.[versions.length - 1]
+    if (!last) return
+    setLoadingMore(true)
+    await load(last.createdAt)
+    setLoadingMore(false)
   }
 
   const run = async (action: (revision: number) => Promise<ReplaceDraftResultType>, success: string) => {
@@ -149,8 +177,13 @@ const VersionHistory = ({ entryId, documentId, canDiscard, replace, sections, fl
             </Notice>
           )}
 
+          {failed && (
+            <Notice tone='error' action={<CustomButton type='button' variant='secondary' size='sm' onClick={() => void (versions === null ? load() : loadMore())}>{t('editor.history.retryLoad')}</CustomButton>}>
+              {t('editor.history.loadFailed')}
+            </Notice>
+          )}
           {versions === null ? (
-            <div aria-busy='true' className='flex justify-center py-6'><Loader /></div>
+            !failed && <div aria-busy='true' className='flex justify-center py-6'><Loader /></div>
           ) : versions.length === 0 ? (
             <EmptyState compact icon='pi pi-history' title={t('editor.history.empty')} description={t('editor.history.emptyHelp')} />
           ) : (
@@ -213,6 +246,11 @@ const VersionHistory = ({ entryId, documentId, canDiscard, replace, sections, fl
                 </li>
               ))}
             </ul>
+          )}
+          {more && !failed && (
+            <CustomButton type='button' variant='secondary' size='sm' className='self-center' loading={loadingMore} onClick={loadMore}>
+              {t('editor.history.loadMore')}
+            </CustomButton>
           )}
         </div>
       </Sidebar>

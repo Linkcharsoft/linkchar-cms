@@ -3,7 +3,6 @@ import { textContext } from '../../core/config'
 import { collectionNewLabel, getCollection } from '../../core/entries'
 import { isDisplayStatus } from '../../core/status'
 import { resolveText } from '../../core/text'
-import { COLLECTION_PAGE_SIZE } from '../../server/documents'
 import CollectionTable from '../lists/CollectionTable/CollectionTable'
 import CollectionTabs from '../lists/CollectionTabs/CollectionTabs'
 import CreateDocumentButton from '../lists/CreateDocumentButton/CreateDocumentButton'
@@ -50,7 +49,7 @@ export const collectionRoute = (cms: CmsServerType) => {
       status,
       page: Number(param(query.page)) || 1
     }
-    const { items, total, page, sort } = await cms.queries.listCollection(entryId, collectionQuery)
+    const { items, total, page, pageSize, sort } = await cms.queries.listCollection(entryId, collectionQuery)
     const tabs = collectionTabs(cms.config, entryId)
     const parent = entry.under ? getCollection(cms.config, entry.under) : null
     const title = resolveText((parent ?? entry).label, ctx)
@@ -73,7 +72,7 @@ export const collectionRoute = (cms: CmsServerType) => {
             items={items}
             total={total}
             page={page}
-            pageSize={COLLECTION_PAGE_SIZE}
+            pageSize={pageSize}
             sort={sort}
             search={search}
             status={status ?? null}

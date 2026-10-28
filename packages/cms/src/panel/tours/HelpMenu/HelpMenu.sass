@@ -1,3 +1,5 @@
+@use '../../theme/mixins' as cms
+
 .HelpMenu
   &__Label
     @apply sr-only sm:not-sr-only
@@ -5,7 +7,12 @@
   &__Menu
     width: min(320px, calc(100vw - 32px))
 
-// driver.js appends its popover to <body>, outside any component root.
+// driver.js appends its popover to <body>, outside .CmsRoot and its reduced-motion rule.
+@media (prefers-reduced-motion: reduce)
+  .driver-popover, .driver-overlay, .driver-active-element
+    transition: none !important
+    animation: none !important
+
 .driver-popover.HelpMenu__Popover
   max-width: 340px
   padding: 18px 20px
@@ -37,3 +44,7 @@
 
   .driver-popover-close-btn
     @apply text-cms-ink-600 hover:text-cms-ink-900
+
+  // driver.js sets outline: 0 on its buttons, so the base rule never reaches them.
+  .driver-popover-footer button, .driver-popover-close-btn
+    @include cms.focus-ring

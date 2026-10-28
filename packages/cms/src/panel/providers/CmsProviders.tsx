@@ -2,6 +2,7 @@
 import 'primeicons/primeicons.css'
 import { domAnimation, LazyMotion, MotionConfig } from 'motion/react'
 import { PrimeReactProvider } from 'primereact/api'
+import { useFileDropGuard } from '../media/dropGuard'
 import ConfirmAction from '../primitives/ConfirmAction/ConfirmAction'
 import mergeClassNames from '../theme/mergeClassNames'
 import { primeLocale } from '../theme/primeLocale'
@@ -17,6 +18,7 @@ interface Props {
 
 // Its own PrimeReact context: the panel stays unstyled + passthrough whatever the project's site configures.
 const CmsProviders = ({ panelLocale, children }: Props) => {
+  useFileDropGuard()
   const prime: Partial<APIOptions> = {
     unstyled: true,
     pt: PRIME_PT,

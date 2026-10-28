@@ -5,7 +5,7 @@ import { InputText } from 'primereact/inputtext'
 import { InputTextarea } from 'primereact/inputtextarea'
 import { useT } from '../../client/context'
 import InputContainer from '../../primitives/InputContainer/InputContainer'
-import { describedBy, fieldId, useFieldError, useFieldLabel, useText, useValuePath } from '../fieldUtils'
+import { describedBy, errorId, fieldId, useFieldError, useFieldLabel, useText, useValuePath } from '../fieldUtils'
 import { useLocaleNote } from '../LocaleNote/LocaleNote'
 import type { EmailField, PhoneField, TextareaField, TextField, UrlField, VideoField } from '../../../core/fields'
 
@@ -37,14 +37,20 @@ const TextInput = ({ name, field }: Props) => {
     value: value ?? '',
     onBlur,
     invalid: !!error,
+    'aria-invalid': error ? true : undefined,
     maxLength: field.maxLength,
     placeholder: field.placeholder ? text(field.placeholder) : placeholders[field.kind],
-    'aria-describedby': describedBy(name, field, languages.describedBy),
+    'aria-describedby': describedBy(name, field, error && errorId(name), languages.describedBy),
     className: 'TextInput'
   }
 
   const counter = field.maxLength
-    ? <span className='TextInput__Counter' aria-hidden='true'>{(value ?? '').length}/{field.maxLength}</span>
+    ? (
+      <span className='TextInput__Counter'>
+        <span aria-hidden='true'>{(value ?? '').length}/{field.maxLength}</span>
+        <span className='sr-only'>{t('fields.counter', { count: (value ?? '').length, max: field.maxLength })}</span>
+      </span>
+    )
     : undefined
 
   return (

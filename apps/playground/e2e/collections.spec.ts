@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 import { admin, QA } from './support/db'
-import { autosaved, signIn, toast, watchConsole } from './support/panel'
+import { autosaved, autosaveText, signIn, toast, watchConsole } from './support/panel'
 
 const QUESTION = 'E2E ¿Cuánto tarda una obra?'
 
@@ -108,7 +108,7 @@ test('a repeated title saves the post with a free URL, and a URL typed by hand k
 
   await page.locator('#cms-slug').fill('e2e-direccion-tomada')
   await page.locator('#cms-excerpt').fill('E2E Resumen que se guarda igual')
-  await expect(page.locator('[data-tour=autosave]')).toHaveText('Guardado, salvo la URL: ya la usa otro contenido', { timeout: 15_000 })
+  await expect(autosaveText(page)).toHaveText('Guardado, salvo la URL: ya la usa otro contenido', { timeout: 15_000 })
   await expect(page.getByText('Ya hay otro contenido con esta URL')).toBeVisible()
   expect(await stored(second)).toMatchObject({ slug: 'e2e-casa-repetida-2', data: { excerpt: { es: 'E2E Resumen que se guarda igual' } } })
 

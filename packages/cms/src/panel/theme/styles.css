@@ -33,6 +33,17 @@
   :where(.CmsRoot) :is(a, button) {
     transition: border 0.2s, box-shadow 0.2s, background-color 0.2s, color 0.2s, opacity 0.2s;
   }
+
+  /* Links and buttons without their own ring (see pt/shared.ts): the same indicator, as an outline. */
+  :where(.CmsRoot) :focus-visible {
+    outline: 2px solid var(--cms-primary-ring);
+    outline-offset: 2px;
+  }
+
+  :where(.CmsRoot .DashboardSidebar) :focus-visible,
+  :where(.CmsRoot .DashboardAuthLayout > :not(.DashboardAuthLayout__Card)) :focus-visible {
+    outline-color: var(--cms-accent);
+  }
 }
 
 @layer components {

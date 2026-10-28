@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { contrastRatio, MIN_TEXT_CONTRAST } from '../contrast'
+import { contrastRatio, MIN_TEXT_CONTRAST, mixOklab } from '../contrast'
 
 describe('contrastRatio', () => {
   it('goes from 1 for the same color to 21 for black on white, in either order', () => {
@@ -17,5 +17,16 @@ describe('contrastRatio', () => {
   it('rejects what is not a hex color', () => {
     expect(() => contrastRatio('rgb(0 0 0)', '#fff')).toThrow('is not a hex color')
     expect(() => contrastRatio('#12345', '#fff')).toThrow('"#12345"')
+  })
+})
+
+describe('mixOklab', () => {
+  it('returns either end at 100% and 0%', () => {
+    expect(mixOklab('#6e14be', '#ffffff', 100)).toBe('#6e14be')
+    expect(mixOklab('#6e14be', '#ffffff', 0)).toBe('#ffffff')
+  })
+
+  it('matches what the browser paints for color-mix(in oklab, #6e14be 55%, #ffffff)', () => {
+    expect(mixOklab('#6e14be', '#ffffff', 55)).toBe('#aa8be0')
   })
 })

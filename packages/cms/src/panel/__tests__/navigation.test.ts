@@ -1,5 +1,5 @@
 import cmsConfig from '@playground/cms.config'
-import { color } from '@playground/src/cms/fields/color'
+import { rating } from '@playground/src/cms/fields/rating'
 import { describe, expect, it } from 'vitest'
 import { defineCmsConfig } from '../../core/config'
 import { openingHours } from '../../core/kinds/openingHours'
@@ -8,7 +8,7 @@ import { buildPanelNav, collectionTabs, entryNavLabel } from '../shell/navigatio
 const withExtensions = defineCmsConfig({
   schema: cmsConfig.schema,
   mediaFolders: cmsConfig.mediaFolders,
-  fields: [openingHours, color],
+  fields: [openingHours, rating],
   extensions: [
     { id: 'stats', label: { es: 'Estadísticas', en: 'Stats' }, path: 'estadisticas', group: 'admin', icon: 'pi-chart-bar' },
     { id: 'guide', label: 'Guía', href: 'https://linkchar.com/guia' }

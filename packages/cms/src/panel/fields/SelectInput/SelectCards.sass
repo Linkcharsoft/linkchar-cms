@@ -1,0 +1,63 @@
+@use '../../theme/mixins' as cms
+
+.SelectCards
+  display: grid
+  grid-template-columns: repeat(auto-fill, minmax(min(132px, 100%), 1fr))
+  gap: 10px
+
+  &__Card
+    display: flex
+    flex-direction: column
+    align-items: center
+    gap: 8px
+    padding: 10px
+    text-align: center
+    cursor: pointer
+    border-radius: 10px
+    transition: border-color 0.2s, box-shadow 0.2s, background-color 0.2s
+    @apply border border-cms-border-strong bg-cms-surface text-cms-ink-700
+    &:hover
+      @apply border-cms-primary
+    @include cms.focus-ring
+
+  &__Card--Checked
+    @apply border-cms-primary bg-cms-primary-50 text-cms-ink-900 ring-1 ring-cms-primary
+
+  &__Card--Invalid
+    @apply border-cms-danger-600
+
+  &__Preview
+    display: flex
+    align-items: center
+    justify-content: center
+    width: 100%
+    aspect-ratio: 4 / 3
+    overflow: hidden
+    border-radius: 6px
+    @apply bg-cms-neutral-100
+
+  &__Icon
+    font-size: 28px
+    @apply text-cms-ink-600
+
+  &__Image
+    width: 100%
+    height: 100%
+    object-fit: contain
+
+  &__Grid
+    display: grid
+    gap: 3px
+    width: 100%
+    height: 100%
+    padding: 8px
+
+  &__Cell
+    border-radius: 3px
+    @apply bg-cms-primary-200
+
+  &__Card--Checked &__Cell
+    @apply bg-cms-primary
+
+  &__Label
+    @apply cms-text-medium-14

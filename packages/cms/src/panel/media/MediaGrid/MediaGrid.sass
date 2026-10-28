@@ -1,3 +1,5 @@
+@use '../../theme/mixins' as cms
+
 .MediaGrid
   display: grid
   grid-template-columns: repeat(auto-fill, minmax(140px, 1fr))
@@ -12,7 +14,8 @@
     border-radius: 12px
     text-align: left
     cursor: pointer
-    @apply bg-cms-surface border border-cms-border hover:border-cms-primary focus-visible:ring-2 focus-visible:ring-cms-primary-ring
+    @apply bg-cms-surface border border-cms-border hover:border-cms-primary
+    @include cms.focus-ring
 
     &--Selected
       @apply border-cms-primary ring-2 ring-cms-primary-ring
@@ -25,10 +28,10 @@
     aspect-ratio: 1
     overflow: hidden
     border-radius: 8px
-    @apply bg-cms-primary-50
+    @include cms.checkerboard
 
   &__Image
-    object-fit: cover
+    object-fit: contain
 
   &__Pdf
     font-size: 36px

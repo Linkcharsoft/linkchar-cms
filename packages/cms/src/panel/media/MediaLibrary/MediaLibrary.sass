@@ -6,15 +6,11 @@
   &__Note
     @apply cms-text-regular-14 text-cms-ink-600
 
-  &__PickBar
-    position: sticky
-    bottom: 0
-    display: flex
-    align-items: center
-    justify-content: space-between
+  &__Skeleton
+    display: grid
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr))
     gap: 12px
-    padding: 12px 0
-    @apply bg-cms-surface border-t border-cms-border
 
-  &__PickCount
-    @apply cms-text-medium-14 text-cms-ink-700
+  &__SkeletonItem
+    aspect-ratio: 1 / 1.35
+    border-radius: 12px

@@ -31,5 +31,6 @@ test('asks for the current password before changing it', async ({ page }) => {
   await form.locator('#password').fill('OtraClave12345')
   await form.locator('#confirmPassword').fill('OtraClave12345')
   await form.getByRole('button').last().click()
-  await toast(page, 'contraseña actual')
+  await expect(form.locator('#currentPassword-error')).toContainText('contraseña actual')
+  await expect(form.locator('#currentPassword')).toBeFocused()
 })

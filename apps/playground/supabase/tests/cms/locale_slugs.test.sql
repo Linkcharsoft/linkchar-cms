@@ -1,7 +1,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(12);
+select plan(13);
 
 insert into auth.users (id, email) values ('80000000-0000-0000-0000-00000000000c', 'publisher-slugs@test.local');
 update public.profiles set can_publish = true where id = '80000000-0000-0000-0000-00000000000c';
@@ -27,6 +27,19 @@ returns table (from_path text, to_path text) language sql as $$
   select r.from_path, r.to_path from public.redirects r where r.from_path like '%/ls/%' or r.from_path like '/ls-%' order by r.from_path
 $$;
 
+-- The DETAIL of a taken slug or URL, as JSON.
+create function pg_temp.publish_detail (doc uuid, urls jsonb)
+returns jsonb language plpgsql as $$
+declare detail text;
+begin
+  perform pg_temp.publish(doc, urls);
+  return null;
+exception when unique_violation then
+  get stacked diagnostics detail = pg_exception_detail;
+  return detail::jsonb;
+end
+$$;
+
 grant execute on all functions in schema pg_temp to authenticated;
 
 set local role authenticated;
@@ -42,6 +55,11 @@ select is(
 select throws_ok(
   $$ select pg_temp.publish('80000000-0000-0000-0000-0000000000d2', pg_temp.blog()) $$,
   '23505', null, 'a slug taken in one locale of the collection blocks the publish'
+);
+select is(
+  pg_temp.publish_detail('80000000-0000-0000-0000-0000000000d2', pg_temp.blog()),
+  '{"id": "80000000-0000-0000-0000-0000000000d2", "takenBy": "80000000-0000-0000-0000-0000000000d1", "locale": "en", "value": "house"}'::jsonb,
+  'the error names the document that holds the slug'
 );
 
 reset role;

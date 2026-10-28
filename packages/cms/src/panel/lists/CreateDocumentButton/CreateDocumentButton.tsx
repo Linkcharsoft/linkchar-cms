@@ -7,10 +7,14 @@ import { useNotify } from '../../providers/notify'
 interface Props {
   entryId: string
   label: string
+  variant?: 'primary' | 'secondary'
+  icon?: string
+  className?: string
+  tour?: string
 }
 
 // On success the action redirects to the new document's editor.
-const CreateDocumentButton = ({ entryId, label }: Props) => {
+const CreateDocumentButton = ({ entryId, label, variant = 'primary', icon = 'pi-plus', className, tour = 'collection-new' }: Props) => {
   const { t, translate } = useT()
   const { actions } = useCms()
   const notify = useNotify()
@@ -22,8 +26,8 @@ const CreateDocumentButton = ({ entryId, label }: Props) => {
   })
 
   return (
-    <CustomButton type='button' onClick={create} loading={creating} data-tour='collection-new'>
-      <i className='pi pi-plus' aria-hidden='true' />
+    <CustomButton type='button' variant={variant} className={className} onClick={create} loading={creating} data-tour={tour}>
+      <i className={`pi ${icon}`} aria-hidden='true' />
       {label}
     </CustomButton>
   )

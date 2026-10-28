@@ -5,6 +5,7 @@ const ui = {
     search: 'Buscar…',
     clearSearch: 'Borrar la búsqueda',
     loading: 'Cargando…',
+    retry: 'Reintentar',
     never: 'Nunca'
   }
 } as const

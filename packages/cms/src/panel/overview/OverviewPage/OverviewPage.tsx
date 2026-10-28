@@ -3,14 +3,15 @@ import './OverviewPage.sass'
 import Link from 'next/link'
 import { Tag } from 'primereact/tag'
 import { collectionNewLabel } from '../../../core/entries'
+import { formatList } from '../../../core/i18n/translator'
 import { publishDisplayStatus } from '../../../core/publish'
 import { useCms, useFormatDate, usePaths, useT, useTextContext } from '../../client/context'
+import CreateDocumentButton from '../../lists/CreateDocumentButton/CreateDocumentButton'
 import { DOCUMENT_SEVERITIES } from '../../lists/documentStatus'
 import CustomButton from '../../primitives/CustomButton/CustomButton'
 import DashboardPageHeader from '../../primitives/DashboardPageHeader/DashboardPageHeader'
 import EmptyState from '../../primitives/EmptyState/EmptyState'
 import Notice from '../../primitives/Notice/Notice'
-import { useNotify } from '../../providers/notify'
 import { navItems } from '../../shell/navigation'
 import type { OverviewAlertType } from '../../../core/alerts'
 import type { SchemaEntry } from '../../../core/define'
@@ -37,12 +38,11 @@ interface Props {
 }
 
 const OverviewPage = ({ drafts, pendingCount, latest, pages, alerts, forbidden = false }: Props) => {
-  const { t, translate } = useT()
-  const { config, actions } = useCms()
+  const { t, locale } = useT()
+  const { config } = useCms()
   const ctx = useTextContext()
   const paths = usePaths()
   const formatDate = useFormatDate()
-  const notify = useNotify()
   const items = navItems(config)
 
   // Collections with pages of their own (blog posts) are what gets written most: each gets a "new" task.
@@ -51,14 +51,9 @@ const OverviewPage = ({ drafts, pendingCount, latest, pages, alerts, forbidden =
       ? [{ id, label: collectionNewLabel(entry, ctx), icon: entry.icon ?? 'pi-plus' }]
       : [])
 
-  const create = async (entryId: string) => {
-    const result = await actions.createDocument(entryId)
-    if (!result.ok) notify({ severity: 'error', summary: translate(result.error) })
-  }
-
   const alertText = (alert: OverviewAlertType) => {
     if (alert.code === 'publish') return t(`publishStatusHelp.${alert.status}`)
-    if (alert.code === 'incomplete') return t('overview.incomplete', { title: alert.title, fields: alert.fields.join(', ') })
+    if (alert.code === 'incomplete') return t('overview.incomplete', { title: alert.title, fields: formatList(locale, alert.fields) })
     if (alert.code === 'stale') return t('overview.staleDraft', { title: alert.title, days: alert.days })
     return t('overview.reference', { title: alert.title, warning: alert.warning })
   }
@@ -74,12 +69,7 @@ const OverviewPage = ({ drafts, pendingCount, latest, pages, alerts, forbidden =
             <h2 className='OverviewPage__CardTitle'>{t('overview.todo')}</h2>
             <div className='OverviewPage__Tasks'>
               {createTasks.map(task => (
-                <form key={task.id} action={() => create(task.id)}>
-                  <CustomButton type='submit' variant='secondary' className='OverviewPage__Task'>
-                    <i className={`pi ${task.icon}`} aria-hidden='true' />
-                    {task.label}
-                  </CustomButton>
-                </form>
+                <CreateDocumentButton key={task.id} entryId={task.id} label={task.label} icon={task.icon} variant='secondary' className='OverviewPage__Task' tour='overview-new' />
               ))}
               {pages.length > 0 && (
                 <CustomButton href={items.pages.href} variant='secondary' className='OverviewPage__Task'>

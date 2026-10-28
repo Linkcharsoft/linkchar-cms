@@ -22,7 +22,7 @@ const PasswordRecoveryPage = () => {
   const formik = useFormik<PasswordRecoveryFormType>({
     initialValues: { email: '' },
     validate: useFormValidation(validatePasswordRecovery),
-    validateOnChange: false,
+    validateOnChange: true,
     validateOnBlur: false,
     onSubmit: async values => {
       setSubmitError(null)

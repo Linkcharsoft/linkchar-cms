@@ -4,8 +4,9 @@ import { Dropdown } from 'primereact/dropdown'
 import { MultiSelect } from 'primereact/multiselect'
 import { useT } from '../../client/context'
 import InputContainer from '../../primitives/InputContainer/InputContainer'
-import { describedBy, fieldId, useFieldError, useFieldLabel, useText } from '../fieldUtils'
+import { describedBy, errorId, fieldId, useFieldError, useFieldLabel, useText } from '../fieldUtils'
 import { useLocaleNote } from '../LocaleNote/LocaleNote'
+import SelectCards from './SelectCards'
 import type { MultiSelectField, SelectField } from '../../../core/fields'
 
 interface Props {
@@ -22,12 +23,34 @@ const SelectInput = ({ name, field }: Props) => {
   const id = fieldId(name)
   const languages = useLocaleNote(name, field)
 
+  if (field.kind === 'select' && field.display === 'cards') {
+    return (
+      <InputContainer label={label(field)} htmlFor={id} error={error} help={text(field.help)} badge={languages.badge}>
+        <SelectCards
+          id={id}
+          name={name}
+          options={field.options}
+          value={typeof value === 'string' ? value : null}
+          label={t('fields.cards', { label: text(field.label) })}
+          invalid={!!error}
+          describedBy={describedBy(name, field)}
+          text={option => text(option.label)}
+          onChange={next => {
+            setValue(next, false)
+            setTouched(true, true)
+          }}
+        />
+      </InputContainer>
+    )
+  }
+
   const common = {
     inputId: id,
     name,
     options: field.options.map(option => ({ value: option.value, label: text(option.label) })),
     invalid: !!error,
-    'aria-describedby': describedBy(name, field),
+    'aria-invalid': error ? true : undefined,
+    'aria-describedby': describedBy(name, field, error && errorId(name)),
     className: 'w-full'
   }
 
@@ -41,7 +64,7 @@ const SelectInput = ({ name, field }: Props) => {
           placeholder={t('fields.chooseMany')}
           selectionLimit={field.max}
           onChange={event => {
-            setValue(event.value ?? [])
+            setValue(event.value ?? [], true)
             setTouched(true, false)
           }}
         />
@@ -52,7 +75,7 @@ const SelectInput = ({ name, field }: Props) => {
           placeholder={t('fields.chooseOne')}
           showClear={!field.required}
           onChange={event => {
-            setValue(event.value ?? null)
+            setValue(event.value ?? null, true)
             setTouched(true, false)
           }}
         />

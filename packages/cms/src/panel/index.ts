@@ -2,7 +2,7 @@ export { useCms, useFormatDate, usePaths, useT, useTextContext } from './client/
 export { useBrowserSupabase } from './client/supabase'
 export { default as CmsField } from './editor/CmsField/CmsField'
 export type { FieldInputPropsType } from './editor/CmsField/CmsField'
-export { describedBy, fieldId, useFieldError, useFieldLabel, useMediaVariant, usePartPath, useStoredText, useText, useValuePath } from './fields/fieldUtils'
+export { describedBy, errorId, fieldId, useFieldError, useFieldLabel, useMediaVariant, usePartPath, useStoredText, useText, useValuePath } from './fields/fieldUtils'
 export { SharedBadge, useEditingTranslation, useLocaleNote } from './fields/LocaleNote/LocaleNote'
 export type { LocaleNoteType } from './fields/LocaleNote/LocaleNote'
 export { submitWithFocus, useField, useFormikContext, useFormValidation } from './forms/formik'

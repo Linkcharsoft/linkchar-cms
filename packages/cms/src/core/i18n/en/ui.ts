@@ -8,6 +8,7 @@ const ui = {
     search: 'Search…',
     clearSearch: 'Clear the search',
     loading: 'Loading…',
+    retry: 'Retry',
     never: 'Never'
   }
 } satisfies CatalogType<typeof es>

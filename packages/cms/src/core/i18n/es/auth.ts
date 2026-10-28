@@ -5,6 +5,7 @@ const auth = {
     newPassword: 'Contraseña nueva',
     confirmPassword: 'Repetí la contraseña',
     fullName: 'Nombre y apellido',
+    passwordRules: 'Al menos {min} caracteres, con letras y números.',
     backToLogin: 'Volver a iniciar sesión',
     login: {
       title: 'Iniciar sesión',
@@ -32,6 +33,7 @@ const auth = {
     invite: {
       title: 'Te damos la bienvenida',
       subtitle: 'Para terminar de crear tu usuario, contanos tu nombre y elegí una contraseña.',
+      email: 'Tu usuario',
       submit: 'Crear mi usuario'
     },
     mfa: {
@@ -41,6 +43,8 @@ const auth = {
       code: 'Código',
       submit: 'Verificar',
       otherAccount: 'Usar otra cuenta',
+      lostDevice: 'No tengo el celular',
+      lostDeviceHelp: 'Pedile a un administrador que restablezca tu verificación en dos pasos desde Usuarios: vas a poder entrar solo con la contraseña y volver a activarla con otro celular.',
       rateLimit: 'Demasiados intentos. Esperá unos minutos.',
       wrongCode: 'El código no es correcto o ya venció. Probá con el que muestra ahora la app.'
     }

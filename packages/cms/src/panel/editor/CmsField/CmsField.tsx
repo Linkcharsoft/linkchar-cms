@@ -4,6 +4,7 @@ import { useCms } from '../../client/context'
 import BlocksInput from '../../fields/BlocksInput/BlocksInput'
 import BooleanInput from '../../fields/BooleanInput/BooleanInput'
 import ButtonInput from '../../fields/ButtonInput/ButtonInput'
+import ColorInput from '../../fields/ColorInput/ColorInput'
 import DateInput from '../../fields/DateInput/DateInput'
 import GalleryInput from '../../fields/GalleryInput/GalleryInput'
 import GroupInput from '../../fields/GroupInput/GroupInput'
@@ -44,6 +45,7 @@ const BUILTIN_INPUTS: Partial<Record<string, InputType>> = {
   datetime: DateInput,
   select: SelectInput,
   multiSelect: SelectInput,
+  color: ColorInput,
   link: LinkFieldInput,
   button: ButtonInput,
   openingHours: OpeningHoursInput,

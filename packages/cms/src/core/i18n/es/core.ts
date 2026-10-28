@@ -21,6 +21,7 @@ const core = {
     max: 'El máximo es {max}',
     date: 'Fecha inválida',
     option: 'Elegí una opción válida',
+    color: 'Usá un color como #1f5fa8',
     maxOptions: 'Elegí hasta {max}',
     minOptions: 'Elegí al menos {min}',
     linkEntry: 'Elegí una página o un contenido del sitio',
@@ -32,7 +33,7 @@ const core = {
     linkAnchor: 'Las anclas empiezan con #',
     variant: 'Variante inválida',
     time: 'Usá el formato HH:MM',
-    timeOrder: 'El cierre tiene que ser posterior a la apertura',
+    timeOrder: 'El cierre no puede ser a la misma hora que la apertura',
     file: 'Archivo inválido',
     maxImages: 'Podés elegir hasta {max} imágenes',
     minImages: 'Elegí al menos {min} imágenes',
@@ -45,7 +46,8 @@ const core = {
     translationMissing: 'Falta en {language}',
     altOf: 'Texto alternativo de {field}',
     altMissing: 'Falta el texto alternativo en {language}',
-    slugTaken: 'Ya hay otro contenido con esta URL'
+    slugTaken: 'Ya hay otro contenido con esta URL',
+    slugLive: 'En el sitio, "{title}" todavía usa esta URL. Publicá los dos juntos, o cambiá esta antes de publicar.'
   },
   errors: {
     invalidData: 'Revisá los datos ingresados.',
@@ -77,7 +79,8 @@ const core = {
       forbidden: 'No tenés permiso para publicar. Pedíselo a un administrador.',
       slugTaken: 'Dos contenidos quedarían con la misma URL. Cambiá una de las dos y volvé a publicar.',
       invalidSlug: 'Una de las URLs nuevas no es válida. Revisala y volvé a publicar.',
-      failed: 'No pudimos publicar. Intentá de nuevo.'
+      failed: 'No pudimos publicar. Intentá de nuevo.',
+      building: 'El sitio todavía se está actualizando con la publicación anterior. Esperá a que termine y volvé a publicar.'
     },
     build: {
       target_missing: 'Falta configurar cómo se actualiza el sitio.',

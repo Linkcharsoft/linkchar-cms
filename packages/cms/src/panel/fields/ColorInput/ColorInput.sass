@@ -1,0 +1,56 @@
+@use '../../theme/mixins' as cms
+
+.ColorInput
+  display: flex
+  flex-direction: column
+  gap: 10px
+
+  &__Row
+    display: flex
+    align-items: stretch
+    gap: 10px
+
+  &__Well
+    position: relative
+    flex-shrink: 0
+    width: 56px
+    overflow: hidden
+    border-radius: 8px
+    @apply border border-cms-border-strong bg-cms-surface
+    &:has(:focus-visible)
+      @apply border-cms-primary ring-2 ring-cms-primary-ring
+
+  &__Well--Empty
+    background: repeating-conic-gradient(var(--cms-neutral-200) 0 25%, var(--cms-surface) 0 50%) 0 0 / 12px 12px
+
+  &__Picker
+    position: absolute
+    inset: -6px
+    width: calc(100% + 12px)
+    height: calc(100% + 12px)
+    padding: 0
+    border: 0
+    background: transparent
+    cursor: pointer
+    outline: none
+
+  &__Text
+    flex: 1 1 auto
+    min-width: 0
+    font-variant-numeric: tabular-nums
+
+  &__Presets
+    display: flex
+    flex-wrap: wrap
+    gap: 8px
+
+  &__Preset
+    width: 28px
+    height: 28px
+    padding: 0
+    border-radius: 50%
+    cursor: pointer
+    @apply border border-cms-border-strong
+    &[aria-pressed='true']
+      @apply ring-2 ring-offset-2 ring-cms-primary border-cms-surface
+    @include cms.focus-ring(true)

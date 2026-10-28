@@ -5,7 +5,7 @@ import type { DialogPassThroughMethodOptions, DialogPassThroughOptions } from 'p
 const dialog: DialogPassThroughOptions = {
   root: ({ state }: DialogPassThroughMethodOptions) => ({
     className: classNames(
-      'flex flex-col max-h-[90%] w-[min(640px,calc(100vw-32px))] m-0 bg-cms-surface rounded-2xl shadow-xl border-0',
+      'flex flex-col max-h-[90%] w-[min(var(--cms-dialog-width,640px),calc(100vw-32px))] m-0 bg-cms-surface rounded-2xl shadow-xl border-0',
       { '!w-screen !h-screen !max-h-full !top-0 !left-0 rounded-none': state.maximized }
     )
   }),
@@ -15,7 +15,7 @@ const dialog: DialogPassThroughOptions = {
   closeButton: { className: ICON_BUTTON },
   closeButtonIcon: { className: 'w-4 h-4' },
   content: ({ props }: DialogPassThroughMethodOptions) => ({
-    className: classNames('overflow-y-auto px-6 pb-6 cms-text-regular-14 text-cms-ink-900', { 'rounded-b-2xl': !props.footer })
+    className: classNames('flex-1 min-h-0 overflow-y-auto px-6 pb-6 cms-text-regular-14 text-cms-ink-900', { 'rounded-b-2xl': !props.footer })
   }),
   footer: { className: 'flex flex-wrap items-center justify-end gap-2 shrink-0 px-6 pt-2 pb-5 rounded-b-2xl' },
   mask: ({ state }: DialogPassThroughMethodOptions) => ({

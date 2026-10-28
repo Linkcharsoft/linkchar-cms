@@ -9,7 +9,7 @@
 
   --cms-primary-hover: color-mix(in oklab, var(--cms-primary) 86%, #000000);
   --cms-primary-active: color-mix(in oklab, var(--cms-primary) 74%, #000000);
-  --cms-primary-ring: color-mix(in oklab, var(--cms-primary) 55%, #ffffff);
+  --cms-primary-ring: color-mix(in oklab, var(--cms-primary) 65%, #ffffff);
   --cms-primary-50: color-mix(in oklab, var(--cms-primary) 6%, #ffffff);
   --cms-primary-100: color-mix(in oklab, var(--cms-primary) 12%, #ffffff);
   --cms-primary-200: color-mix(in oklab, var(--cms-primary) 24%, #ffffff);

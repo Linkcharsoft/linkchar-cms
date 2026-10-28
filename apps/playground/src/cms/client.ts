@@ -6,5 +6,5 @@ import * as actions from './actions'
 export const CmsClient = createCmsClient({
   config: cmsConfig,
   actions,
-  inputs: { color: () => import('./fields/ColorInput') }
+  inputs: { rating: () => import('./fields/RatingInput') }
 })

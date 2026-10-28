@@ -47,3 +47,22 @@ test('offers the file already in the library when the same one is uploaded again
   const { count } = await admin.from('media').select('id', { count: 'exact', head: true }).like('alt->>es', 'E2E%')
   expect(count).toBe(1)
 })
+
+test('shows the selection and the pick button in the dialog footer while choosing an image', async ({ page }) => {
+  await signIn(page, QA.super.email)
+  await page.goto('/dashboard/paginas/home')
+  await page.waitForLoadState('networkidle')
+
+  await page.getByRole('button', { name: /imagen (para|de) Imagen de portada/ }).first().click()
+  const dialog = page.locator('[data-pc-name=dialog]')
+  const footer = dialog.locator('[data-pc-section=footer]')
+  await expect(footer).toContainText('Elegí un archivo')
+  await expect(footer.getByRole('button', { name: 'Usar archivo' })).toBeDisabled()
+
+  await dialog.getByPlaceholder('Buscar por nombre o descripción').fill(ALT)
+  await dialog.locator('.MediaGrid').getByRole('button', { name: new RegExp(ALT) }).click()
+  await expect(footer).toContainText('1 seleccionado')
+  await expect(footer.getByRole('button', { name: 'Usar archivo' })).toBeEnabled()
+  await page.keyboard.press('Escape')
+  await expect(dialog).toBeHidden()
+})

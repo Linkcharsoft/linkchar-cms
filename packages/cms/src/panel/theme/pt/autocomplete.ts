@@ -13,14 +13,14 @@ const autocomplete: AutoCompletePassThroughOptions = {
     className: classNames(
       'flex flex-wrap items-center gap-1.5 w-full min-h-[44px] m-0 px-2 py-1.5 list-none bg-cms-surface border border-cms-border-strong rounded-lg cursor-text transition-colors',
       'hover:border-cms-primary focus-within:border-cms-primary focus-within:ring-2 focus-within:ring-cms-primary-ring',
-      '[&_input]:border-0 [&_input]:p-1 [&_input]:bg-transparent [&_input]:ring-0',
+      '[&_input]:border-0 [&_input]:p-1 [&_input]:bg-transparent [&_input]:outline-none [&_input]:ring-0',
       BESIDE_BUTTON
     )
   },
   inputToken: { className: 'inline-flex flex-1 min-w-[8rem]' },
   token: { className: 'inline-flex items-center gap-1 px-2 py-1 rounded-full bg-cms-primary-50 cms-text-regular-12 text-cms-ink-900' },
   removeTokenIcon: { className: 'w-3 h-3 cursor-pointer text-cms-ink-600 hover:text-cms-ink-900' },
-  loadingIcon: { className: 'absolute top-1/2 right-14 -translate-y-1/2 animate-spin text-cms-ink-500' },
+  loadingIcon: { className: 'absolute top-1/2 right-14 -mt-[7px] w-[14px] h-[14px] animate-spin text-cms-ink-500' },
   dropdownButton: {
     root: { className: 'shrink-0 w-11 border border-l-0 border-cms-border-strong rounded-l-none rounded-r-lg bg-cms-surface text-cms-ink-600 hover:bg-cms-neutral-50' }
   },

@@ -1,12 +1,14 @@
 'use client'
 import './BlocksInput.sass'
-import { useState } from 'react'
+import { use, useState } from 'react'
 import { newBlock } from '../../../core/defaults'
 import { dataFields } from '../../../core/walk'
 import { useCms, useT } from '../../client/context'
 import BlockPicker from '../../editor/BlockPicker/BlockPicker'
 import CmsFields from '../../editor/CmsFields/CmsFields'
 import SortableItem from '../../editor/SortableItem/SortableItem'
+import ItemThumb, { initialOpenKeys, thumbnailKey } from '../../editor/sortableItems'
+import SortableLegend from '../../editor/SortableLegend/SortableLegend'
 import SortableList from '../../editor/SortableList/SortableList'
 import useSortableField from '../../editor/useSortableField'
 import { useConfirm } from '../../primitives/ConfirmAction/ConfirmAction'
@@ -14,6 +16,7 @@ import CustomButton from '../../primitives/CustomButton/CustomButton'
 import InputError from '../../primitives/InputError/InputError'
 import Notice from '../../primitives/Notice/Notice'
 import { useFieldError, useFieldLabel, useStoredText, useText } from '../fieldUtils'
+import { countIssues, FormFocusContext } from '../formFocusContext'
 import { useEditingTranslation } from '../LocaleNote/LocaleNote'
 import type { BlocksField } from '../../../core/fields'
 
@@ -34,10 +37,13 @@ const BlocksInput = ({ name, field }: Props) => {
   const text = useText()
   const label = useFieldLabel()
   const stored = useStoredText()
-  const { items, isOpen, toggle, collapseAll, add, duplicate, remove, move } = useSortableField<BlockItemType>(name)
+  const { issues } = use(FormFocusContext)
+  const { items, isOpen, allOpen, toggle, openAll, collapseAll, startDrag, endDrag, add, duplicate, remove, move } =
+    useSortableField<BlockItemType>(name, current => initialOpenKeys(field.open, current, item => field.blocks[item._type]?.fields))
   const [isPicking, setIsPicking] = useState(false)
   const error = useFieldError(name)
-  const atMax = field.max !== undefined && items.length >= field.max
+  const full = field.max !== undefined && items.length >= field.max ? t('fields.list.full', { max: field.max }) : undefined
+  const atMin = field.min !== undefined && items.length <= field.min ? t('fields.list.atMin', { min: field.min }) : undefined
 
   // Summary: the first non-empty text field of the block, if any.
   const summaryOf = (item: BlockItemType) => {
@@ -64,11 +70,16 @@ const BlocksInput = ({ name, field }: Props) => {
 
   return (
     <fieldset className='BlocksInput'>
-      <legend className='BlocksInput__Legend'>
-        {label(field)}
-        <span className='BlocksInput__Count'>{field.max !== undefined ? t('fields.list.count', { count: items.length, max: field.max }) : items.length}</span>
-      </legend>
-      {field.help && <p className='BlocksInput__Help'>{text(field.help)}</p>}
+      <SortableLegend
+        label={label(field)}
+        help={field.help ? text(field.help) : undefined}
+        count={items.length}
+        min={field.min}
+        max={field.max}
+        allOpen={allOpen}
+        onOpenAll={openAll}
+        onCollapseAll={collapseAll}
+      />
       {translating && <Notice>{t('fields.locale.sharedItems')}</Notice>}
 
       {items.length > 0 && (
@@ -76,11 +87,18 @@ const BlocksInput = ({ name, field }: Props) => {
           ids={items.map(item => item._key)}
           labelOf={key => titleOf(items.find(item => item._key === key) ?? items[0])}
           onMove={move}
-          onDragStart={collapseAll}
+          onDragStart={startDrag}
+          onDragEnd={endDrag}
         >
           {items.map((item, index) => {
             const block = field.blocks[item._type]
-            if (!block) return null
+            // A block whose type left the schema still counts and can go; nothing else can be done with it.
+            if (!block) {
+              return (
+                <SortableItem key={item._key} id={item._key} title={t('fields.blocks.unknown', { type: item._type })} removeDisabledReason={atMin} onRemove={() => askRemove(index)} />
+              )
+            }
+            const thumbnail = thumbnailKey(block.fields)
             return (
               <SortableItem
                 key={item._key}
@@ -89,7 +107,10 @@ const BlocksInput = ({ name, field }: Props) => {
                 badge={text(block.label)}
                 icon={block.icon}
                 open={isOpen(item._key)}
-                canDuplicate={!atMax}
+                issues={countIssues(issues, block.fields, `${name}.${index}.`)}
+                thumbnail={thumbnail ? <ItemThumb value={item[thumbnail]} /> : undefined}
+                duplicateDisabledReason={full}
+                removeDisabledReason={atMin}
                 onToggle={() => toggle(item._key)}
                 onDuplicate={() => duplicate(index)}
                 onRemove={() => askRemove(index)}
@@ -102,7 +123,7 @@ const BlocksInput = ({ name, field }: Props) => {
       )}
 
       <div>
-        <CustomButton type='button' variant='secondary' size='sm' disabled={atMax} onClick={() => setIsPicking(true)}>
+        <CustomButton type='button' variant='secondary' size='sm' disabled={!!full} tooltip={full} onClick={() => setIsPicking(true)}>
           <i className='pi pi-plus' aria-hidden='true' />
           {t('fields.blocks.add')}
         </CustomButton>

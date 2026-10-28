@@ -416,86 +416,106 @@ export default withCms({ reactStrictMode: true })
 
 ## Field kinds
 
-Every kind is one `defineField` call: default, normalization, emptiness, validation, references, diff summary and localization. A project adds its own; this is the playground's color kind, complete:
+The package ships `text`, `textarea`, `email`, `phone`, `url`, `video`, `slug`, `richText`, `number`, `boolean`, `date`, `datetime`, `select`, `multiSelect`, `color`, `link`, `button`, `image`, `gallery`, `file`, `relation` and `relations`, plus the structural `group`, `list` and `blocks`; `openingHours` is opt-in from `@linkcharsoft/cms/core/opening-hours`.
+
+`color({ label: 'Color de marca', presets: ['#1f5fa8', '#0e0e13'] })` stores one `#rrggbb` in lower case (a stored `#1F5FA8` is repaired on read; `red` or `#abc` is "Usá un color como #1f5fa8"). The input is the browser's color picker next to the hex, and `presets` adds swatches the editor picks with one click; the version history shows each color with its swatch. Imports take the same hex.
+
+`select` shows a dropdown, or one card per option with `display: 'cards'`: every option then needs a serializable `preview`, a PrimeIcons name (`{ icon: 'pi-th-large' }`), an image (`{ image: '/layouts/mosaic.svg' }`, a path or an https URL) or a mosaic sketch the panel draws (`{ grid: { columns, rows, cells: [{ column, row, columnSpan?, rowSpan? }] } }`, 1-based like CSS grid lines). `defineCmsConfig` rejects cards with an option that has no preview, a preview without `display: 'cards'`, and a cell outside its grid. `multiSelect` has no cards. A gallery block that lets the editor pick its layout:
 
 ```ts
-// src/cms/fields/color.ts
+layout: select({
+  label: 'Disposición',
+  display: 'cards',
+  default: 'grid',
+  options: [
+    { label: 'Mosaico', value: 'mosaic', preview: { grid: { columns: 3, rows: 2, cells: [{ column: 1, row: 1, columnSpan: 2, rowSpan: 2 }, { column: 3, row: 1 }, { column: 3, row: 2 }] } } },
+    { label: 'Grilla', value: 'grid', preview: { grid: { columns: 3, rows: 2, cells: [{ column: 1, row: 1 }, { column: 2, row: 1 }, { column: 3, row: 1 }, { column: 1, row: 2 }, { column: 2, row: 2 }, { column: 3, row: 2 }] } } }
+  ]
+})
+```
+
+The cards are a radio group: arrows move between them, the chosen one has the brand border.
+
+Every kind is one `defineField` call: default, normalization, emptiness, validation, references, diff summary and localization. A project adds its own; this is the playground's rating kind, complete:
+
+```ts
+// src/cms/fields/rating.ts
 import { defineField, issue, noReferences } from '@linkcharsoft/cms/core'
 import type { BaseOptions } from '@linkcharsoft/cms/core'
 
-export interface ColorField extends BaseOptions<string> {
-  kind: 'color'
-  swatches?: readonly string[]
+export interface RatingField extends BaseOptions<number> {
+  kind: 'rating'
+  stars: number
 }
 
 declare module '@linkcharsoft/cms/core' {
   interface FieldTypes<F> {
-    color: { field: ColorField, value: string, localize: false }
+    rating: { field: RatingField, value: number, localize: false }
   }
 }
 
-const HEX = /^#[0-9a-f]{6}$/i
-
-export const color = defineField({
-  kind: 'color',
+export const rating = defineField({
+  kind: 'rating',
   localize: false,
-  defaultValue: () => '',
-  normalize: value => (typeof value === 'string' && HEX.test(value) ? value.toLowerCase() : ''),
-  isEmpty: value => typeof value !== 'string' || !value,
-  validate: (value, _field, ctx) => {
-    if (value === null || value === undefined || value === '') return ctx.required ? [issue('required')] : []
-    return typeof value === 'string' && HEX.test(value) ? [] : [{ ...issue('pattern'), message: { es: 'Usá un color como #1f5fa8', en: 'Use a color like #1f5fa8' } }]
+  defaultValue: () => 0,
+  normalize: value => (typeof value === 'number' && Number.isInteger(value) && value >= 0 ? value : 0),
+  isEmpty: value => !value,
+  validate: (value, field, ctx) => {
+    if (value === null || value === undefined || value === 0) return ctx.required ? [issue('required')] : []
+    if (typeof value !== 'number' || !Number.isInteger(value) || value < 0) return [issue('number')]
+    return value > field.stars ? [issue('max', { max: field.stars })] : []
   },
   references: noReferences,
-  summarize: value => String(value).toUpperCase()
+  summarize: value => '★'.repeat(Number(value))
 })
 ```
 
-`cms.config.ts` registers it with `fields: [color]` and the schema uses it as `color({ label: 'Color de marca', default: '#1f5fa8' })`. Leaving out a part, or returning the wrong value type, is a type error. A schema that uses a kind the config does not register fails when `defineCmsConfig` runs. Per field, `validate` adds a rule (sync or async) and `component` replaces the panel input.
+`cms.config.ts` registers it with `fields: [rating]` and the schema uses it as `rating({ label: 'Satisfacción del cliente', stars: 5 })`. Leaving out a part, or returning the wrong value type, is a type error. A schema that uses a kind the config does not register fails when `defineCmsConfig` runs. Per field, `validate` adds a rule (sync or async) and `component` replaces the panel input. An `issue(code)` names a message of the `validation.*` catalog (`required`, `number`, `max`…); `{ ...issue('pattern'), message: { es, en } }` carries its own text.
 
 The panel input of a project kind is registered on the client, never in the config (the config also reaches the proxy and the site, which must not bundle panel code). It is a `'use client'` component that receives `{ name, field }` and binds with the package's Formik helpers:
 
 ```tsx
-// src/cms/fields/ColorInput.tsx
+// src/cms/fields/RatingInput.tsx
 'use client'
 import { describedBy, fieldId, InputContainer, useField, useFieldError, useFieldLabel, useText } from '@linkcharsoft/cms/panel'
-import type { ColorField } from './color'
+import type { RatingField } from './rating'
 import type { FieldInputPropsType } from '@linkcharsoft/cms/panel'
 
-const ColorInput = ({ name, field }: FieldInputPropsType<ColorField>) => {
+const RatingInput = ({ name, field }: FieldInputPropsType<RatingField>) => {
   const text = useText()
   const label = useFieldLabel()
-  const [{ value, onBlur }, , { setValue }] = useField<string>(name)
+  const [{ value }, , { setValue, setTouched }] = useField<number>(name)
   const error = useFieldError(name)
   const id = fieldId(name)
+  const stars = Array.from({ length: field.stars }, (_, index) => index + 1)
+
+  const pick = (star: number) => {
+    void setValue(star === value ? 0 : star, false)
+    void setTouched(true, true)
+  }
 
   return (
     <InputContainer label={label(field)} htmlFor={id} error={error} help={text(field.help)}>
-      <div className='flex items-center gap-3'>
-        <input
-          type='color'
-          aria-label={label(field)}
-          className='h-11 w-14 cursor-pointer rounded-lg border border-cms-border-strong bg-cms-surface'
-          value={value || '#000000'}
-          onChange={event => setValue(event.target.value)}
-        />
-        <input
-          id={id}
-          name={name}
-          value={value ?? ''}
-          placeholder='#1f5fa8'
-          autoComplete='off'
-          aria-describedby={describedBy(name, field)}
-          className='h-11 flex-1 rounded-lg border border-cms-border-strong px-3 cms-text-regular-14'
-          onBlur={onBlur}
-          onChange={event => setValue(event.target.value)}
-        />
+      <div id={id} role='radiogroup' aria-label={text(field.label)} aria-describedby={describedBy(name, field)} className='flex gap-1'>
+        {stars.map(star => (
+          <button
+            key={star}
+            type='button'
+            role='radio'
+            aria-checked={star === value}
+            aria-label={`${star} / ${field.stars}`}
+            className='flex h-11 w-11 items-center justify-center rounded-lg text-xl text-cms-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-cms-primary-ring'
+            onClick={() => pick(star)}
+          >
+            <i className={star <= value ? 'pi pi-star-fill' : 'pi pi-star'} aria-hidden='true' />
+          </button>
+        ))}
       </div>
     </InputContainer>
   )
 }
 
-export default ColorInput
+export default RatingInput
 ```
 
 ```ts
@@ -505,12 +525,16 @@ import { createCmsClient } from '@linkcharsoft/cms/panel/client'
 import cmsConfig from '../../cms.config'
 import * as actions from './actions'
 
-export const CmsClient = createCmsClient({ config: cmsConfig, actions, inputs: { color: () => import('./fields/ColorInput') } })
+export const CmsClient = createCmsClient({ config: cmsConfig, actions, inputs: { rating: () => import('./fields/RatingInput') } })
 ```
 
 A field's own `component` wins over the project's input for its kind, which wins over the package's. A kind without an input fails in the panel with a message that says where to add it. For translated fields, bind with `useValuePath(name, field)`: it points at `name.<locale>` for the language being edited.
 
-To show what the package's inputs show while translating, pass `useLocaleNote(name, field)` to `InputContainer`: `badge` is "Same in every language" for a shared value, `note` the default language's text above a translation, and `describedBy` its id for the input (`describedBy(name, field, note.describedBy)`). `useEditingTranslation()` says whether another language than the default one is on screen; `useMediaVariant(name)` gives a file-like value its own version per language.
+To show what the package's inputs show while translating, pass `useLocaleNote(name, field)` to `InputContainer`: `badge` is "Same in every language" for a shared value, `note` the default language's text above a translation, and `describedBy` its id for the input (`describedBy(name, field, note.describedBy)`). `useEditingTranslation()` says whether another language than the default one is on screen; `useMediaVariant(name)` gives a file-like value its own version per language. `InputContainer` renders the error with the id `errorId(name)`: add it to `aria-describedby` and set `aria-invalid` while `useFieldError(name)` returns one.
+
+### Lists and blocks
+
+`list({ label, min, max, itemLabel, singularLabel, thumbnail, open }, fields)` holds repeated items of the same fields; `blocks({ label, min, max, open }, { texto: block('Texto', fields, { icon, description, thumbnail }) })` holds items of different kinds. In the panel, items start open while there are at most three or the item has an image field; `open: true` or `false` fixes it, and "Expandir todo" / "Colapsar todo" switches the whole list. A collapsed item shows the value of `itemLabel`, the count of its fields with a problem, and its image as a thumbnail (`thumbnail` names the image field; the first one by default; a block's own image field is used the same way, while `thumbnail` on `block()` is the picture the block picker shows). `singularLabel` names one item ("servicio"): the button reads "Agregar servicio" and an item without a title "Servicio 3". With `min`, the legend reads "2 de 6, mínimo 1" and the last `min` items can't be removed; at `max`, "Agregar" and "Duplicar" stay visible but disabled, with the reason as their tooltip.
 
 ## Panel
 
@@ -521,7 +545,7 @@ pnpm exec linkchar-cms routes          # writes the panel wiring under src/app/(
 pnpm exec linkchar-cms routes --check  # CI: exit 1 when a file is missing or stale, or the proxy matcher misses basePath
 ```
 
-- `src/app/(cms)/<basePath>/…`: one file per screen (`export default route.Page`), the layouts, `loading.tsx`, and the email link and sign-out handlers.
+- `src/app/(cms)/<basePath>/…`: one file per screen (`export default route.Page`), the layouts, `loading.tsx` (a table skeleton for lists, fields for the editors), the panel's `error.tsx` and `not-found.tsx` (with a catch-all, so an unknown panel URL shows the panel's 404 instead of the site's), and the email link and sign-out handlers.
 - `src/app/api/cms/{build-status,draft,disable-draft}/route.ts`: the build webhook and the preview's Draft Mode.
 - `src/cms/actions.ts`: `'use server'`, re-exports every action the browser calls.
 - Created once and then owned by the project: `src/app/(cms)/layout.tsx` (the panel's root layout) and `src/cms/client.ts` (`createCmsClient`, where project inputs are registered).
@@ -534,7 +558,7 @@ The URL segments are configurable and default to Spanish: `paths: { pages: 'pagi
 
 The editor shows a language selector when the config has more than one locale, with what is missing in each language ("English · 3 missing"). Translated texts are edited per language (`?locale=en` in the URL), with the default language's text above each one; shared values say "Same in every language". Images, galleries and PDFs reuse the original until someone picks "Use another image for English", and "Back to the original" drops it. The page outline and each section count what is missing per language (`ES 1 · EN 3`), and Media marks and filters the images without alt text in a language.
 
-A document with missing content reads "Incompleto" in the editor, the tables (which filter by it) and the overview; the header's "Publicar" counter only counts the changes the next publish takes, and refreshes with each save. Publish lets the user tick which changes go out. Each missing item in Publish links to its field: `paths.field(kind, entryId, id, { field, locale })` builds `/dashboard/paginas/home?locale=en#hero.title`, and the editor opens and focuses any field named in the hash (`#services` alone still opens the section).
+A document with missing content reads "Incompleto" in the editor, the tables (which filter by it) and the overview; the header's "Publicar" counter only counts the changes the next publish takes, and refreshes with each save. Publish lets the user tick which changes go out, and names the live document that still holds a URL a change would take (tick both so they go out together, or change one URL). Each missing item in Publish links to its field: `paths.field(kind, entryId, id, { field, locale })` builds `/dashboard/paginas/home?locale=en#hero.title`, and the editor opens and focuses any field named in the hash (`#services` alone still opens the section).
 
 Uploading a file the library already has (same bytes, SHA-256 of the original file) offers the existing one instead of a copy. Drafts created with "Nuevo …" and never touched disappear after a day; the overview warns about hidden drafts nobody touched for two weeks.
 

@@ -12,22 +12,29 @@ import Notice from '../../primitives/Notice/Notice'
 import type { PasswordResetFormType } from '../../../core/forms'
 import type { Route } from 'next'
 
-const PasswordResetPage = () => {
+interface Props {
+  // The account whose password changes, for the browser's password manager; the form never sends it.
+  email: string
+}
+
+const PasswordResetPage = ({ email }: Props) => {
   const { t, translate } = useT()
   const { actions } = useCms()
   const router = useRouter()
   const [submitError, setSubmitError] = useState<string | null>(null)
+  const [navigating, setNavigating] = useState(false)
 
   const formik = useFormik<PasswordResetFormType>({
     initialValues: { password: '', confirmPassword: '' },
     validate: useFormValidation(validatePasswordReset),
-    validateOnChange: false,
+    validateOnChange: true,
     validateOnBlur: false,
     onSubmit: async values => {
       setSubmitError(null)
       const result = await actions.updatePassword(values)
       if (result.error) setSubmitError(translate(result.error))
       if (result.redirectTo) {
+        setNavigating(true)
         router.replace(result.redirectTo as Route)
         router.refresh()
       }
@@ -46,6 +53,7 @@ const PasswordResetPage = () => {
       )}
 
       <form className='DashboardAuthLayout__Form' onSubmit={submitWithFocus(formik, ['password', 'confirmPassword'])} noValidate>
+        <input type='email' name='username' autoComplete='username' value={email} readOnly hidden />
         <InputContainer label={t('auth.newPassword')} htmlFor='password' error={formik.touched.password ? formik.errors.password : undefined}>
           <Password
             inputId='password'
@@ -80,7 +88,7 @@ const PasswordResetPage = () => {
           />
         </InputContainer>
 
-        <CustomButton type='submit' className='DashboardAuthLayout__Submit' loading={formik.isSubmitting}>
+        <CustomButton type='submit' className='DashboardAuthLayout__Submit' loading={formik.isSubmitting || navigating}>
           {t('auth.reset.submit')}
         </CustomButton>
       </form>

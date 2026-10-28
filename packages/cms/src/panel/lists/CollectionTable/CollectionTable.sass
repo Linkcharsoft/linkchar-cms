@@ -9,7 +9,26 @@
     @include cms.table()
 
   &__Actions
-    width: 112px
+    width: 1%
+    white-space: nowrap
+
+  &__ActionsCell
+    display: inline-flex
+    align-items: center
+    justify-content: flex-end
+    gap: 4px
+
+  &__Move
+    display: inline-flex
+    gap: 2px
+
+  &__Hint
+    display: flex
+    flex-wrap: wrap
+    align-items: center
+    gap: 4px 12px
+    margin: -4px 0
+    @apply cms-text-regular-14 text-cms-ink-600
 
   &__Handle
     width: 48px

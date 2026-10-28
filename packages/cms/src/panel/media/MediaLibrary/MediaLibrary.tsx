@@ -9,12 +9,16 @@ import CustomButton from '../../primitives/CustomButton/CustomButton'
 import DashboardPageHeader from '../../primitives/DashboardPageHeader/DashboardPageHeader'
 import DashboardToolbar from '../../primitives/DashboardToolbar/DashboardToolbar'
 import EmptyState from '../../primitives/EmptyState/EmptyState'
+import Notice from '../../primitives/Notice/Notice'
 import SearchInput from '../../primitives/SearchInput/SearchInput'
+import SkeletonBlock from '../../primitives/SkeletonBlock/SkeletonBlock'
+import { useNotify } from '../../providers/notify'
 import MediaDetails from '../MediaDetails/MediaDetails'
 import MediaGrid from '../MediaGrid/MediaGrid'
 import MediaUploader from '../MediaUploader/MediaUploader'
 import type { MediaItemType } from '../../../core/media'
 import type { MediaQueryType } from '../../../server/media'
+import type { Dispatch, SetStateAction } from 'react'
 
 interface Props {
   header?: { title: string, subtitle: string }
@@ -25,11 +29,15 @@ interface Props {
   multiple?: boolean
   defaultFolder?: string
   canPurge?: boolean
-  onPick?: (items: MediaItemType[]) => void
+  // Pick mode: the selection belongs to the picker, which shows it in its footer.
+  selected?: MediaItemType[]
+  onSelect?: Dispatch<SetStateAction<MediaItemType[]>>
 }
 
 // PrimeReact shows an empty Dropdown for '', so "no filter" needs its own value.
 const ALL = 'all'
+
+const SKELETON_COUNT = 12
 
 const MediaLibrary = ({
   header,
@@ -40,10 +48,12 @@ const MediaLibrary = ({
   multiple = false,
   defaultFolder,
   canPurge = false,
-  onPick
+  selected = [],
+  onSelect
 }: Props) => {
   const { t } = useT()
   const { config, actions } = useCms()
+  const notify = useNotify()
   const text = useText()
   const fixedType = accept === 'any' ? undefined : accept
   const [query, setQuery] = useState<MediaQueryType>({ type: fixedType, folder: mode === 'pick' ? defaultFolder : undefined })
@@ -51,10 +61,14 @@ const MediaLibrary = ({
   const [total, setTotal] = useState(initialTotal)
   const [page, setPage] = useState(1)
   const [isLoading, setIsLoading] = useState(!initialItems)
+  const [failed, setFailed] = useState(false)
   const [showUploader, setShowUploader] = useState(false)
   const [opened, setOpened] = useState<MediaItemType | null>(null)
-  const [selected, setSelected] = useState<MediaItemType[]>([])
   const skipFirstLoad = useRef(!!initialItems)
+  // Only the newest request may touch the list: a slow page 1 must not land over a newer filter.
+  const request = useRef(0)
+  const sentinel = useRef<HTMLDivElement>(null)
+  const hasMore = items.length < total
 
   const folderOptions = [
     { label: t('media.library.allFolders'), value: ALL },
@@ -74,12 +88,20 @@ const MediaLibrary = ({
   ]
 
   const load = async (nextQuery: MediaQueryType, nextPage = 1) => {
+    const id = ++request.current
     setIsLoading(true)
-    const result = await actions.searchMedia({ ...nextQuery, page: nextPage })
-    setItems(current => (nextPage === 1 ? result.items : [...current, ...result.items]))
-    setTotal(result.total)
-    setPage(nextPage)
-    setIsLoading(false)
+    setFailed(false)
+    try {
+      const result = await actions.searchMedia({ ...nextQuery, page: nextPage })
+      if (id !== request.current) return
+      setItems(current => (nextPage === 1 ? result.items : [...current, ...result.items]))
+      setTotal(result.total)
+      setPage(nextPage)
+    } catch {
+      if (id === request.current) setFailed(true)
+    } finally {
+      if (id === request.current) setIsLoading(false)
+    }
   }
 
   useEffect(() => {
@@ -90,6 +112,20 @@ const MediaLibrary = ({
     void load(query)
   }, [query])
 
+  const loadMore = () => {
+    if (!isLoading && hasMore) void load(query, page + 1)
+  }
+
+  useEffect(() => {
+    const element = sentinel.current
+    if (!element || !hasMore || isLoading || failed || typeof IntersectionObserver === 'undefined') return
+    const observer = new IntersectionObserver(entries => {
+      if (entries.some(entry => entry.isIntersecting)) loadMore()
+    }, { rootMargin: '200px' })
+    observer.observe(element)
+    return () => observer.disconnect()
+  }, [hasMore, isLoading, failed, page, query])
+
   const update = (changes: MediaQueryType) => setQuery(current => ({ ...current, ...changes }))
 
   const activate = (item: MediaItemType) => {
@@ -97,21 +133,22 @@ const MediaLibrary = ({
       setOpened(item)
       return
     }
-    setSelected(current => {
+    onSelect?.(current => {
       if (!multiple) return [item]
       return current.some(entry => entry.id === item.id) ? current.filter(entry => entry.id !== item.id) : [...current, item]
     })
   }
 
   // A reused library file may already be on screen: it is not added twice.
-  const onUploaded = (uploaded: MediaItemType[]) => {
-    setShowUploader(false)
+  const onUploaded = (uploaded: MediaItemType[], remaining: number) => {
+    if (remaining === 0) setShowUploader(false)
+    else if (uploaded.length > 0) notify({ severity: 'warn', summary: t('media.library.uploadedSome', { count: uploaded.length, remaining }) })
     setItems(current => {
       const fresh = uploaded.filter(item => !current.some(entry => entry.id === item.id))
       setTotal(total => total + fresh.length)
       return [...fresh, ...current]
     })
-    if (mode === 'pick') setSelected(current => (multiple ? [...current, ...uploaded.filter(item => !current.some(entry => entry.id === item.id))] : uploaded.slice(-1)))
+    if (mode === 'pick') onSelect?.(current => (multiple ? [...current, ...uploaded.filter(item => !current.some(entry => entry.id === item.id))] : uploaded.slice(-1)))
   }
 
   const toolbarActions = (
@@ -183,7 +220,18 @@ const MediaLibrary = ({
 
       {query.trash && <p className='MediaLibrary__Note'>{t('media.library.trashNote')}</p>}
 
-      <div aria-busy={isLoading} aria-live='polite'>
+      <p className='sr-only' aria-live='polite'>{isLoading ? '' : t('media.library.results', { count: total })}</p>
+
+      {failed && (
+        <Notice
+          tone='error'
+          action={<CustomButton type='button' variant='secondary' size='sm' onClick={() => load(query, items.length > 0 ? page + 1 : 1)}>{t('ui.retry')}</CustomButton>}
+        >
+          {t('media.library.loadFailed')}
+        </Notice>
+      )}
+
+      <div aria-busy={isLoading}>
         {items.length > 0 ? (
           <MediaGrid
             items={items}
@@ -191,8 +239,12 @@ const MediaLibrary = ({
             selectedIds={selected.map(item => item.id)}
             onActivate={activate}
           />
+        ) : isLoading ? (
+          <ul className='MediaLibrary__Skeleton' aria-hidden='true'>
+            {Array.from({ length: SKELETON_COUNT }, (_, index) => <li key={index}><SkeletonBlock className='MediaLibrary__SkeletonItem' /></li>)}
+          </ul>
         ) : (
-          !isLoading && (
+          !failed && (
             <EmptyState
               icon={query.trash ? 'pi pi-trash' : 'pi pi-images'}
               title={query.trash ? t('media.library.trashEmpty') : t('media.library.noMatches')}
@@ -201,21 +253,10 @@ const MediaLibrary = ({
         )}
       </div>
 
-      {items.length < total && (
-        <div className='flex justify-center'>
-          <CustomButton type='button' variant='secondary' size='sm' loading={isLoading} onClick={() => load(query, page + 1)}>
+      {hasMore && (
+        <div ref={sentinel} className='flex justify-center'>
+          <CustomButton type='button' variant='secondary' size='sm' loading={isLoading} onClick={loadMore}>
             {t('media.library.loadMore')}
-          </CustomButton>
-        </div>
-      )}
-
-      {mode === 'pick' && (
-        <div className='MediaLibrary__PickBar'>
-          <span className='MediaLibrary__PickCount'>
-            {selected.length ? t('media.library.selected', { count: selected.length }) : t('media.library.pickOne')}
-          </span>
-          <CustomButton type='button' disabled={!selected.length} onClick={() => onPick?.(selected)}>
-            {multiple ? t('media.library.useSelection') : t('media.library.useFile')}
           </CustomButton>
         </div>
       )}

@@ -1,4 +1,23 @@
+@use '../../theme/mixins' as cms
+
 .SearchInput
   width: 100%
   min-height: 44px
   padding-right: 40px
+
+  &__Clear
+    position: absolute
+    top: 50%
+    right: 4px
+    display: inline-flex
+    align-items: center
+    justify-content: center
+    width: 36px
+    height: 36px
+    border: 0
+    border-radius: 9999px
+    background: transparent
+    cursor: pointer
+    transform: translateY(-50%)
+    @apply text-cms-ink-500 hover:text-cms-danger-600
+    @include cms.focus-ring

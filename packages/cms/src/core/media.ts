@@ -5,6 +5,8 @@ import type { LocalizedTextType } from './text'
 
 // Mirrors the `media` bucket in supabase/migrations (file_size_limit and allowed_mime_types).
 export const MAX_MEDIA_BYTES = 10 * 1024 * 1024
+// Raw photos are compressed in the browser before upload; this only guards it against huge files.
+export const MAX_RAW_IMAGE_BYTES = 50 * 1024 * 1024
 export const MAX_IMAGE_DIMENSION = 2560
 
 export const IMAGE_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/avif', 'image/gif'] as const

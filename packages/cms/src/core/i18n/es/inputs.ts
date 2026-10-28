@@ -44,7 +44,6 @@ const inputs = {
   },
   openingHoursInput: {
     open: 'Abierto',
-    closed: 'Cerrado',
     from: '{day}, apertura',
     to: '{day}, cierre',
     until: 'a',

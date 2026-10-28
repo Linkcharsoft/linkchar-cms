@@ -1,6 +1,6 @@
 'use client'
 import './DashboardHeader.sass'
-import { useT } from '../../client/context'
+import { usePaths, useT } from '../../client/context'
 import CustomButton from '../../primitives/CustomButton/CustomButton'
 import HelpMenu from '../../tours/HelpMenu/HelpMenu'
 import AccountMenu from '../AccountMenu/AccountMenu'
@@ -19,6 +19,7 @@ interface Props {
 
 const DashboardHeader = ({ name, role, avatar, seenTours, latestPublish, pendingCounts }: Props) => {
   const { t } = useT()
+  const paths = usePaths()
 
   return (
     <header className='DashboardHeader'>
@@ -29,7 +30,7 @@ const DashboardHeader = ({ name, role, avatar, seenTours, latestPublish, pending
 
         <HelpMenu seenTours={seenTours} />
 
-        <CustomButton href='/' target='_blank' variant='ghost' size='sm' aria-label={t('shell.viewSiteNewTab')} data-tour='view-site'>
+        <CustomButton href={paths.siteHome} target='_blank' variant='ghost' size='sm' aria-label={t('shell.viewSiteNewTab')} data-tour='view-site'>
           <i className='pi pi-external-link' aria-hidden='true' />
           <span className='DashboardHeader__Label'>{t('shell.viewSite')}</span>
         </CustomButton>

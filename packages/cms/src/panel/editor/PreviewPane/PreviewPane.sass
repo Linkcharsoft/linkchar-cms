@@ -1,10 +1,14 @@
+// Below the sticky header and the editor's two-row bar.
+$preview-top: 9rem
+
 .PreviewPane
   display: flex
   flex-direction: column
   gap: 12px
   padding: 12px
+  top: calc(var(--cms-header-height, 0px) + #{$preview-top})
   border-radius: 16px
-  @apply bg-cms-surface border border-cms-border xl:sticky xl:top-20
+  @apply bg-cms-surface border border-cms-border xl:sticky
 
   &__Toolbar
     display: flex
@@ -29,10 +33,11 @@
     text-decoration: none
     @apply cms-text-medium-14 text-cms-primary hover:bg-cms-primary-50
 
+  // Never taller than what fits under the sticky header and bar, so the frame's bottom stays reachable.
   &__Viewport
     display: flex
     justify-content: center
-    height: 75vh
+    height: min(75vh, calc(100dvh - var(--cms-header-height, 0px) - #{$preview-top} - 7rem))
     overflow: hidden
     border-radius: 8px
     @apply bg-cms-neutral-50

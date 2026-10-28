@@ -43,6 +43,9 @@ export interface CollectionQueryType {
 }
 
 export const COLLECTION_PAGE_SIZE = 20
+
+// Manual order shows more per page: reordering only works within a page.
+export const ORDERABLE_PAGE_SIZE = 100
 // "Incompleto" is not a column of the view: those filters read the candidates and pick in memory, up to this many.
 const DERIVED_STATUS_LIMIT = 200
 const DERIVED_STATUSES: readonly DocumentDisplayStatusType[] = ['new', 'changed', 'incomplete']
@@ -57,6 +60,8 @@ export interface TrashItemType {
 }
 
 export const TRASH_RETENTION_DAYS = 30
+
+export const TRASH_PAGE_SIZE = 50
 const DAY_MS = 24 * 60 * 60 * 1000
 
 const LIST_COLUMNS = 'id, slug, data, sort_order, updated_at, status, visible'
@@ -90,25 +95,29 @@ export const getDocument = async (ctx: CmsContextType, entryId: string, id: stri
 
 export const listCollection = async (ctx: CmsContextType, entryId: string, query: CollectionQueryType = {}) => {
   const entry = getCollection(ctx.config, entryId)
-  if (!entry) return { items: [], total: 0, page: 1, sort: 'updated' as CollectionSortType }
+  if (!entry) return { items: [], total: 0, page: 1, pageSize: COLLECTION_PAGE_SIZE, sort: 'updated' as CollectionSortType }
 
-  const page = Math.max(1, query.page ?? 1)
+  const requested = Math.max(1, query.page ?? 1)
   const sort = query.sort ?? (entry.orderable ? 'manual' : 'updated')
-  const from = (page - 1) * COLLECTION_PAGE_SIZE
+  const pageSize = sort === 'manual' ? ORDERABLE_PAGE_SIZE : COLLECTION_PAGE_SIZE
   const title = titleColumn(ctx, entry)
-
   const derived = !!query.status && DERIVED_STATUSES.includes(query.status)
-  let request = ctx.db.from('document_status').select(LIST_COLUMNS, { count: 'exact' })
-    .eq('type', entryId).is('deleted_at', null)
 
-  if (query.status) request = derived ? request.in('status', query.status === 'incomplete' ? ['new', 'changed'] : [query.status]) : request.eq('status', query.status)
-  if (query.search?.trim()) request = request.ilike(title, `%${escapeLike(query.search.trim())}%`)
+  const request = () => {
+    let builder = ctx.db.from('document_status').select(LIST_COLUMNS, { count: 'exact' }).eq('type', entryId).is('deleted_at', null)
+    if (query.status) builder = derived ? builder.in('status', query.status === 'incomplete' ? ['new', 'changed'] : [query.status]) : builder.eq('status', query.status)
+    if (query.search?.trim()) builder = builder.ilike(title, `%${escapeLike(query.search.trim())}%`)
+    return sort === 'manual'
+      ? builder.order('sort_order').order('created_at')
+      : sort === 'title' ? builder.order(title) : builder.order('updated_at', { ascending: false })
+  }
+  const pageOf = (page: number) => request().range((page - 1) * pageSize, page * pageSize - 1)
+  const lastPageFor = (total: number) => Math.max(1, Math.ceil(total / pageSize))
 
-  request = sort === 'manual'
-    ? request.order('sort_order').order('created_at')
-    : sort === 'title' ? request.order(title) : request.order('updated_at', { ascending: false })
-
-  const { data, count } = derived ? await request.limit(DERIVED_STATUS_LIMIT) : await request.range(from, from + COLLECTION_PAGE_SIZE - 1)
+  let { data, count } = derived ? await request().limit(DERIVED_STATUS_LIMIT) : await pageOf(requested)
+  // A page past the end (a stale link, the last item of a page deleted) shows the last one instead of "no content".
+  const page = derived ? requested : Math.min(requested, lastPageFor(count ?? 0))
+  if (page !== requested) ({ data, count } = await pageOf(page))
   const rows = data ?? []
   const incomplete = await incompleteIds(ctx, rows.map(row => ({ id: row.id, type: entryId, data: row.data, status: row.status })))
   const paths = panelPaths(ctx.config)
@@ -126,17 +135,32 @@ export const listCollection = async (ctx: CmsContextType, entryId: string, query
     updatedAt: row.updated_at!
   }))
 
-  if (!derived) return { items, total: count ?? 0, page, sort }
+  if (!derived) return { items, total: count ?? 0, page, pageSize, sort }
   const matching = items.filter(item => item.status === query.status)
-  return { items: matching.slice(from, from + COLLECTION_PAGE_SIZE), total: matching.length, page, sort }
+  const shownPage = Math.min(page, lastPageFor(matching.length))
+  const start = (shownPage - 1) * pageSize
+  return { items: matching.slice(start, start + pageSize), total: matching.length, page: shownPage, pageSize, sort }
 }
 
-export const listTrash = async (ctx: CmsContextType): Promise<TrashItemType[]> => {
-  const { data } = await ctx.db.from('document_status').select('id, type, data, deleted_at, status')
-    .not('deleted_at', 'is', null).in('type', entryIds(ctx.config))
-    .order('deleted_at', { ascending: false }).limit(200)
+// PostgREST `or()` values are quoted: commas, parentheses and quotes from the search can't break the filter.
+const orValue = (search: string) => `"%${search.replace(/["\\%_]/g, char => `\\${char}`)}%"`
 
-  return (data ?? []).flatMap(row => {
+export const listTrash = async (ctx: CmsContextType, query: { search?: string, page?: number } = {}) => {
+  const page = Math.max(1, query.page ?? 1)
+  const from = (page - 1) * TRASH_PAGE_SIZE
+  const collections = entryIds(ctx.config).flatMap(id => {
+    const entry = getCollection(ctx.config, id)
+    return entry ? [{ id, entry }] : []
+  })
+  let request = ctx.db.from('document_status').select('id, type, data, deleted_at, status', { count: 'exact' })
+    .not('deleted_at', 'is', null).in('type', collections.map(({ id }) => id))
+  if (query.search?.trim()) {
+    const value = orValue(query.search.trim())
+    request = request.or([...new Set(collections.map(({ entry }) => titleColumn(ctx, entry)))].map(column => `${column}.ilike.${value}`).join(','))
+  }
+  const { data, count } = await request.order('deleted_at', { ascending: false }).range(from, from + TRASH_PAGE_SIZE - 1)
+
+  const items = (data ?? []).flatMap((row): TrashItemType[] => {
     const entry = row.type ? getCollection(ctx.config, row.type) : null
     if (!entry || !row.id || !row.deleted_at) return []
     return [{
@@ -147,6 +171,7 @@ export const listTrash = async (ctx: CmsContextType): Promise<TrashItemType[]> =
       published: row.status === 'unpublishing'
     }]
   })
+  return { items, total: count ?? 0, page }
 }
 
 // Lazy purge when the trash is opened. Published documents wait: deleting them would skip the next publish.

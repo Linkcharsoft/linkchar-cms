@@ -24,6 +24,7 @@ const core = {
     max: 'The maximum is {max}',
     date: 'Invalid date',
     option: 'Choose a valid option',
+    color: 'Use a color like #1f5fa8',
     maxOptions: 'Choose up to {max}',
     minOptions: 'Choose at least {min}',
     linkEntry: 'Choose a page or an item of the site',
@@ -35,7 +36,7 @@ const core = {
     linkAnchor: 'Anchors start with #',
     variant: 'Invalid variant',
     time: 'Use the HH:MM format',
-    timeOrder: 'Closing time must be after opening time',
+    timeOrder: 'Closing time cannot be the same as opening time',
     file: 'Invalid file',
     maxImages: 'You can choose up to {max} images',
     minImages: 'Choose at least {min} images',
@@ -48,7 +49,8 @@ const core = {
     translationMissing: 'Missing in {language}',
     altOf: 'Alt text of {field}',
     altMissing: 'Missing alt text in {language}',
-    slugTaken: 'Another item already uses this URL'
+    slugTaken: 'Another item already uses this URL',
+    slugLive: 'On the site, "{title}" still uses this URL. Publish both together, or change this one before publishing.'
   },
   errors: {
     invalidData: 'Check the data you entered.',
@@ -80,7 +82,8 @@ const core = {
       forbidden: 'You are not allowed to publish. Ask an administrator.',
       slugTaken: 'Two items would end up with the same URL. Change one of them and publish again.',
       invalidSlug: 'One of the new URLs is not valid. Check it and publish again.',
-      failed: 'We could not publish. Try again.'
+      failed: 'We could not publish. Try again.',
+      building: 'The site is still updating with the previous publish. Wait for it to finish and publish again.'
     },
     build: {
       target_missing: 'How the site gets updated is not configured yet.',
