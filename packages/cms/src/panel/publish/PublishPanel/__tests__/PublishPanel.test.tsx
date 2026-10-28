@@ -77,6 +77,13 @@ describe('PublishPanel', () => {
     expect(screen.getByText(/puede editar pero no publicar/)).toBeTruthy()
   })
 
+  it('holds the publish button while the previous build runs', () => {
+    const building = { ...record, buildStatus: 'building' as const, requestedAt: new Date(Date.now() - 3 * 60_000).toISOString(), errorCode: null, errorDetail: null }
+    renderPanel(<PublishPanel changes={[change({})]} history={[building]} canPublish />)
+    expect(screen.getByRole('button', { name: /Publicar cambios/ }).hasAttribute('disabled')).toBe(true)
+    expect(screen.getByRole('status').textContent).toContain('hace 3 minutos')
+  })
+
   it('shows build errors by code with their detail', () => {
     renderPanel(<PublishPanel changes={[]} history={[record]} canPublish />)
     expect(screen.getByText('Todo lo que está en el panel ya está en el sitio.')).toBeTruthy()

@@ -3,7 +3,7 @@ import { withDefaults } from '../core/defaults'
 import { entryIds, getEntry } from '../core/entries'
 import { changedSections } from '../core/pages'
 import { panelPaths } from '../core/paths'
-import { BUILD_CONFIRMATION_TIMEOUT_MS } from '../core/publish'
+import { BUILD_CONFIRMATION_TIMEOUT_MS, publishDisplayStatus } from '../core/publish'
 import { documentReferences } from '../core/references'
 import { referenceWarnings, relationIssue, relationName } from '../core/relations'
 import { canPublish } from '../core/roles'
@@ -250,6 +250,12 @@ export const getPublishHistory = async (ctx: CmsContextType, limit = 10): Promis
 
 export const getLatestPublish = async (ctx: CmsContextType) => (await getPublishHistory(ctx, 1))[0] ?? null
 
+// A second publish while the site is still building would queue another build of the same content.
+const isBuilding = async (ctx: CmsContextType) => {
+  const latest = await getLatestPublish(ctx)
+  return !!latest && publishDisplayStatus(latest.buildStatus, latest.requestedAt, ctx.now().getTime()) === 'building'
+}
+
 type BuildValuesType = { build_status: BuildStatusType, job_id?: string, error_code?: BuildErrorCodeType | null, error_detail?: string | null, finished_at?: string }
 
 // publish_log is written with the service role: the build webhook has no user session.
@@ -330,6 +336,7 @@ const RPC_ERRORS: Record<string, MessageKeyType> = {
 export const publishChanges = async (ctx: CmsContextType, selection: PublishSelectionType): Promise<PublishResultType> => {
   const { profile } = await requireRole(ctx, 'editor')
   if (!canPublish(profile)) return { ok: false, error: 'errors.publish.forbidden' }
+  if (await isBuilding(ctx)) return { ok: false, error: 'errors.publish.building' }
 
   const pending = new Map((await getPendingChanges(ctx)).map(change => [change.id, change]))
 

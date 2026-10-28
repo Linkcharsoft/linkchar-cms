@@ -30,10 +30,13 @@ export const publishDisplayStatus = (buildStatus: BuildStatusType, requestedAt: 
 // An old "unconfirmed" says nothing new: the header stops showing it after a day (the history keeps it).
 export const UNCONFIRMED_HEADER_MS = 24 * 60 * 60 * 1000
 
+// Whole minutes since a publish was requested.
+export const publishMinutes = (requestedAt: string, now = Date.now()) => Math.max(0, Math.floor((now - Date.parse(requestedAt)) / 60_000))
+
 // What the header shows about the latest publish; null when there's nothing to say.
 export const headerPublishStatus = (buildStatus: BuildStatusType, requestedAt: string, now = Date.now()) => {
   const status = publishDisplayStatus(buildStatus, requestedAt, now)
   if (status === 'success') return null
   if (status === 'unconfirmed' && now - Date.parse(requestedAt) > UNCONFIRMED_HEADER_MS) return null
-  return { status, minutes: Math.floor((now - Date.parse(requestedAt)) / 60_000) }
+  return { status, minutes: publishMinutes(requestedAt, now) }
 }

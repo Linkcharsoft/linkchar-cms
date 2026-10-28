@@ -6,7 +6,7 @@ import { Checkbox } from 'primereact/checkbox'
 import { Tag } from 'primereact/tag'
 import { classNames } from 'primereact/utils'
 import { useEffect, useState } from 'react'
-import { publishDisplayStatus } from '../../../core/publish'
+import { publishDisplayStatus, publishMinutes } from '../../../core/publish'
 import { selectionWarnings } from '../../../core/publishSelection'
 import { useCms, useFormatDate, useT } from '../../client/context'
 import { useConfirm } from '../../primitives/ConfirmAction/ConfirmAction'
@@ -199,6 +199,7 @@ const PublishPanel = ({ changes, history, canPublish, highlight }: Props) => {
   const selectedReady = ready.filter(change => selected.has(change.id))
   const selectedRemovals = removals.filter(change => selected.has(change.id))
   const building = history[0] && publishDisplayStatus(history[0].buildStatus, history[0].requestedAt) === 'building'
+  const buildingMinutes = history[0] ? publishMinutes(history[0].requestedAt) : 0
 
   useEffect(() => {
     if (highlight) window.document.getElementById(changeId(highlight))?.scrollIntoView({ block: 'center' })
@@ -285,13 +286,14 @@ const PublishPanel = ({ changes, history, canPublish, highlight }: Props) => {
             <h2 id='pending-title' className='PublishPanel__CardTitle'>{t('publishPanel.pending')}</h2>
             <p className='PublishPanel__Meta'>{changes.length === 0 ? t('publishPanel.allLive') : summary}</p>
           </div>
-          <CustomButton type='button' onClick={askPublish} loading={publishing} disabled={!canPublish || selected.size === 0} data-tour='publish-button'>
+          <CustomButton type='button' onClick={askPublish} loading={publishing} disabled={!canPublish || selected.size === 0 || building} data-tour='publish-button'>
             <i className='pi pi-send' aria-hidden='true' />
             {selected.size > 0 ? t('publishPanel.publishCount', { count: selected.size }) : t('publishPanel.publish')}
           </CustomButton>
         </div>
 
         {!canPublish && <Notice icon='pi pi-lock'>{t('publishPanel.cannotPublish')}</Notice>}
+        {canPublish && building && total > 0 && <Notice icon='pi pi-spin pi-spinner' role='status'>{buildingMinutes < 1 ? t('publishPanel.buildingNoticeNow') : t('publishPanel.buildingNotice', { count: buildingMinutes })}</Notice>}
         {canPublish && total > 0 && selected.size === 0 && <Notice tone='warning'>{t('publishPanel.noneSelected')}</Notice>}
 
         {GROUPS.map(group => {

@@ -55,6 +55,8 @@ const lists = {
     selectAll: 'Select all',
     selectNone: 'Clear selection',
     noneSelected: 'Tick at least one change to publish.',
+    buildingNoticeNow: 'The site is updating with the publish that just started. You can publish the new changes once it finishes.',
+    buildingNotice: { one: 'The site is updating with the previous publish ({count} minute ago). You can publish the new changes once it finishes.', other: 'The site is updating with the previous publish ({count} minutes ago). You can publish the new changes once it finishes.' },
     groups: {
       new: 'New on the site',
       changed: 'With changes',

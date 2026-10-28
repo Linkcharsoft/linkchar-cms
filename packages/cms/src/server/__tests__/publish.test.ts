@@ -165,6 +165,13 @@ describe('publishChanges', () => {
     expect(rpc).not.toHaveBeenCalled()
   })
 
+  it('waits for the previous build before publishing again', async () => {
+    db.tables.publish_log.push(logRow(8, { build_status: 'building', requested_at: at(3) }))
+    expect(await publishChanges(ctx, { publish: [{ id: ID(1), revision: 2 }], remove: [] })).toEqual({ ok: false, error: 'errors.publish.building' })
+    db.tables.publish_log[0].requested_at = at(31)
+    expect(await publishChanges(ctx, { publish: [{ id: ID(1), revision: 2 }], remove: [] })).toMatchObject({ ok: true })
+  })
+
   it('rejects a selection that changed since it was reviewed', async () => {
     for (const selection of [{ publish: [{ id: ID(1), revision: 1 }], remove: [] }, { publish: [{ id: ID(7), revision: 1 }], remove: [] }, { publish: [], remove: [ID(1)] }]) {
       expect(await publishChanges(ctx, selection)).toEqual({ ok: false, error: 'errors.publish.stale' })

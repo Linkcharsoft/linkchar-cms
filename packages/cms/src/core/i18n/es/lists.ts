@@ -52,6 +52,8 @@ const lists = {
     selectAll: 'Marcar todos',
     selectNone: 'Desmarcar todos',
     noneSelected: 'Marcá al menos un cambio para publicar.',
+    buildingNoticeNow: 'El sitio se está actualizando con la publicación que recién empezó. Cuando termine vas a poder publicar los cambios nuevos.',
+    buildingNotice: { one: 'El sitio se está actualizando con la publicación anterior (hace {count} minuto). Cuando termine vas a poder publicar los cambios nuevos.', other: 'El sitio se está actualizando con la publicación anterior (hace {count} minutos). Cuando termine vas a poder publicar los cambios nuevos.' },
     groups: {
       new: 'Nuevos en el sitio',
       changed: 'Con cambios',
