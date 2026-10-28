@@ -6,9 +6,10 @@ import type { MfaDeviceType } from '../../../core/roles'
 
 interface Props {
   devices: MfaDeviceType[]
+  next?: string
 }
 
-const MfaVerifyPage = ({ devices }: Props) => {
+const MfaVerifyPage = ({ devices, next }: Props) => {
   const { t } = useT()
   const { actions } = useCms()
 
@@ -19,7 +20,7 @@ const MfaVerifyPage = ({ devices }: Props) => {
         <p className='DashboardAuthLayout__Subtitle'>{t('auth.mfa.subtitle')}</p>
       </div>
 
-      <MfaChallengeForm devices={devices} />
+      <MfaChallengeForm devices={devices} next={next} />
 
       <form action={actions.logout} className='flex justify-center'>
         <CustomButton type='submit' variant='ghost' size='sm'>{t('auth.mfa.otherAccount')}</CustomButton>

@@ -6,7 +6,7 @@ import { redirect } from 'next/navigation'
 import { NextResponse } from 'next/server'
 import { cache } from 'react'
 import { consoleLogger } from '../core/logger'
-import { panelPaths } from '../core/paths'
+import { panelPaths, safePanelPath } from '../core/paths'
 import { createSiteReaders } from '../site/readers'
 import { documentJsonLd, documentMetadata, seoOf, siteDefaultValues } from '../site/seo'
 import { changePassword, markTourSeen, recordMfaChange, resetTours, updateAvatar, updateProfile } from './account'
@@ -175,6 +175,9 @@ export const createCmsServer = ({ config, supabase, publishTarget = null, logger
     const url = request.nextUrl.clone()
     url.pathname = target
     url.search = ''
+    // Sign-in comes back to the screen that was asked for (an expired session, a shared link).
+    const next = target === paths.login ? safePanelPath(`${pathname}${request.nextUrl.search}`, config) : null
+    if (next) url.searchParams.set('next', next)
     const redirect = NextResponse.redirect(url)
     response.cookies.getAll().forEach(cookie => redirect.cookies.set(cookie))
     return redirect

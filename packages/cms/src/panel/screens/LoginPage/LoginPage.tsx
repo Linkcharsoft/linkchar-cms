@@ -6,6 +6,7 @@ import { InputText } from 'primereact/inputtext'
 import { Password } from 'primereact/password'
 import { useState } from 'react'
 import { validateLogin } from '../../../core/forms'
+import { safePanelPath } from '../../../core/paths'
 import { useCms, usePaths, useT } from '../../client/context'
 import { submitWithFocus, useFormValidation } from '../../forms/formik'
 import CustomButton from '../../primitives/CustomButton/CustomButton'
@@ -18,11 +19,13 @@ const URL_ERRORS = ['inactivo', 'sesion', 'link-invalido', 'link-vencido'] as co
 
 interface Props {
   error?: string
+  // Panel screen to come back to after signing in, as the proxy wrote it.
+  next?: string
 }
 
-const LoginPage = ({ error }: Props) => {
+const LoginPage = ({ error, next }: Props) => {
   const { t, translate } = useT()
-  const { actions } = useCms()
+  const { actions, config } = useCms()
   const paths = usePaths()
   const router = useRouter()
   const urlError = URL_ERRORS.find(code => code === error)
@@ -38,7 +41,9 @@ const LoginPage = ({ error }: Props) => {
       const result = await actions.login(values)
       if (result.error) setSubmitError(translate(result.error))
       if (result.redirectTo) {
-        router.replace(result.redirectTo as Route)
+        const target = safePanelPath(next, config)
+        const to = !target ? result.redirectTo : result.redirectTo === paths.mfaVerify ? `${paths.mfaVerify}?next=${encodeURIComponent(target)}` : target
+        router.replace(to as Route)
         router.refresh()
       }
     }
