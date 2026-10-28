@@ -17,6 +17,11 @@ describe('panelPaths', () => {
     expect(paths.field('page', 'home', undefined, { field: 'hero.title', locale: 'es' })).toBe('/admin/paginas/home#hero.title')
     expect(paths.field('collection', 'posts', 'p1', { field: 'title', locale: null })).toBe('/admin/colecciones/posts/p1#title')
     expect(paths.publicPaths).toContain('/admin/auth')
+    expect(paths.siteHome).toBe('/')
+  })
+
+  it('points at the front page of a site that prefixes its default locale', () => {
+    expect(panelPaths(defineCmsConfig({ schema: {}, locales: ['es', 'en'], prefixDefaultLocale: true })).siteHome).toBe('/es')
   })
 
   it('opens a field in another language with the locale in the query', () => {
