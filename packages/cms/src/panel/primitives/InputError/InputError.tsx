@@ -3,13 +3,16 @@ import { AnimatePresence, m } from 'motion/react'
 
 interface Props {
   message: string | undefined
+  // So the input can point at it with aria-describedby.
+  id?: string
 }
 
-const InputError = ({ message }: Props) => {
+const InputError = ({ message, id }: Props) => {
   return (
     <AnimatePresence>
       {message && (
         <m.div
+          id={id}
           role='alert'
           className='InputError cms-text-medium-14 flex items-center gap-2 text-cms-danger-600'
           initial={{ opacity: 0, height: 0 }}

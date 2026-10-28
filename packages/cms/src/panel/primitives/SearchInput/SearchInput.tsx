@@ -61,15 +61,18 @@ const SearchInput = ({
       />
 
       {searchValue ? (
-        <InputIcon
-          className="pi pi-times cms-text-regular-14 cursor-pointer hover:text-cms-danger-600 hover:opacity-75"
+        <button
+          type='button'
+          className='SearchInput__Clear'
           aria-label={t('ui.clearSearch')}
           onClick={() => {
             clearTimeout(timer.current)
             setSearchValue('')
             onChange()
           }}
-        />
+        >
+          <i className='pi pi-times cms-text-regular-14' aria-hidden='true' />
+        </button>
       ) : (
         <InputIcon className="pi pi-search cms-text-regular-14" />
       )}

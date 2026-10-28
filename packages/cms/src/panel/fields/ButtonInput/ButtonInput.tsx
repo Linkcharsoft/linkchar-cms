@@ -35,7 +35,8 @@ const ButtonInput = ({ name, field }: Props) => {
         <InputContainer label={t('fields.button.text')} htmlFor={`${id}-label`} error={labelError} note={languages.note}>
           <InputText
             id={`${id}-label`}
-            aria-describedby={languages.describedBy}
+            aria-describedby={[labelError && `${id}-label-error`, languages.describedBy].filter(Boolean).join(' ') || undefined}
+            aria-invalid={labelError ? true : undefined}
             value={buttonText ?? ''}
             maxLength={40}
             autoComplete='off'
@@ -50,6 +51,7 @@ const ButtonInput = ({ name, field }: Props) => {
           <InputContainer label={t('fields.button.style')} htmlFor={`${id}-variant`} error={undefined} badge={<SharedBadge />}>
             <Dropdown
               inputId={`${id}-variant`}
+              className='w-full'
               value={variant}
               options={field.variants.map(option => ({ value: option.value, label: text(option.label) }))}
               onChange={event => variantHelpers.setValue(event.value)}
