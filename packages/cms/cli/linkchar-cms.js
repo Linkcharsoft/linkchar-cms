@@ -87,13 +87,13 @@ const routes = async ({ config, src, check }) => {
 /** @param {{ config: string, dir: string, check: boolean }} options */
 const templates = async ({ config, dir, check }) => {
   const loaded = await loadConfig(resolve(config))
-  const changes = await syncTemplates({ supabaseDir: resolve(dir), basePath: loaded.basePath, t: await translatorOf(loaded), write: !check })
+  const changes = await syncTemplates({ supabaseDir: resolve(dir), basePath: loaded.basePath, t: await translatorOf(loaded), product: loaded.branding?.name, write: !check })
   print('Email templates', changes, check)
 
   if (changes.some(change => change.status === 'stale')) {
     console.warn(`\nAn email template does not link to ${loaded.basePath}/auth/confirm: fix its href, or delete it and run this again.`)
   }
-  return check && changes.some(change => change.status === 'added' || change.status === 'stale') ? 1 : 0
+  return check && changes.some(change => change.status !== 'same' && change.status !== 'kept') ? 1 : 0
 }
 
 /**
@@ -185,8 +185,8 @@ const doctor = async ({ config, src, dir, 'env-file': envFile }) => {
       : { level: 'fail', text: 'Migrations are behind the package: linkchar-cms migrations sync' })
     if (loaded) {
       const emails = await syncTemplates({ supabaseDir, basePath: loaded.basePath, t: await translatorOf(loaded), write: false })
-      checks.push(emails.some(change => change.status === 'added' || change.status === 'stale')
-        ? { level: 'fail', text: 'Email templates are missing or link elsewhere: linkchar-cms templates' }
+      checks.push(emails.some(change => change.status !== 'same' && change.status !== 'kept')
+        ? { level: 'fail', text: 'Email templates are missing, unbranded or link elsewhere: linkchar-cms templates' }
         : { level: 'ok', text: 'Email templates link to the panel' })
     }
   } else {
