@@ -179,6 +179,16 @@ describe('saveDocument', () => {
       expect(postRow()).toMatchObject({ slug: 'otra', slugs: { es: 'otra', en: 'house-2' } })
     })
 
+    it('warns when the slug is free among drafts but still live on another document', async () => {
+      db.tables.published_documents.push({ id: ID(8), type: 'posts', key: null, slug: 'vieja', slugs: { es: 'vieja', en: 'old' }, paths: {}, data: { title: { es: 'Casa vieja', en: 'Old house' } }, sort_order: 0 })
+      const result = await saveDocument(fakeContext(db, cmsConfig), {
+        entryId: 'posts', id: ID(3), patch: { title: { es: 'Nueva', en: 'New' }, slug: { es: 'vieja', en: 'new' } }, base: postBase()
+      })
+      expect(result).toMatchObject({ status: 'saved', warnings: { 'slug.es': 'En el sitio, "Casa vieja" todavía usa esta URL. Publicá los dos juntos, o cambiá esta antes de publicar.' } })
+      expect(result).not.toHaveProperty('errors')
+      expect(postRow()).toMatchObject({ slug: 'vieja', slugs: { es: 'vieja', en: 'new' } })
+    })
+
     it('checks each locale: a taken English slug typed by hand is reported on its locale', async () => {
       db.tables.documents.push(post(4, 'hogar', 'house'))
       const result = await saveDocument(fakeContext(db, cmsConfig), {

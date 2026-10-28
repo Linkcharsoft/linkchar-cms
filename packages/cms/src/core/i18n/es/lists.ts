@@ -62,6 +62,9 @@ const lists = {
     sectionsChanged: 'Cambió: {sections}',
     urlChange: 'La URL cambia de {from} a {to}. Los links viejos van a redirigir a la nueva.',
     problems: 'No se publica hasta completar: {fields}.',
+    urlTaken: 'La URL {path} la usa "{name}" en el sitio. Cambiá la URL de uno de los dos.',
+    urlFreedBy: 'La URL {path} la usa "{name}" en el sitio: marcalo también para que salgan juntos.',
+    conflictDetail: 'Revisá: {names}.',
     confirm: {
       publishes: 'Se publica:',
       removes: 'Se quita del sitio:',

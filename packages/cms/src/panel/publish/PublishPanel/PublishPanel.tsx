@@ -6,6 +6,7 @@ import { Checkbox } from 'primereact/checkbox'
 import { Tag } from 'primereact/tag'
 import { classNames } from 'primereact/utils'
 import { useEffect, useState } from 'react'
+import { formatList } from '../../../core/i18n/translator'
 import { publishDisplayStatus, publishMinutes } from '../../../core/publish'
 import { selectionWarnings } from '../../../core/publishSelection'
 import { useCms, useFormatDate, useT } from '../../client/context'
@@ -44,20 +45,21 @@ const selectId = (id: string) => `select-${id}`
 interface ChangeItemProps {
   change: PendingChangeType
   highlighted: boolean
+  conflicted: boolean
   warnings: string[]
   // Only changes the publish can take are ticked; incomplete ones show why they are not.
   checked: boolean | null
   onToggle: () => void
 }
 
-const ChangeItem = ({ change, highlighted, warnings, checked, onToggle }: ChangeItemProps) => {
+const ChangeItem = ({ change, highlighted, conflicted, warnings, checked, onToggle }: ChangeItemProps) => {
   const { t } = useT()
   const formatDate = useFormatDate()
   const meta = [change.entryLabel !== change.title && change.entryLabel, change.updatedBy, formatDate(change.updatedAt, 'shortDateTime')]
   const missing = [...new Map(change.missing.map(item => [item.label, item])).values()]
 
   return (
-    <li id={changeId(change.id)} className={classNames('PublishPanel__Item', { 'PublishPanel__Item--Highlight': highlighted, 'PublishPanel__Item--Skipped': checked === false })}>
+    <li id={changeId(change.id)} className={classNames('PublishPanel__Item', { 'PublishPanel__Item--Highlight': highlighted, 'PublishPanel__Item--Skipped': checked === false, 'PublishPanel__Item--Conflict': conflicted })}>
       <div className='PublishPanel__ItemMain'>
         {checked !== null && (
           <span className='PublishPanel__Select'>
@@ -91,6 +93,12 @@ const ChangeItem = ({ change, highlighted, warnings, checked, onToggle }: Change
           </span>
         </p>
       )}
+      {change.urlConflicts.filter(conflict => !conflict.freed).map(conflict => (
+        <p key={conflict.path} className='PublishPanel__Problem'>
+          <i className='pi pi-exclamation-triangle' aria-hidden='true' />
+          {t('publishPanel.urlTaken', { path: conflict.path, name: conflict.takenBy.name })}
+        </p>
+      ))}
       {warnings.map(warning => (
         <p key={warning} className='PublishPanel__Warning'>
           <i className='pi pi-exclamation-triangle' aria-hidden='true' />
@@ -181,16 +189,18 @@ const HistoryItem = ({ record, onRetry }: { record: PublishRecordType, onRetry?:
 }
 
 const PublishPanel = ({ changes, history, canPublish, highlight }: Props) => {
-  const { t, translate } = useT()
+  const { t, translate, locale } = useT()
   const { actions } = useCms()
   const router = useRouter()
   const notify = useNotify()
   const confirm = useConfirm()
   const [publishing, setPublishing] = useState(false)
+  // Both sides of a URL the last publish failed on, until the list is refreshed.
+  const [conflicted, setConflicted] = useState<ReadonlySet<string>>(new Set())
   // Ticked by default: the ids the user left out of this publish.
   const [excluded, setExcluded] = useState<ReadonlySet<string>>(new Set())
 
-  const takeable = (change: PendingChangeType) => change.action === 'unpublish' || change.problems.length === 0
+  const takeable = (change: PendingChangeType) => change.action === 'unpublish' || (change.problems.length === 0 && change.urlConflicts.every(conflict => conflict.freed))
   const ready = changes.filter(change => change.action === 'publish' && change.problems.length === 0)
   const removals = changes.filter(change => change.action === 'unpublish')
   const incomplete = changes.length - ready.length - removals.length
@@ -236,11 +246,20 @@ const PublishPanel = ({ changes, history, canPublish, highlight }: Props) => {
     setPublishing(false)
 
     if (!result.ok) {
-      notify({ severity: 'error', summary: t('publishPanel.failed'), detail: translate(result.error), life: 6000 })
+      const ids = new Set((result.conflicts ?? []).flatMap(conflict => [conflict.id, conflict.takenBy]))
+      const names = changes.filter(change => ids.has(change.id)).map(change => change.title)
+      setConflicted(ids)
+      notify({
+        severity: 'error',
+        summary: t('publishPanel.failed'),
+        detail: names.length > 0 ? `${translate(result.error)} ${t('publishPanel.conflictDetail', { names: formatList(locale, names) })}` : translate(result.error),
+        life: 8000
+      })
       router.refresh()
       return
     }
 
+    setConflicted(new Set())
     setExcluded(new Set())
     notify(result.buildStatus === 'failed'
       ? { severity: 'warn', summary: t('publishPanel.done'), detail: t('publishPanel.buildNotStarted'), life: 8000 }
@@ -317,6 +336,7 @@ const PublishPanel = ({ changes, history, canPublish, highlight }: Props) => {
                     key={change.id}
                     change={change}
                     highlighted={change.id === highlight}
+                    conflicted={conflicted.has(change.id)}
                     warnings={selectionWarnings(change, selected, t)}
                     checked={takeable(change) ? selected.has(change.id) : null}
                     onToggle={() => toggle(change.id)}

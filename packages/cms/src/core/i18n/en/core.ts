@@ -48,7 +48,8 @@ const core = {
     translationMissing: 'Missing in {language}',
     altOf: 'Alt text of {field}',
     altMissing: 'Missing alt text in {language}',
-    slugTaken: 'Another item already uses this URL'
+    slugTaken: 'Another item already uses this URL',
+    slugLive: 'On the site, "{title}" still uses this URL. Publish both together, or change this one before publishing.'
   },
   errors: {
     invalidData: 'Check the data you entered.',

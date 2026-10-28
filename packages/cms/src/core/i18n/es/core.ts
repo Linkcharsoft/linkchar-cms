@@ -45,7 +45,8 @@ const core = {
     translationMissing: 'Falta en {language}',
     altOf: 'Texto alternativo de {field}',
     altMissing: 'Falta el texto alternativo en {language}',
-    slugTaken: 'Ya hay otro contenido con esta URL'
+    slugTaken: 'Ya hay otro contenido con esta URL',
+    slugLive: 'En el sitio, "{title}" todavía usa esta URL. Publicá los dos juntos, o cambiá esta antes de publicar.'
   },
   errors: {
     invalidData: 'Revisá los datos ingresados.',

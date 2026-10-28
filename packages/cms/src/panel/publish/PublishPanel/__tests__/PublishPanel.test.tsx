@@ -27,6 +27,7 @@ const change = (overrides: Partial<PendingChangeType>): PendingChangeType => ({
   warnings: [],
   pendingRefs: [],
   fixedUsers: [],
+  urlConflicts: [],
   ...overrides
 })
 
@@ -123,6 +124,22 @@ describe('PublishPanel', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /Publicar cambios \(1\)/ }))
     await waitFor(() => expect(publishChanges).toHaveBeenCalledWith({ publish: [{ id: 'a', revision: 1 }], remove: [] }))
+  })
+
+  it('keeps a change whose URL is live on another document out, and points at both after a failed publish', async () => {
+    const stuck = { locale: 'es', path: '/blog/casa', takenBy: { id: 'live', name: 'Casa vieja' }, freed: false }
+    const publishChanges = vi.fn(async () => ({ ok: false as const, error: 'errors.publish.slugTaken' as const, conflicts: [{ id: 'b', takenBy: 'c' }] }))
+    renderPanel(<PublishPanel
+      changes={[change({ id: 'a', title: 'Casa', urlConflicts: [stuck] }), change({ id: 'b', title: 'Loft' }), change({ id: 'c', title: 'Loft viejo', status: 'changed' })]}
+      history={[]}
+      canPublish
+    />, { actions: { publishChanges } as never })
+    expect(screen.getByText('La URL /blog/casa la usa "Casa vieja" en el sitio. Cambiá la URL de uno de los dos.')).toBeTruthy()
+    expect(screen.queryByLabelText('Incluir "Casa" en esta publicación')).toBeNull()
+
+    fireEvent.click(screen.getByRole('button', { name: /Publicar cambios \(2\)/ }))
+    await waitFor(() => expect(publishChanges).toHaveBeenCalled())
+    await waitFor(() => expect(document.querySelectorAll('.PublishPanel__Item--Conflict')).toHaveLength(2))
   })
 
   it('needs at least one ticked change', () => {

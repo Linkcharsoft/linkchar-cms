@@ -65,6 +65,9 @@ const lists = {
     sectionsChanged: 'Changed: {sections}',
     urlChange: 'The URL changes from {from} to {to}. Old links will redirect to the new one.',
     problems: 'Not published until these are filled in: {fields}.',
+    urlTaken: '"{name}" uses the URL {path} on the site. Change the URL of one of them.',
+    urlFreedBy: '"{name}" uses the URL {path} on the site: tick it too so they go out together.',
+    conflictDetail: 'Check: {names}.',
     confirm: {
       publishes: 'To be published:',
       removes: 'To be removed from the site:',
