@@ -27,6 +27,7 @@ const change = (overrides: Partial<PendingChangeType>): PendingChangeType => ({
   warnings: [],
   pendingRefs: [],
   fixedUsers: [],
+  urlConflicts: [],
   ...overrides
 })
 
@@ -77,6 +78,13 @@ describe('PublishPanel', () => {
     expect(screen.getByText(/puede editar pero no publicar/)).toBeTruthy()
   })
 
+  it('holds the publish button while the previous build runs', () => {
+    const building = { ...record, buildStatus: 'building' as const, requestedAt: new Date(Date.now() - 3 * 60_000).toISOString(), errorCode: null, errorDetail: null }
+    renderPanel(<PublishPanel changes={[change({})]} history={[building]} canPublish />)
+    expect(screen.getByRole('button', { name: /Publicar cambios/ }).hasAttribute('disabled')).toBe(true)
+    expect(screen.getByRole('status').textContent).toContain('hace 3 minutos')
+  })
+
   it('shows build errors by code with their detail', () => {
     renderPanel(<PublishPanel changes={[]} history={[record]} canPublish />)
     expect(screen.getByText('Todo lo que está en el panel ya está en el sitio.')).toBeTruthy()
@@ -118,6 +126,22 @@ describe('PublishPanel', () => {
     await waitFor(() => expect(publishChanges).toHaveBeenCalledWith({ publish: [{ id: 'a', revision: 1 }], remove: [] }))
   })
 
+  it('keeps a change whose URL is live on another document out, and points at both after a failed publish', async () => {
+    const stuck = { locale: 'es', path: '/blog/casa', takenBy: { id: 'live', name: 'Casa vieja' }, freed: false }
+    const publishChanges = vi.fn(async () => ({ ok: false as const, error: 'errors.publish.slugTaken' as const, conflicts: [{ id: 'b', takenBy: 'c' }] }))
+    renderPanel(<PublishPanel
+      changes={[change({ id: 'a', title: 'Casa', urlConflicts: [stuck] }), change({ id: 'b', title: 'Loft' }), change({ id: 'c', title: 'Loft viejo', status: 'changed' })]}
+      history={[]}
+      canPublish
+    />, { actions: { publishChanges } as never })
+    expect(screen.getByText('La URL /blog/casa la usa "Casa vieja" en el sitio. Cambiá la URL de uno de los dos.')).toBeTruthy()
+    expect(screen.queryByLabelText('Incluir "Casa" en esta publicación')).toBeNull()
+
+    fireEvent.click(screen.getByRole('button', { name: /Publicar cambios \(2\)/ }))
+    await waitFor(() => expect(publishChanges).toHaveBeenCalled())
+    await waitFor(() => expect(document.querySelectorAll('.PublishPanel__Item--Conflict')).toHaveLength(2))
+  })
+
   it('needs at least one ticked change', () => {
     renderPanel(<PublishPanel changes={[change({ id: 'a', title: 'Casa' })]} history={[]} canPublish />)
     fireEvent.click(screen.getByLabelText('Incluir "Casa" en esta publicación'))
@@ -129,5 +153,22 @@ describe('PublishPanel', () => {
     renderPanel(<PublishPanel changes={[]} history={[{ ...record, id: 2, retryOf: 1 }]} canPublish={false} />)
     expect(screen.queryByRole('button', { name: 'Reintentar' })).toBeNull()
     expect(screen.getByText('Reintento')).toBeTruthy()
+  })
+
+  it('offers the retry for an unconfirmed build but not when no target is configured', () => {
+    const unconfirmed = { ...record, buildStatus: 'building' as const, requestedAt: new Date(Date.now() - 45 * 60_000).toISOString(), errorCode: null, errorDetail: null }
+    renderPanel(<PublishPanel changes={[]} history={[unconfirmed]} canPublish activityHref='/dashboard/actividad?accion=publishing' />)
+    expect(screen.getByRole('button', { name: 'Reintentar' })).toBeTruthy()
+    expect(screen.getByText('Sin confirmar')).toBeTruthy()
+    expect(screen.getByRole('link', { name: 'Ver todas en Actividad' }).getAttribute('href')).toBe('/dashboard/actividad?accion=publishing')
+    cleanup()
+
+    renderPanel(<PublishPanel changes={[]} history={[{ ...record, errorCode: 'target_missing' }]} canPublish />)
+    expect(screen.queryByRole('button', { name: 'Reintentar' })).toBeNull()
+    cleanup()
+
+    const building = { ...unconfirmed, requestedAt: new Date(Date.now() - 7 * 60_000).toISOString() }
+    renderPanel(<PublishPanel changes={[]} history={[building]} canPublish />)
+    expect(screen.getByText('Publicando · hace 7 min')).toBeTruthy()
   })
 })

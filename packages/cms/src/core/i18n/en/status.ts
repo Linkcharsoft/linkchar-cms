@@ -3,7 +3,7 @@ import type { CatalogType } from '../types'
 
 const status = {
   documentStatus: {
-    hidden: 'Draft',
+    hidden: 'Hidden',
     new: 'Ready to publish',
     incomplete: 'Incomplete',
     published: 'Published',
@@ -11,7 +11,7 @@ const status = {
     unpublishing: 'Removed on publish'
   },
   publishStatus: {
-    building: 'Publishing · ~5 min',
+    building: 'Publishing',
     buildingStarted: 'Publishing · just started',
     buildingFor: 'Publishing · {minutes} min ago',
     success: 'Done',

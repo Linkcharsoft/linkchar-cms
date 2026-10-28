@@ -9,6 +9,7 @@ import sharp from 'sharp'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { mockBuild } from '../../publish/mock'
 import { createImportSession } from '../import'
+import { settleBuilds } from './builds'
 import type { ImportSessionType } from '../import'
 
 const localStatus = (): Record<string, string> => {
@@ -87,6 +88,7 @@ describe('an import session', () => {
     const incomplete = await session.upsert('posts', { data: { title: { es: `Sin traducir ${stamp}` }, slug: { es: `imp-${stamp}-b` }, body: { es: paragraph('Solo') } } })
     documents.push(incomplete.id)
 
+    await settleBuilds(admin)
     const report = await session.publish()
     expect(report).toMatchObject({ published: 1, buildStatus: 'building' })
     expect(report.skipped.map(item => item.id)).toEqual([incomplete.id])

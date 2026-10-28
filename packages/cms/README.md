@@ -545,7 +545,7 @@ pnpm exec linkchar-cms routes          # writes the panel wiring under src/app/(
 pnpm exec linkchar-cms routes --check  # CI: exit 1 when a file is missing or stale, or the proxy matcher misses basePath
 ```
 
-- `src/app/(cms)/<basePath>/…`: one file per screen (`export default route.Page`), the layouts, `loading.tsx`, and the email link and sign-out handlers.
+- `src/app/(cms)/<basePath>/…`: one file per screen (`export default route.Page`), the layouts, `loading.tsx` (a table skeleton for lists, fields for the editors), the panel's `error.tsx` and `not-found.tsx` (with a catch-all, so an unknown panel URL shows the panel's 404 instead of the site's), and the email link and sign-out handlers.
 - `src/app/api/cms/{build-status,draft,disable-draft}/route.ts`: the build webhook and the preview's Draft Mode.
 - `src/cms/actions.ts`: `'use server'`, re-exports every action the browser calls.
 - Created once and then owned by the project: `src/app/(cms)/layout.tsx` (the panel's root layout) and `src/cms/client.ts` (`createCmsClient`, where project inputs are registered).
@@ -558,7 +558,7 @@ The URL segments are configurable and default to Spanish: `paths: { pages: 'pagi
 
 The editor shows a language selector when the config has more than one locale, with what is missing in each language ("English · 3 missing"). Translated texts are edited per language (`?locale=en` in the URL), with the default language's text above each one; shared values say "Same in every language". Images, galleries and PDFs reuse the original until someone picks "Use another image for English", and "Back to the original" drops it. The page outline and each section count what is missing per language (`ES 1 · EN 3`), and Media marks and filters the images without alt text in a language.
 
-A document with missing content reads "Incompleto" in the editor, the tables (which filter by it) and the overview; the header's "Publicar" counter only counts the changes the next publish takes, and refreshes with each save. Publish lets the user tick which changes go out. Each missing item in Publish links to its field: `paths.field(kind, entryId, id, { field, locale })` builds `/dashboard/paginas/home?locale=en#hero.title`, and the editor opens and focuses any field named in the hash (`#services` alone still opens the section).
+A document with missing content reads "Incompleto" in the editor, the tables (which filter by it) and the overview; the header's "Publicar" counter only counts the changes the next publish takes, and refreshes with each save. Publish lets the user tick which changes go out, and names the live document that still holds a URL a change would take (tick both so they go out together, or change one URL). Each missing item in Publish links to its field: `paths.field(kind, entryId, id, { field, locale })` builds `/dashboard/paginas/home?locale=en#hero.title`, and the editor opens and focuses any field named in the hash (`#services` alone still opens the section).
 
 Uploading a file the library already has (same bytes, SHA-256 of the original file) offers the existing one instead of a copy. Drafts created with "Nuevo …" and never touched disappear after a day; the overview warns about hidden drafts nobody touched for two weeks.
 

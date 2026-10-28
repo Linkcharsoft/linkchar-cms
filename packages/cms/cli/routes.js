@@ -44,6 +44,16 @@ const handler = (method, handler) => /** @param {(target: string) => string} imp
 
 const loading = () => 'export { default } from \'@linkcharsoft/cms/panel/routes/loading\''
 
+const loadingEditor = () => 'export { default } from \'@linkcharsoft/cms/panel/routes/loading-editor\''
+
+// Next wants error.tsx itself to be a client module.
+const errorBoundary = () => ['\'use client\'', 'export { default } from \'@linkcharsoft/cms/panel/routes/error\''].join('\n')
+
+const notFound = () => 'export { default } from \'@linkcharsoft/cms/panel/routes/not-found\''
+
+// An unknown URL under the panel renders the panel's not-found inside its layout, not the site's 404.
+const catchAll = () => ['import { notFound } from \'next/navigation\'', '', 'const Page = () => notFound()', '', 'export default Page'].join('\n')
+
 /**
  * Every file of the panel wiring, relative to the project's source folder (src/ or the root).
  * @param {RoutesConfigType} config
@@ -68,13 +78,19 @@ export const planRoutes = ({ basePath, paths }, configFile) => {
     [join(base, 'auth', 'confirm', 'route.ts'), handler('GET', 'authConfirm')],
     [join(base, 'auth', 'signout', 'route.ts'), handler('GET', 'signout')],
     [join(panel, 'layout.tsx'), view('panel', 'panelLayout', 'layout')],
+    [join(panel, 'error.tsx'), errorBoundary],
+    [join(panel, 'not-found.tsx'), notFound],
     [join(workspace, 'loading.tsx'), loading],
+    [join(workspace, '[...notFound]', 'page.tsx'), catchAll],
     [join(workspace, 'page.tsx'), view('overview', 'overviewRoute', 'page', ['metadata'])],
     [join(workspace, paths.pages, 'page.tsx'), view('pages', 'pagesRoute', 'page', ['metadata'])],
     [join(workspace, paths.pages, '[page]', 'page.tsx'), view('page-editor', 'pageEditorRoute', 'page', ['generateMetadata'])],
+    [join(workspace, paths.pages, '[page]', 'loading.tsx'), loadingEditor],
     [join(workspace, paths.collections, '[entry]', 'page.tsx'), view('collection', 'collectionRoute', 'page', ['generateMetadata'])],
     [join(workspace, paths.collections, '[entry]', '[id]', 'page.tsx'), view('document-editor', 'documentEditorRoute', 'page', ['generateMetadata'])],
+    [join(workspace, paths.collections, '[entry]', '[id]', 'loading.tsx'), loadingEditor],
     [join(workspace, paths.site, '[entry]', 'page.tsx'), view('singleton-editor', 'singletonEditorRoute', 'page', ['generateMetadata'])],
+    [join(workspace, paths.site, '[entry]', 'loading.tsx'), loadingEditor],
     [join(workspace, paths.media, 'page.tsx'), view('media', 'mediaRoute', 'page', ['metadata'])],
     [join(workspace, paths.publish, 'page.tsx'), view('publish', 'publishRoute', 'page', ['metadata'])],
     [join(workspace, paths.trash, 'page.tsx'), view('trash', 'trashRoute', 'page', ['metadata'])],

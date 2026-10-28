@@ -5,13 +5,15 @@ import { useRouter } from 'next/navigation'
 import { Checkbox } from 'primereact/checkbox'
 import { Tag } from 'primereact/tag'
 import { classNames } from 'primereact/utils'
-import { Fragment, useEffect, useState } from 'react'
-import { publishDisplayStatus } from '../../../core/publish'
+import { useEffect, useState } from 'react'
+import { formatList } from '../../../core/i18n/translator'
+import { publishDisplayStatus, publishMinutes } from '../../../core/publish'
 import { selectionWarnings } from '../../../core/publishSelection'
 import { useCms, useFormatDate, useT } from '../../client/context'
 import { useConfirm } from '../../primitives/ConfirmAction/ConfirmAction'
 import CustomButton from '../../primitives/CustomButton/CustomButton'
 import EmptyState from '../../primitives/EmptyState/EmptyState'
+import InlineList, { fillTemplate } from '../../primitives/InlineList/InlineList'
 import Notice from '../../primitives/Notice/Notice'
 import { useNotify } from '../../providers/notify'
 import { PUBLISH_SEVERITIES } from '../../shell/PublishStatus/PublishStatus'
@@ -23,6 +25,8 @@ interface Props {
   history: PublishRecordType[]
   canPublish: boolean
   highlight?: string
+  // The activity screen filtered to publishes, for the roles that may open it.
+  activityHref?: string
 }
 
 const POLL_INTERVAL_MS = 10_000
@@ -43,20 +47,21 @@ const selectId = (id: string) => `select-${id}`
 interface ChangeItemProps {
   change: PendingChangeType
   highlighted: boolean
+  conflicted: boolean
   warnings: string[]
   // Only changes the publish can take are ticked; incomplete ones show why they are not.
   checked: boolean | null
   onToggle: () => void
 }
 
-const ChangeItem = ({ change, highlighted, warnings, checked, onToggle }: ChangeItemProps) => {
+const ChangeItem = ({ change, highlighted, conflicted, warnings, checked, onToggle }: ChangeItemProps) => {
   const { t } = useT()
   const formatDate = useFormatDate()
   const meta = [change.entryLabel !== change.title && change.entryLabel, change.updatedBy, formatDate(change.updatedAt, 'shortDateTime')]
   const missing = [...new Map(change.missing.map(item => [item.label, item])).values()]
 
   return (
-    <li id={changeId(change.id)} className={classNames('PublishPanel__Item', { 'PublishPanel__Item--Highlight': highlighted, 'PublishPanel__Item--Skipped': checked === false })}>
+    <li id={changeId(change.id)} className={classNames('PublishPanel__Item', { 'PublishPanel__Item--Highlight': highlighted, 'PublishPanel__Item--Skipped': checked === false, 'PublishPanel__Item--Conflict': conflicted })}>
       <div className='PublishPanel__ItemMain'>
         {checked !== null && (
           <span className='PublishPanel__Select'>
@@ -69,13 +74,9 @@ const ChangeItem = ({ change, highlighted, warnings, checked, onToggle }: Change
       </div>
       {change.sections.length > 0 && (
         <p className='PublishPanel__Sections'>
-          {t('publishPanel.sectionsChanged')}
-          {change.sections.map((section, index) => (
-            <Fragment key={section.href}>
-              {index > 0 && ', '}
-              <Link href={section.href as Route} className='PublishPanel__SectionLink'>{section.label}</Link>
-            </Fragment>
-          ))}
+          {fillTemplate(t('publishPanel.sectionsChanged', { sections: '{sections}' }), {
+            sections: <InlineList items={change.sections} label={section => section.label} render={section => <Link href={section.href as Route} className='PublishPanel__SectionLink'>{section.label}</Link>} />
+          })}
         </p>
       )}
       {change.urlChanges.map(urlChange => (
@@ -88,17 +89,18 @@ const ChangeItem = ({ change, highlighted, warnings, checked, onToggle }: Change
         <p className='PublishPanel__Problem'>
           <i className='pi pi-exclamation-triangle' aria-hidden='true' />
           <span>
-            {t('publishPanel.problems')}
-            {missing.map((item, index) => (
-              <Fragment key={item.label}>
-                {index > 0 && ', '}
-                <Link href={item.href as Route} className='PublishPanel__MissingLink'>{item.label}</Link>
-              </Fragment>
-            ))}
-            .
+            {fillTemplate(t('publishPanel.problems', { fields: '{fields}' }), {
+              fields: <InlineList items={missing} label={item => item.label} render={item => <Link href={item.href as Route} className='PublishPanel__MissingLink'>{item.label}</Link>} />
+            })}
           </span>
         </p>
       )}
+      {change.urlConflicts.filter(conflict => !conflict.freed).map(conflict => (
+        <p key={conflict.path} className='PublishPanel__Problem'>
+          <i className='pi pi-exclamation-triangle' aria-hidden='true' />
+          {t('publishPanel.urlTaken', { path: conflict.path, name: conflict.takenBy.name })}
+        </p>
+      ))}
       {warnings.map(warning => (
         <p key={warning} className='PublishPanel__Warning'>
           <i className='pi pi-exclamation-triangle' aria-hidden='true' />
@@ -133,6 +135,8 @@ const HistoryItem = ({ record, onRetry }: { record: PublishRecordType, onRetry?:
   const [retrying, setRetrying] = useState(false)
   const formatDate = useFormatDate()
   const displayed = publishDisplayStatus(record.buildStatus, record.requestedAt)
+  const minutes = publishMinutes(record.requestedAt)
+  const statusLabel = displayed !== 'building' ? t(`publishStatus.${displayed}`) : minutes < 1 ? t('publishStatus.buildingStarted') : t('publishStatus.buildingFor', { minutes })
 
   return (
     <li className='PublishPanel__Item'>
@@ -142,7 +146,7 @@ const HistoryItem = ({ record, onRetry }: { record: PublishRecordType, onRetry?:
         </span>
         <span className='PublishPanel__ItemTags'>
           {record.retryOf !== null && <Tag value={t('publishPanel.retryOf')} severity='secondary' />}
-          <Tag value={t(`publishStatus.${displayed}`)} severity={PUBLISH_SEVERITIES[displayed]} />
+          <Tag value={statusLabel} severity={PUBLISH_SEVERITIES[displayed]} />
         </span>
       </div>
       <details className='PublishPanel__Details'>
@@ -188,17 +192,19 @@ const HistoryItem = ({ record, onRetry }: { record: PublishRecordType, onRetry?:
   )
 }
 
-const PublishPanel = ({ changes, history, canPublish, highlight }: Props) => {
-  const { t, translate } = useT()
+const PublishPanel = ({ changes, history, canPublish, highlight, activityHref }: Props) => {
+  const { t, translate, locale } = useT()
   const { actions } = useCms()
   const router = useRouter()
   const notify = useNotify()
   const confirm = useConfirm()
   const [publishing, setPublishing] = useState(false)
+  // Both sides of a URL the last publish failed on, until the list is refreshed.
+  const [conflicted, setConflicted] = useState<ReadonlySet<string>>(new Set())
   // Ticked by default: the ids the user left out of this publish.
   const [excluded, setExcluded] = useState<ReadonlySet<string>>(new Set())
 
-  const takeable = (change: PendingChangeType) => change.action === 'unpublish' || change.problems.length === 0
+  const takeable = (change: PendingChangeType) => change.action === 'unpublish' || (change.problems.length === 0 && change.urlConflicts.every(conflict => conflict.freed))
   const ready = changes.filter(change => change.action === 'publish' && change.problems.length === 0)
   const removals = changes.filter(change => change.action === 'unpublish')
   const incomplete = changes.length - ready.length - removals.length
@@ -207,6 +213,7 @@ const PublishPanel = ({ changes, history, canPublish, highlight }: Props) => {
   const selectedReady = ready.filter(change => selected.has(change.id))
   const selectedRemovals = removals.filter(change => selected.has(change.id))
   const building = history[0] && publishDisplayStatus(history[0].buildStatus, history[0].requestedAt) === 'building'
+  const buildingMinutes = history[0] ? publishMinutes(history[0].requestedAt) : 0
 
   useEffect(() => {
     if (highlight) window.document.getElementById(changeId(highlight))?.scrollIntoView({ block: 'center' })
@@ -243,11 +250,20 @@ const PublishPanel = ({ changes, history, canPublish, highlight }: Props) => {
     setPublishing(false)
 
     if (!result.ok) {
-      notify({ severity: 'error', summary: t('publishPanel.failed'), detail: translate(result.error), life: 6000 })
+      const ids = new Set((result.conflicts ?? []).flatMap(conflict => [conflict.id, conflict.takenBy]))
+      const names = changes.filter(change => ids.has(change.id)).map(change => change.title)
+      setConflicted(ids)
+      notify({
+        severity: 'error',
+        summary: t('publishPanel.failed'),
+        detail: names.length > 0 ? `${translate(result.error)} ${t('publishPanel.conflictDetail', { names: formatList(locale, names) })}` : translate(result.error),
+        life: 8000
+      })
       router.refresh()
       return
     }
 
+    setConflicted(new Set())
     setExcluded(new Set())
     notify(result.buildStatus === 'failed'
       ? { severity: 'warn', summary: t('publishPanel.done'), detail: t('publishPanel.buildNotStarted'), life: 8000 }
@@ -293,13 +309,14 @@ const PublishPanel = ({ changes, history, canPublish, highlight }: Props) => {
             <h2 id='pending-title' className='PublishPanel__CardTitle'>{t('publishPanel.pending')}</h2>
             <p className='PublishPanel__Meta'>{changes.length === 0 ? t('publishPanel.allLive') : summary}</p>
           </div>
-          <CustomButton type='button' onClick={askPublish} loading={publishing} disabled={!canPublish || selected.size === 0} data-tour='publish-button'>
+          <CustomButton type='button' onClick={askPublish} loading={publishing} disabled={!canPublish || selected.size === 0 || building} data-tour='publish-button'>
             <i className='pi pi-send' aria-hidden='true' />
             {selected.size > 0 ? t('publishPanel.publishCount', { count: selected.size }) : t('publishPanel.publish')}
           </CustomButton>
         </div>
 
         {!canPublish && <Notice icon='pi pi-lock'>{t('publishPanel.cannotPublish')}</Notice>}
+        {canPublish && building && total > 0 && <Notice icon='pi pi-spin pi-spinner' role='status'>{buildingMinutes < 1 ? t('publishPanel.buildingNoticeNow') : t('publishPanel.buildingNotice', { count: buildingMinutes })}</Notice>}
         {canPublish && total > 0 && selected.size === 0 && <Notice tone='warning'>{t('publishPanel.noneSelected')}</Notice>}
 
         {GROUPS.map(group => {
@@ -323,6 +340,7 @@ const PublishPanel = ({ changes, history, canPublish, highlight }: Props) => {
                     key={change.id}
                     change={change}
                     highlighted={change.id === highlight}
+                    conflicted={conflicted.has(change.id)}
                     warnings={selectionWarnings(change, selected, t)}
                     checked={takeable(change) ? selected.has(change.id) : null}
                     onToggle={() => toggle(change.id)}
@@ -340,15 +358,25 @@ const PublishPanel = ({ changes, history, canPublish, highlight }: Props) => {
           ? <EmptyState compact icon='pi pi-send' title={t('publishPanel.historyEmpty')} />
           : (
             <ul className='PublishPanel__List'>
-              {history.map((record, index) => (
-                <HistoryItem
-                  key={record.id}
-                  record={record}
-                  onRetry={index === 0 && canPublish && record.buildStatus === 'failed' ? () => retry(record.id) : undefined}
-                />
-              ))}
+              {history.map((record, index) => {
+                const displayed = publishDisplayStatus(record.buildStatus, record.requestedAt)
+                const retryable = (displayed === 'failed' && record.errorCode !== 'target_missing') || displayed === 'unconfirmed'
+                return (
+                  <HistoryItem
+                    key={record.id}
+                    record={record}
+                    onRetry={index === 0 && canPublish && retryable ? () => retry(record.id) : undefined}
+                  />
+                )
+              })}
             </ul>
           )}
+        {activityHref && history.length > 0 && (
+          <Link href={activityHref as Route} className='PublishPanel__More'>
+            {t('publishPanel.allInActivity')}
+            <i className='pi pi-arrow-right' aria-hidden='true' />
+          </Link>
+        )}
       </section>
     </div>
   )

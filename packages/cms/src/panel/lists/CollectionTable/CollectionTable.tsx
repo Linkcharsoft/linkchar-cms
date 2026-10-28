@@ -10,6 +10,7 @@ import { Tag } from 'primereact/tag'
 import { useState } from 'react'
 import { useCms, useT } from '../../client/context'
 import DocumentActions from '../../editor/DocumentActions/DocumentActions'
+import CustomButton from '../../primitives/CustomButton/CustomButton'
 import DashboardToolbar from '../../primitives/DashboardToolbar/DashboardToolbar'
 import DateCell from '../../primitives/DateCell/DateCell'
 import EmptyState from '../../primitives/EmptyState/EmptyState'
@@ -45,6 +46,7 @@ const CollectionTable = ({ entryId, singularLabel, orderable, items, total, page
   const notify = useNotify()
   const [rows, setRows] = useState(items)
   const [lastItems, setLastItems] = useState(items)
+  const [saving, setSaving] = useState(false)
 
   if (items !== lastItems) {
     setLastItems(items)
@@ -69,6 +71,29 @@ const CollectionTable = ({ entryId, singularLabel, orderable, items, total, page
     router.push(`${pathname}${query ? `?${query}` : ''}` as Route)
   }
 
+  // Shown at once; back to the previous order when the server refuses.
+  const applyOrder = async (reordered: CollectionItemType[]) => {
+    const previous = rows
+    setRows(reordered)
+    setSaving(true)
+    const result = await actions.reorderCollection(entryId, reordered.map(row => row.id), (page - 1) * pageSize)
+    setSaving(false)
+    if (!result.ok) {
+      setRows(previous)
+      notify({ severity: 'error', summary: t('collectionList.reorderFailed'), detail: translate(result.error) })
+    }
+  }
+
+  const move = (item: CollectionItemType, delta: -1 | 1) => {
+    const index = rows.indexOf(item)
+    const target = index + delta
+    if (index < 0 || target < 0 || target >= rows.length) return
+    const reordered = [...rows]
+    reordered.splice(index, 1)
+    reordered.splice(target, 0, item)
+    void applyOrder(reordered)
+  }
+
   const titleTemplate = (item: CollectionItemType) => (
     <Link href={item.href as Route} className='CollectionTable__Title'>{item.title}</Link>
   )
@@ -82,13 +107,22 @@ const CollectionTable = ({ entryId, singularLabel, orderable, items, total, page
   )
 
   const actionsTemplate = (item: CollectionItemType) => (
-    <DocumentActions entryId={item.entryId} documentId={item.id} title={item.title} compact />
+    <div className='CollectionTable__ActionsCell'>
+      {canReorder && (
+        <span className='CollectionTable__Move'>
+          <CustomButton type='button' variant='ghost' size='sm' iconOnly icon='pi pi-arrow-up' aria-label={t('collectionList.moveUp', { title: item.title })} disabled={saving || rows.indexOf(item) === 0} onClick={() => move(item, -1)} />
+          <CustomButton type='button' variant='ghost' size='sm' iconOnly icon='pi pi-arrow-down' aria-label={t('collectionList.moveDown', { title: item.title })} disabled={saving || rows.indexOf(item) === rows.length - 1} onClick={() => move(item, 1)} />
+        </span>
+      )}
+      <DocumentActions entryId={item.entryId} documentId={item.id} title={item.title} compact />
+    </div>
   )
 
   return (
     <div className='CollectionTable'>
       <DashboardToolbar>
         <SearchInput
+          key={search}
           initialValue={search || undefined}
           placeholder={t('collectionList.searchPlaceholder')}
           onChange={value => updateQuery({ q: value?.trim() || undefined, page: undefined })}
@@ -109,18 +143,23 @@ const CollectionTable = ({ entryId, singularLabel, orderable, items, total, page
         />
       </DashboardToolbar>
 
+      {orderable && !canReorder && (
+        <p className='CollectionTable__Hint'>
+          {t('collectionList.reorderHint')}
+          <CustomButton type='button' variant='ghost' size='xs' onClick={() => updateQuery({ q: undefined, sort: undefined, status: undefined, page: undefined })}>
+            {t('collectionList.backToManual')}
+          </CustomButton>
+        </p>
+      )}
+      {canReorder && total > pageSize && <p className='CollectionTable__Hint'>{t('collectionList.reorderPageOnly')}</p>}
+
       <DataTable
         value={rows}
         dataKey='id'
         responsiveLayout='stack'
         breakpoint='767px'
         reorderableRows={canReorder}
-        onRowReorder={async event => {
-          const reordered = event.value as CollectionItemType[]
-          setRows(reordered)
-          const result = await actions.reorderCollection(entryId, reordered.map(row => row.id), (page - 1) * pageSize)
-          if (!result.ok) notify({ severity: 'error', summary: t('collectionList.reorderFailed'), detail: translate(result.error) })
-        }}
+        onRowReorder={event => void applyOrder(event.value as CollectionItemType[])}
         emptyMessage={search || status
           ? <EmptyState compact icon='pi pi-filter-slash' title={t('collectionList.noResults')} />
           : (

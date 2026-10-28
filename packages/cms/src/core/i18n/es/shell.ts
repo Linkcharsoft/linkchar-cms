@@ -28,7 +28,19 @@ const shell = {
     publish: 'Publicar',
     pendingChanges: { one: '{count} cambio pendiente', other: '{count} cambios pendientes' },
     incompleteChanges: { one: '{count} cambio incompleto: no sale hasta completarlo', other: '{count} cambios incompletos: no salen hasta completarlos' },
-    loading: 'Cargando…'
+    loading: 'Cargando…',
+    notFound: {
+      title: 'No encontramos esta pantalla',
+      description: 'El link puede estar mal escrito o el contenido ya no existe.',
+      home: 'Ir al resumen'
+    },
+    error: {
+      title: 'Algo salió mal',
+      description: 'No pudimos mostrar esta pantalla. Probá de nuevo; si sigue pasando, avisá a soporte.',
+      reference: 'Referencia: {digest}',
+      retry: 'Probar de nuevo',
+      home: 'Ir al resumen'
+    }
   }
 } as const
 

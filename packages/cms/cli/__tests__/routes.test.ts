@@ -41,6 +41,10 @@ describe('syncRoutes', () => {
     expect(await read('cms/actions.ts')).toMatch(/^\/\/ Generated[^\n]*\n'use server'\n/)
     expect(await read('cms/client.ts')).toContain('import cmsConfig from \'../../cms.config\'')
     expect(await read('app/(cms)/layout.tsx')).not.toContain(MARKER)
+    expect(await read('app/(cms)/dashboard/(panel)/error.tsx')).toMatch(/^\/\/ Generated[^\n]*\n'use client'\n/)
+    expect(await read('app/(cms)/dashboard/(panel)/not-found.tsx')).toContain('@linkcharsoft/cms/panel/routes/not-found')
+    expect(await read('app/(cms)/dashboard/(panel)/(workspace)/[...notFound]/page.tsx')).toContain('notFound()')
+    expect(await read('app/(cms)/dashboard/(panel)/(workspace)/colecciones/[entry]/[id]/loading.tsx')).toContain('routes/loading-editor')
   })
 
   it('changes nothing on a second run', async () => {

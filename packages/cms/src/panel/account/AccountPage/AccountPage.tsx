@@ -32,7 +32,7 @@ const AccountPage = ({ userId, email, role, name, avatar, devices }: Props) => {
 
           <section className='AccountPage__Card' aria-labelledby='account-password' data-tour='account-password'>
             <h2 id='account-password' className='AccountPage__CardTitle'>{t('account.password')}</h2>
-            <PasswordForm />
+            <PasswordForm email={email} />
           </section>
 
           <section className='AccountPage__Card' aria-labelledby='account-mfa' data-tour='mfa'>

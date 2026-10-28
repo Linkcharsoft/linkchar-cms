@@ -123,6 +123,9 @@ const editor = {
       empty: 'Todavía no hay versiones.',
       emptyHelp: 'Se guarda una al publicar y otra cada 15 minutos mientras editás.',
       showChanges: 'Ver cambios',
+      loadMore: 'Cargar más',
+      loadFailed: 'No pudimos cargar el historial.',
+      retryLoad: 'Reintentar',
       same: 'Es igual al borrador actual.',
       today: 'Hoy',
       yesterday: 'Ayer'

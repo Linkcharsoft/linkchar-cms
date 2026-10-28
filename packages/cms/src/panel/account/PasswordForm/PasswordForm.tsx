@@ -19,7 +19,12 @@ const FIELDS = [
   { name: 'confirmPassword', label: 'account.confirmNewPassword', autoComplete: 'new-password', help: false }
 ] as const satisfies { name: PasswordFieldType, label: string, autoComplete: string, help: boolean }[]
 
-const PasswordForm = () => {
+interface Props {
+  // The account's address, for the browser's password manager; the form never sends it.
+  email?: string
+}
+
+const PasswordForm = ({ email }: Props) => {
   const { t, translate } = useT()
   const { actions } = useCms()
   const notify = useNotify()
@@ -27,10 +32,16 @@ const PasswordForm = () => {
   const formik = useFormik<ChangePasswordFormType>({
     initialValues: { currentPassword: '', password: '', confirmPassword: '', signOutOthers: false },
     validate: useFormValidation(validateChangePassword),
-    validateOnChange: false,
+    validateOnChange: true,
     validateOnBlur: false,
-    onSubmit: async (values, { resetForm }) => {
+    onSubmit: async (values, { resetForm, setFieldError, setFieldTouched }) => {
       const result = await actions.changePassword(values)
+      if (result.error === 'errors.account.wrongPassword') {
+        await setFieldTouched('currentPassword', true, false)
+        setFieldError('currentPassword', translate(result.error))
+        document.getElementById('currentPassword')?.focus()
+        return
+      }
       if (result.error) return notify({ severity: 'error', summary: translate(result.error) })
       resetForm()
       notify({
@@ -45,6 +56,7 @@ const PasswordForm = () => {
 
   return (
     <form className='PasswordForm' onSubmit={submitWithFocus(formik, FIELDS.map(field => field.name))} noValidate>
+      {email && <input type='email' name='username' autoComplete='username' value={email} readOnly hidden />}
       {FIELDS.map(field => (
         <InputContainer key={field.name} label={t(field.label)} htmlFor={field.name} error={error(field.name)} help={field.help ? t('account.newPasswordHelp', { min: PASSWORD_MIN_LENGTH }) : undefined}>
           <Password

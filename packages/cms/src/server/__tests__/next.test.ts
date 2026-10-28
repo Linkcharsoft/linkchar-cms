@@ -72,7 +72,8 @@ describe('createCmsServer', () => {
     const request = (path: string) => new NextRequest(`http://localhost${path}`)
 
     db.claims = null as unknown as Record<string, unknown>
-    expect((await cms.proxy(request('/dashboard/paginas?x=1'))).headers.get('location')).toBe('http://localhost/dashboard/login')
+    expect((await cms.proxy(request('/dashboard/paginas?x=1'))).headers.get('location')).toBe('http://localhost/dashboard/login?next=%2Fdashboard%2Fpaginas%3Fx%3D1')
+    expect((await cms.proxy(request('/dashboard'))).headers.get('location')).toBe('http://localhost/dashboard/login')
     expect((await cms.proxy(request('/dashboard/login'))).headers.get('location')).toBeNull()
     expect((await cms.proxy(request('/dashboard/auth/confirm'))).headers.get('location')).toBeNull()
 

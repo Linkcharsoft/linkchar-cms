@@ -5,6 +5,9 @@ import type { Metadata } from 'next'
 
 export const passwordResetRoute = (cms: CmsServerType) => {
   const metadata: Metadata = { title: translatorFor(cms.config).t('auth.reset.title') }
-  const Page = () => <PasswordResetPage />
+  const Page = async () => {
+    const { user } = await cms.queries.getCurrentProfile()
+    return <PasswordResetPage email={user?.email ?? ''} />
+  }
   return { Page, metadata }
 }

@@ -3,7 +3,8 @@ import { withDefaults } from '../core/defaults'
 import { entryIds, getEntry } from '../core/entries'
 import { changedSections } from '../core/pages'
 import { panelPaths } from '../core/paths'
-import { BUILD_CONFIRMATION_TIMEOUT_MS } from '../core/publish'
+import { BUILD_CONFIRMATION_TIMEOUT_MS, publishDisplayStatus } from '../core/publish'
+import { unfreedConflicts } from '../core/publishSelection'
 import { documentReferences } from '../core/references'
 import { referenceWarnings, relationIssue, relationName } from '../core/relations'
 import { canPublish } from '../core/roles'
@@ -19,7 +20,7 @@ import type { CmsContextType } from './context'
 import type { MissingItemType } from './incomplete'
 import type { MessageKeyType } from '../core/i18n/types'
 import type { BuildErrorCodeType, BuildEventStatusType, BuildEventType, BuildStatusType } from '../core/publish'
-import type { SelectionDependencyType } from '../core/publishSelection'
+import type { SelectionDependencyType, UrlConflictType } from '../core/publishSelection'
 import type { DocumentStatusType } from '../core/status'
 
 export type { MissingItemType } from './incomplete'
@@ -51,6 +52,8 @@ export interface PendingChangeType {
   pendingRefs: SelectionDependencyType[]
   // For a removal: live documents that stop using it only if their pending publish is ticked too.
   fixedUsers: SelectionDependencyType[]
+  // Live URLs of other documents this one would take: the publish fails unless the holder frees them in the same run.
+  urlConflicts: UrlConflictType[]
 }
 
 export interface PublishRecordType {
@@ -68,7 +71,7 @@ export interface PublishRecordType {
   items: { id: string, title: string | null, action: 'publish' | 'unpublish' }[]
 }
 
-type StatusRowType = { id: string | null, type: string | null, data: unknown, deleted_at: string | null }
+type StatusRowType = { id: string | null, type: string | null, data: unknown, deleted_at: string | null, slugs?: unknown }
 
 export const describeDocument = (ctx: CmsContextType, row: StatusRowType) => {
   const entry = row.type ? getEntry(ctx.config, row.type) : null
@@ -142,14 +145,42 @@ export const getPendingChanges = async (ctx: CmsContextType): Promise<PendingCha
         : [],
       warnings: [],
       pendingRefs: [],
-      fixedUsers: []
+      fixedUsers: [],
+      urlConflicts: []
     }
   }))
 
   const pending = changes.filter(change => change !== null)
   await addReferenceWarnings(ctx, pending, rows)
   await addUsageWarnings(ctx, pending)
+  await addUrlConflicts(ctx, pending, rows)
   return pending
+}
+
+// Live documents of the same collections and the pages: where a slug or a URL can be held by someone else.
+const addUrlConflicts = async (ctx: CmsContextType, changes: PendingChangeType[], rows: StatusRowType[]) => {
+  const publishes = changes.filter(change => change.action === 'publish' && Object.keys(change.urls).length > 0)
+  if (publishes.length === 0) return
+
+  const pages = entryIds(ctx.config).filter(id => getEntry(ctx.config, id)?.kind === 'page')
+  const { data } = await ctx.db.from('published_documents').select('id, type, data, slugs, paths')
+    .in('type', [...new Set([...publishes.map(change => change.entryId), ...pages])])
+  const live = (data ?? []).map(row => ({ ...row, slugs: asPaths(row.slugs), paths: asPaths(row.paths) }))
+  const byId = new Map(changes.map(change => [change.id, change]))
+  const slugsOf = (id: string) => asPaths(rows.find(row => row.id === id)?.slugs)
+
+  for (const change of publishes) {
+    const slugs = slugsOf(change.id)
+    change.urlConflicts = Object.entries(change.urls).flatMap(([locale, path]) => {
+      const holder = live.find(row => row.id !== change.id
+        && (Object.values(row.paths).includes(path) || (row.type === change.entryId && !!slugs[locale] && row.slugs[locale] === slugs[locale])))
+      if (!holder) return []
+      const other = byId.get(holder.id)
+      const freed = !!other && (other.action === 'unpublish' || (other.problems.length === 0 && !Object.values(other.urls).includes(path)))
+      const described = describeDocument(ctx, { id: holder.id, type: holder.type, data: holder.data, deleted_at: null })
+      return [{ locale, path, takenBy: { id: holder.id, name: described?.title ?? holder.id }, freed }]
+    })
+  }
 }
 
 const addReferenceWarnings = async (ctx: CmsContextType, changes: PendingChangeType[], rows: StatusRowType[]) => {
@@ -250,6 +281,12 @@ export const getPublishHistory = async (ctx: CmsContextType, limit = 10): Promis
 
 export const getLatestPublish = async (ctx: CmsContextType) => (await getPublishHistory(ctx, 1))[0] ?? null
 
+// A second publish while the site is still building would queue another build of the same content.
+const isBuilding = async (ctx: CmsContextType) => {
+  const latest = await getLatestPublish(ctx)
+  return !!latest && publishDisplayStatus(latest.buildStatus, latest.requestedAt, ctx.now().getTime()) === 'building'
+}
+
 type BuildValuesType = { build_status: BuildStatusType, job_id?: string, error_code?: BuildErrorCodeType | null, error_detail?: string | null, finished_at?: string }
 
 // publish_log is written with the service role: the build webhook has no user session.
@@ -316,7 +353,18 @@ export interface PublishSelectionType {
 
 export type PublishResultType =
   | { ok: true, published: number, removed: number, buildStatus: BuildStatusType }
-  | { ok: false, error: MessageKeyType }
+  // conflicts: for a taken URL, the document that wanted it and the live one that holds it.
+  | { ok: false, error: MessageKeyType, conflicts?: { id: string, takenBy: string }[] }
+
+// publish_site reports a taken slug or URL with both ids as JSON in the error detail.
+const conflictsOf = (details: unknown) => {
+  try {
+    const detail = JSON.parse(String(details)) as { id?: unknown, takenBy?: unknown }
+    return typeof detail.id === 'string' && typeof detail.takenBy === 'string' ? [{ id: detail.id, takenBy: detail.takenBy }] : undefined
+  } catch {
+    return undefined
+  }
+}
 
 const RPC_ERRORS: Record<string, MessageKeyType> = {
   CM001: 'errors.publish.stale',
@@ -330,6 +378,7 @@ const RPC_ERRORS: Record<string, MessageKeyType> = {
 export const publishChanges = async (ctx: CmsContextType, selection: PublishSelectionType): Promise<PublishResultType> => {
   const { profile } = await requireRole(ctx, 'editor')
   if (!canPublish(profile)) return { ok: false, error: 'errors.publish.forbidden' }
+  if (await isBuilding(ctx)) return { ok: false, error: 'errors.publish.building' }
 
   const pending = new Map((await getPendingChanges(ctx)).map(change => [change.id, change]))
 
@@ -342,9 +391,17 @@ export const publishChanges = async (ctx: CmsContextType, selection: PublishSele
   if (!publishable || !removable) return { ok: false, error: 'errors.publish.stale' }
   if (selection.publish.length + selection.remove.length === 0) return { ok: false, error: 'errors.publish.nothing' }
 
+  const selected = new Set([...selection.publish.map(({ id }) => id), ...selection.remove])
+  const conflicts = unfreedConflicts(selection.publish.map(({ id }) => pending.get(id)!), selected)
+  if (conflicts.length > 0) return { ok: false, error: 'errors.publish.slugTaken', conflicts }
+
+  // Documents that free a URL go first: publish_site checks each one against what is live at that moment.
+  const frees = (id: string) => (pending.get(id)!.urlChanges.length > 0 ? 0 : 1)
+  const ordered = [...new Map(selection.publish.map(item => [item.id, item])).values()].sort((a, b) => frees(a.id) - frees(b.id))
+
   // The prefix comes from the schema on the server, never from the client.
   const { data, error } = await ctx.db.rpc('publish_site', {
-    p_publish: selection.publish.map(({ id, revision }) => {
+    p_publish: ordered.map(({ id, revision }) => {
       const entry = getEntry(ctx.config, pending.get(id)!.entryId)
       return { id, revision, urls: entry ? publishUrls(ctx.config, entry) : {} }
     }),
@@ -353,7 +410,7 @@ export const publishChanges = async (ctx: CmsContextType, selection: PublishSele
 
   if (error) {
     if (!RPC_ERRORS[error.code]) ctx.logger.error('[publish] publish_site failed:', error.code ?? error.message)
-    return { ok: false, error: RPC_ERRORS[error.code] ?? 'errors.publish.failed' }
+    return { ok: false, error: RPC_ERRORS[error.code] ?? 'errors.publish.failed', ...(error.code === '23505' ? { conflicts: conflictsOf(error.details) } : {}) }
   }
 
   const result = data as { publishId: number, published: number, removed: number }
@@ -363,14 +420,17 @@ export const publishChanges = async (ctx: CmsContextType, selection: PublishSele
   return { ok: true, published: result.published, removed: result.removed, buildStatus }
 }
 
-// Only the latest publish, and only after its build failed: a newer one already rebuilt the site.
+// Only the latest publish, and only after its build failed or was never confirmed: a newer one already rebuilt the site.
+// Without a publish target, a retry would fail the same way, so it is refused.
 export const retryPublish = async (ctx: CmsContextType, publishId: number): Promise<PublishResultType> => {
   const { profile } = await requireRole(ctx, 'editor')
   if (!canPublish(profile)) return { ok: false, error: 'errors.publish.forbidden' }
 
-  const { data: failed } = await ctx.db.from('publish_log').select('id, build_status, documents_count, removed_count, items')
+  const { data: failed } = await ctx.db.from('publish_log').select('id, build_status, requested_at, error_code, documents_count, removed_count, items')
     .order('requested_at', { ascending: false }).limit(1).maybeSingle()
-  if (!failed || failed.id !== publishId || failed.build_status !== 'failed') return { ok: false, error: 'errors.publish.stale' }
+  const displayed = failed ? publishDisplayStatus(failed.build_status as BuildStatusType, failed.requested_at, ctx.now().getTime()) : null
+  const retryable = (displayed === 'failed' && failed?.error_code !== 'target_missing') || displayed === 'unconfirmed'
+  if (!failed || failed.id !== publishId || !retryable) return { ok: false, error: 'errors.publish.stale' }
 
   const { data: retry, error } = await ctx.admin().from('publish_log').insert({
     requested_by: profile.id,

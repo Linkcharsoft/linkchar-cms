@@ -31,6 +31,11 @@ const lists = {
       title: 'Título'
     },
     reorderFailed: 'No se pudo guardar el orden',
+    moveUp: 'Subir {title}',
+    moveDown: 'Bajar {title}',
+    reorderHint: 'Para reordenar, quitá la búsqueda y los filtros y elegí "Orden manual".',
+    backToManual: 'Ver en orden manual',
+    reorderPageOnly: 'Se reordena dentro de esta página; las demás conservan su orden.',
     createFailed: 'No se pudo crear',
     noResults: 'No hay resultados con esos filtros.',
     empty: 'Todavía no hay contenido.',
@@ -52,14 +57,19 @@ const lists = {
     selectAll: 'Marcar todos',
     selectNone: 'Desmarcar todos',
     noneSelected: 'Marcá al menos un cambio para publicar.',
+    buildingNoticeNow: 'El sitio se está actualizando con la publicación que recién empezó. Cuando termine vas a poder publicar los cambios nuevos.',
+    buildingNotice: { one: 'El sitio se está actualizando con la publicación anterior (hace {count} minuto). Cuando termine vas a poder publicar los cambios nuevos.', other: 'El sitio se está actualizando con la publicación anterior (hace {count} minutos). Cuando termine vas a poder publicar los cambios nuevos.' },
     groups: {
       new: 'Nuevos en el sitio',
       changed: 'Con cambios',
       removed: 'Se quitan del sitio'
     },
-    sectionsChanged: 'Cambió: ',
+    sectionsChanged: 'Cambió: {sections}',
     urlChange: 'La URL cambia de {from} a {to}. Los links viejos van a redirigir a la nueva.',
-    problems: 'No se publica hasta completar: ',
+    problems: 'No se publica hasta completar: {fields}.',
+    urlTaken: 'La URL {path} la usa "{name}" en el sitio. Cambiá la URL de uno de los dos.',
+    urlFreedBy: 'La URL {path} la usa "{name}" en el sitio: marcalo también para que salgan juntos.',
+    conflictDetail: 'Revisá: {names}.',
     confirm: {
       publishes: 'Se publica:',
       removes: 'Se quita del sitio:',
@@ -81,11 +91,14 @@ const lists = {
     retry: 'Reintentar',
     retryOf: 'Reintento',
     retrying: 'Reintentando la actualización del sitio',
-    retryFailed: 'No se pudo reintentar'
+    retryFailed: 'No se pudo reintentar',
+    allInActivity: 'Ver todas en Actividad'
   },
   trashList: {
     subtitle: 'Los contenidos quedan acá {days} días y después se borran solos. Las imágenes y archivos tienen su propia papelera en {media}.',
     content: 'Contenido',
+    searchPlaceholder: 'Buscar por título',
+    noResults: 'No hay resultados para esa búsqueda.',
     trashedAt: 'Enviado a la papelera',
     offSite: 'Fuera del sitio',
     empty: 'La papelera está vacía.',

@@ -1,12 +1,16 @@
 import { expect, test } from '@playwright/test'
-import { QA } from './support/db'
+import { PASSWORD, QA } from './support/db'
 import { signIn, watchConsole } from './support/panel'
 
 test.describe('sign in', () => {
-  test('sends signed-out visitors to the sign-in screen', async ({ page }) => {
-    await page.goto('/dashboard/paginas')
-    await expect(page).toHaveURL(/\/dashboard\/login$/)
+  test('sends signed-out visitors to the sign-in screen and back to what they asked for', async ({ page }) => {
+    await page.goto('/dashboard/paginas?x=1')
+    await expect(page).toHaveURL(/\/dashboard\/login\?next=%2Fdashboard%2Fpaginas%3Fx%3D1$/)
     await expect(page.getByRole('heading', { name: 'Iniciar sesión' })).toBeVisible()
+    await page.locator('#email').fill(QA.super.email)
+    await page.locator('#password').fill(PASSWORD)
+    await page.locator('form button[type=submit]').click()
+    await expect(page).toHaveURL(/\/dashboard\/paginas\?x=1$/)
   })
 
   test('validates the form and explains a wrong password', async ({ page }) => {

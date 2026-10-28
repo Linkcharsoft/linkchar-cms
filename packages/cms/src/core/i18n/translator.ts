@@ -47,6 +47,14 @@ export const createTranslator = ({ locale, overrides = {} }: { locale: string, o
   }
 }
 
+// "a, b y c" in the panel language; `type` 'disjunction' gives "a, b o c".
+export const formatList = (locale: string, items: string[], type: Intl.ListFormatType = 'conjunction') =>
+  new Intl.ListFormat(locale, { type }).format(items)
+
+// The same list as parts, so each item can be rendered as a link or any node.
+export const listParts = (locale: string, items: string[], type: Intl.ListFormatType = 'conjunction') =>
+  new Intl.ListFormat(locale, { type }).formatToParts(items)
+
 export const languageName = (language: string, displayLocale: string): string => {
   const name = new Intl.DisplayNames([displayLocale], { type: 'language' }).of(language) ?? language
   return name.charAt(0).toLocaleUpperCase(displayLocale) + name.slice(1)

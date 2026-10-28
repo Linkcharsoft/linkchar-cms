@@ -10,6 +10,7 @@ import { validateContent } from '../core/validation'
 import { dataFields } from '../core/walk'
 import { requireRole } from './auth'
 import { asRecord, UNIQUE_VIOLATION } from './context'
+import { titleOf } from './documents'
 import type { CmsContextType, DataRecord, ProfileType } from './context'
 import type { Json } from './database'
 import type { FieldsRecord } from '../core/fields'
@@ -26,8 +27,9 @@ export interface SaveDocumentInputType {
 }
 
 export type SaveDocumentResultType =
-  // adjusted: keys the server changed (a taken automatic slug); errors: what it left unsaved (a taken typed slug).
-  | { status: 'saved', id: string, revision: number, updatedAt: string, data: DataRecord, adjusted?: string[], errors?: ContentErrorsType }
+  // adjusted: keys the server changed (a taken automatic slug); errors: what it left unsaved (a taken typed slug);
+  // warnings: saved, but the publish would fail (a slug another document still holds on the site).
+  | { status: 'saved', id: string, revision: number, updatedAt: string, data: DataRecord, adjusted?: string[], errors?: ContentErrorsType, warnings?: ContentErrorsType }
   | { status: 'invalid', errors: ContentErrorsType }
   | { status: 'conflict', id: string, keys: string[], data: DataRecord, revision: number, updatedAt: string }
   | { status: 'error', error: MessageKeyType }
@@ -115,6 +117,20 @@ const settleSlugs = async (ctx: CmsContextType, entryId: string, patch: DataReco
   return { patch: { ...patch, [slugField]: value }, issue }
 }
 
+// A slug free among drafts can still be live on another document (its draft moved on, or it waits in the trash).
+const liveSlugWarnings = async (ctx: CmsContextType, entryId: string, slugs: Record<string, string>, stored: Record<string, string>, exceptId?: string) => {
+  const entry = getCollection(ctx.config, entryId)!
+  const changed = Object.entries(slugs).filter(([locale, slug]) => slug && stored[locale] !== slug)
+  const found = await Promise.all(changed.map(async ([locale, slug]) => {
+    let query = ctx.db.from('published_documents').select('id, data').eq('type', entryId).contains('slugs', { [locale]: slug }).limit(1)
+    if (exceptId) query = query.neq('id', exceptId)
+    const { data } = await query.maybeSingle()
+    return data ? [slugErrorPath(ctx, entryId, locale), translatorFor(ctx.config).t('validation.slugLive', { title: titleOf(ctx, entry, data.data) })] as const : null
+  }))
+  const warnings = Object.fromEntries(found.filter(item => item !== null))
+  return Object.keys(warnings).length > 0 ? warnings : undefined
+}
+
 // Non-superadmins never see superadminOnly fields: whatever they send for them is replaced by the stored value.
 export const guardFields = (ctx: CmsContextType, profile: ProfileType, fields: FieldsRecord, value: DataRecord, stored: unknown) =>
   (profile.role === 'superadmin' ? value : keepSuperadminFields(ctx.config, fields, value, stored))
@@ -165,6 +181,9 @@ export const saveDocument = async (ctx: CmsContextType, input: SaveDocumentInput
       }
     }
 
+    const warnings = slugField && slugField in patch
+      ? await liveSlugWarnings(ctx, entryId, slugs, slugsOf(ctx.config, entry, current), row?.id)
+      : undefined
     const columns = { data: toJson(toSave), slug, slugs }
 
     const result = row
@@ -190,7 +209,7 @@ export const saveDocument = async (ctx: CmsContextType, input: SaveDocumentInput
     }
 
     if (result.data) {
-      return { status: 'saved', id: result.data.id, revision: result.data.revision, updatedAt: result.data.updated_at, data: toSave, ...slugIssue }
+      return { status: 'saved', id: result.data.id, revision: result.data.revision, updatedAt: result.data.updated_at, data: toSave, ...slugIssue, ...(warnings ? { warnings } : {}) }
     }
   }
 

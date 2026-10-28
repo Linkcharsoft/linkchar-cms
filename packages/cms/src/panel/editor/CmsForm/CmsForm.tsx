@@ -160,7 +160,7 @@ const CmsForm = ({
         const adjusted = (result.adjusted ?? []).filter(key => sameContent(latestValues.current[key], data[key]))
         const adopted = [...rebased.adopted, ...adjusted]
         if (adopted.length > 0) adopt({ ...rebased.values, ...pickKeys(result.data, adjusted) }, adopted)
-        showServerErrors(result.errors ?? {}, data)
+        showServerErrors({ ...result.warnings, ...result.errors }, data)
         setEdited(true)
         announceSaved()
         return result.errors ? 'partial' : 'saved'

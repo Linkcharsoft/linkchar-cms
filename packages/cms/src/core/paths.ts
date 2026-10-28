@@ -123,3 +123,24 @@ export const panelPaths = (config: CmsConfigType): PanelPathsType => {
   cache.set(config, paths)
   return paths
 }
+
+const ORIGIN = 'http://panel.invalid'
+
+// Where to go after signing in (`?next=`): a panel screen on this origin, never a guest screen or an open redirect.
+export const safePanelPath = (value: string | null | undefined, config: CmsConfigType): string | null => {
+  if (!value || value.length > 500 || !value.startsWith('/') || value.startsWith('//') || value.includes('\\')) return null
+
+  let url: URL
+  try {
+    url = new URL(value, ORIGIN)
+  } catch {
+    return null
+  }
+
+  const paths = panelPaths(config)
+  const inside = (path: string, prefix: string) => path === prefix || path.startsWith(`${prefix}/`)
+  if (url.origin !== ORIGIN || !inside(url.pathname, config.basePath)) return null
+  if (url.pathname === config.basePath && !url.search && !url.hash) return null
+  if ([...paths.publicPaths, paths.mfaVerify, paths.acceptInvite, paths.passwordReset].some(path => inside(url.pathname, path))) return null
+  return `${url.pathname}${url.search}${url.hash}`
+}

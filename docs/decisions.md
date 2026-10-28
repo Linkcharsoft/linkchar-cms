@@ -17,6 +17,7 @@ One line per decision that still shapes the package. Each is settled; reopening 
 - Validation is the package's own: issue codes translated by the catalogs, no Yup. Error paths include the locale (`hero.title.es`), matching the stored shape.
 - A `new` or `changed` document with missing content displays as `incomplete`; the stored status does not change.
 - `publish_log.error_code` has no CHECK constraint on purpose, so a new code (`build_cancelled`) needs no migration.
+- `publish_site` publishes in the order given (documents freeing a URL first) and reports a taken slug or URL with both ids as JSON in the error DETAIL; the server pre-checks the same conflicts against `published_documents` so the panel can point at both documents before trying.
 
 ## Field kinds and catalogs
 

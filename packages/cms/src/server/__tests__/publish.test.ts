@@ -75,6 +75,31 @@ describe('getPendingChanges', () => {
     expect(byId[ID(4)]).toMatchObject({ action: 'unpublish', href: '/dashboard/papelera' })
   })
 
+  it('names the live document that holds a URL, and whether ticking it frees the URL', async () => {
+    db.tables.documents.push(
+      document(1, 'posts', completePost('Casa', 'casa'), { slug: 'casa', slugs: { es: 'casa', en: 'house' } }),
+      document(2, 'posts', completePost('Casa vieja', 'casa-vieja'), { slug: 'casa-vieja', slugs: { es: 'casa-vieja', en: 'old-house' } }),
+      document(3, 'posts', completePost('Loft', 'loft'), { slug: 'loft', slugs: { es: 'loft', en: 'loft' } }),
+      document(4, 'posts', completePost('Loft viejo', 'loft-viejo'), { slug: 'loft-viejo', slugs: { es: 'loft-viejo', en: 'old-loft' }, deleted_at: at(5) })
+    )
+    db.tables.published_documents.push(
+      { id: ID(2), type: 'posts', key: null, slug: 'casa', slugs: { es: 'casa', en: 'old-house' }, paths: { es: '/blog/casa', en: '/en/blog/old-house' }, data: completePost('Casa vieja', 'casa'), sort_order: 0 },
+      { id: ID(4), type: 'posts', key: null, slug: 'loft', slugs: { es: 'loft', en: 'loft' }, paths: { es: '/blog/loft', en: '/en/blog/loft' }, data: completePost('Loft viejo', 'loft'), sort_order: 0 },
+      { id: ID(9), type: 'posts', key: null, slug: 'x', slugs: { es: 'x', en: 'house' }, paths: {}, data: completePost('Vieja sin rutas', 'x'), sort_order: 0 }
+    )
+
+    const byId = Object.fromEntries((await getPendingChanges(ctx)).map(change => [change.id, change]))
+    expect(byId[ID(1)].urlConflicts).toEqual([
+      { locale: 'es', path: '/blog/casa', takenBy: { id: ID(2), name: 'Casa vieja' }, freed: true },
+      { locale: 'en', path: '/en/blog/house', takenBy: { id: ID(9), name: 'Vieja sin rutas' }, freed: false }
+    ])
+    expect(byId[ID(3)].urlConflicts).toEqual([
+      { locale: 'es', path: '/blog/loft', takenBy: { id: ID(4), name: 'Loft viejo' }, freed: true },
+      { locale: 'en', path: '/en/blog/loft', takenBy: { id: ID(4), name: 'Loft viejo' }, freed: true }
+    ])
+    expect(byId[ID(2)].urlConflicts).toEqual([])
+  })
+
   it('names what is missing in another language, alt texts of the files in use included', async () => {
     const post = { ...completePost('Casa', 'casa'), title: { es: 'Casa', en: '' }, cover: { es: ID(7) } }
     db.tables.documents.push(document(1, 'posts', post))
@@ -165,6 +190,13 @@ describe('publishChanges', () => {
     expect(rpc).not.toHaveBeenCalled()
   })
 
+  it('waits for the previous build before publishing again', async () => {
+    db.tables.publish_log.push(logRow(8, { build_status: 'building', requested_at: at(3) }))
+    expect(await publishChanges(ctx, { publish: [{ id: ID(1), revision: 2 }], remove: [] })).toEqual({ ok: false, error: 'errors.publish.building' })
+    db.tables.publish_log[0].requested_at = at(31)
+    expect(await publishChanges(ctx, { publish: [{ id: ID(1), revision: 2 }], remove: [] })).toMatchObject({ ok: true })
+  })
+
   it('rejects a selection that changed since it was reviewed', async () => {
     for (const selection of [{ publish: [{ id: ID(1), revision: 1 }], remove: [] }, { publish: [{ id: ID(7), revision: 1 }], remove: [] }, { publish: [], remove: [ID(1)] }]) {
       expect(await publishChanges(ctx, selection)).toEqual({ ok: false, error: 'errors.publish.stale' })
@@ -191,9 +223,26 @@ describe('publishChanges', () => {
     expect(ctx.revalidate).toHaveBeenCalledWith('/', 'layout')
   })
 
+  it('refuses a selection that leaves a live URL taken, naming both documents', async () => {
+    db.tables.documents[0].slugs = { es: 'casa', en: 'house' }
+    db.tables.documents.push(document(2, 'posts', completePost('Casa vieja', 'casa-vieja'), { slug: 'casa-vieja', slugs: { es: 'casa-vieja', en: 'old-house' } }))
+    db.tables.published_documents.push({ id: ID(2), type: 'posts', key: null, slug: 'casa', slugs: { es: 'casa', en: 'old-house' }, paths: { es: '/blog/casa', en: '/en/blog/old-house' }, data: completePost('Casa vieja', 'casa'), sort_order: 0 })
+    const rpc = vi.fn(db.rpc.publish_site)
+    db.rpc.publish_site = rpc
+
+    expect(await publishChanges(ctx, { publish: [{ id: ID(1), revision: 2 }], remove: [] })).toEqual({ ok: false, error: 'errors.publish.slugTaken', conflicts: [{ id: ID(1), takenBy: ID(2) }] })
+    expect(rpc).not.toHaveBeenCalled()
+
+    // Ticked together, the document that moves its URL goes first.
+    expect(await publishChanges(ctx, { publish: [{ id: ID(1), revision: 2 }, { id: ID(2), revision: 2 }], remove: [] })).toMatchObject({ ok: true, published: 1 })
+    expect((rpc.mock.calls[0][0] as { p_publish: { id: string }[] }).p_publish.map(item => item.id)).toEqual([ID(2), ID(1)])
+  })
+
   it('explains database errors with a code the panel translates', async () => {
-    db.rpc.publish_site = () => ({ data: null, error: { code: '23505', message: 'dup' } })
-    expect(await publishChanges(ctx, { publish: [{ id: ID(1), revision: 2 }], remove: [] })).toEqual({ ok: false, error: 'errors.publish.slugTaken' })
+    db.rpc.publish_site = () => ({ data: null, error: { code: '23505', message: 'dup', details: JSON.stringify({ id: ID(1), takenBy: ID(7), locale: 'es', value: 'casa' }) } })
+    expect(await publishChanges(ctx, { publish: [{ id: ID(1), revision: 2 }], remove: [] })).toEqual({ ok: false, error: 'errors.publish.slugTaken', conflicts: [{ id: ID(1), takenBy: ID(7) }] })
+    db.rpc.publish_site = () => ({ data: null, error: { code: '23505', message: 'dup', details: 'Key (type, slug)=(posts, casa) already exists.' } })
+    expect(await publishChanges(ctx, { publish: [{ id: ID(1), revision: 2 }], remove: [] })).toEqual({ ok: false, error: 'errors.publish.slugTaken', conflicts: undefined })
     db.rpc.publish_site = () => ({ data: null, error: { code: 'XX000', message: 'boom' } })
     expect(await publishChanges(ctx, { publish: [{ id: ID(1), revision: 2 }], remove: [] })).toEqual({ ok: false, error: 'errors.publish.failed' })
   })
@@ -220,11 +269,23 @@ describe('retryPublish', () => {
     expect(db.tables.activity_log).toEqual([expect.objectContaining({ action: 'site.retry', details: { publishId: 5, retryOf: 4 } })])
   })
 
-  it('only retries the latest publish, and only when it failed', async () => {
+  it('only retries the latest publish, and only when it failed or was never confirmed', async () => {
     expect(await retryPublish(ctx, 3)).toEqual({ ok: false, error: 'errors.publish.stale' })
-    db.tables.publish_log.find(row => row.id === 4)!.build_status = 'building'
+    const latest = db.tables.publish_log.find(row => row.id === 4)!
+    latest.build_status = 'building'
+    expect(await retryPublish(ctx, 4)).toEqual({ ok: false, error: 'errors.publish.stale' })
+    latest.error_code = 'target_missing'
+    latest.build_status = 'failed'
     expect(await retryPublish(ctx, 4)).toEqual({ ok: false, error: 'errors.publish.stale' })
     expect(db.tables.publish_log).toHaveLength(2)
+
+    latest.build_status = 'building'
+    latest.error_code = null
+    latest.requested_at = at(31)
+    db.tables.publish_log.find(row => row.id === 3)!.requested_at = at(90)
+    ctx.publishTarget = target(async () => ({ ok: true, jobId: 'job-3' }))
+    expect(await retryPublish(ctx, 4)).toMatchObject({ ok: true, buildStatus: 'building' })
+    expect(db.tables.publish_log).toHaveLength(3)
   })
 
   it('refuses editors without permission', async () => {

@@ -6,6 +6,7 @@ import { InputText } from 'primereact/inputtext'
 import { Password } from 'primereact/password'
 import { useState } from 'react'
 import { validateLogin } from '../../../core/forms'
+import { safePanelPath } from '../../../core/paths'
 import { useCms, usePaths, useT } from '../../client/context'
 import { submitWithFocus, useFormValidation } from '../../forms/formik'
 import CustomButton from '../../primitives/CustomButton/CustomButton'
@@ -18,27 +19,33 @@ const URL_ERRORS = ['inactivo', 'sesion', 'link-invalido', 'link-vencido'] as co
 
 interface Props {
   error?: string
+  // Panel screen to come back to after signing in, as the proxy wrote it.
+  next?: string
 }
 
-const LoginPage = ({ error }: Props) => {
+const LoginPage = ({ error, next }: Props) => {
   const { t, translate } = useT()
-  const { actions } = useCms()
+  const { actions, config } = useCms()
   const paths = usePaths()
   const router = useRouter()
   const urlError = URL_ERRORS.find(code => code === error)
   const [submitError, setSubmitError] = useState<string | null>(urlError ? t(`auth.urlErrors.${urlError}`) : null)
+  const [navigating, setNavigating] = useState(false)
 
   const formik = useFormik<LoginFormType>({
     initialValues: { email: '', password: '' },
     validate: useFormValidation(validateLogin),
-    validateOnChange: false,
+    validateOnChange: true,
     validateOnBlur: false,
     onSubmit: async values => {
       setSubmitError(null)
       const result = await actions.login(values)
       if (result.error) setSubmitError(translate(result.error))
       if (result.redirectTo) {
-        router.replace(result.redirectTo as Route)
+        const target = safePanelPath(next, config)
+        const to = !target ? result.redirectTo : result.redirectTo === paths.mfaVerify ? `${paths.mfaVerify}?next=${encodeURIComponent(target)}` : target
+        setNavigating(true)
+        router.replace(to as Route)
         router.refresh()
       }
     }
@@ -84,7 +91,7 @@ const LoginPage = ({ error }: Props) => {
           />
         </InputContainer>
 
-        <CustomButton type='submit' className='DashboardAuthLayout__Submit' loading={formik.isSubmitting}>
+        <CustomButton type='submit' className='DashboardAuthLayout__Submit' loading={formik.isSubmitting || navigating}>
           {t('auth.login.submit')}
         </CustomButton>
       </form>
