@@ -156,7 +156,9 @@ const admin = {
     next: 'Siguiente',
     previous: 'Anterior',
     done: 'Listo',
-    progress: '{current} de {total}'
+    close: 'Cerrar la guía',
+    progress: '{current} de {total}',
+    nothingHere: 'Esta guía no tiene nada para mostrar en esta pantalla todavía.'
   },
   tours: {
     welcome: {

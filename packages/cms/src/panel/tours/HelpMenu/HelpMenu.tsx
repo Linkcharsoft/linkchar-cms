@@ -21,18 +21,32 @@ interface Props {
 // Gives the screen time to render its data before the first step measures anything.
 const START_DELAY = 700
 
+// How long a step waits for an anchor that is still loading (the publish history, a list) before it is skipped.
+const WAIT_FOR_ANCHOR = 1500
+
 const isOnScreen = (element: Element) => {
   const rect = element.getBoundingClientRect()
   return rect.width > 0 && rect.height > 0
 }
 
-// Anchors missing on this screen (a hidden mobile menu, a section without tabs) are skipped, not shown empty.
-const toSteps = (tour: TourType): DriveStep[] => tour.steps.flatMap(step => {
-  const popover = { title: step.title, description: step.description }
-  if (!step.anchor) return [{ popover }]
-  const element = document.querySelector(tourAnchor(step.anchor))
-  return element && isOnScreen(element) ? [{ element, popover }] : []
-})
+// Looked up when the step shows, never earlier: a re-mounted button (a tooltip that comes and goes) keeps its anchor.
+const visibleAnchor = (anchor: string) => {
+  const element = document.querySelector(tourAnchor(anchor))
+  return element && isOnScreen(element) ? element : null
+}
+
+// driver.js skips a step whose element resolves to nothing, but types the resolver as always returning one.
+const resolver = (anchor: string) => () => visibleAnchor(anchor) as Element
+
+const toSteps = (tour: TourType): DriveStep[] => tour.steps.map(step => ({
+  ...(step.anchor ? { element: resolver(step.anchor) } : {}),
+  popover: { title: step.title, description: step.description, side: step.side, align: step.align }
+}))
+
+// Anchors missing on this screen (a hidden mobile menu, a section without tabs) are skipped; a tour with none never starts.
+const hasSomethingToShow = (tour: TourType) => tour.steps.some(step => !step.anchor || visibleAnchor(step.anchor))
+
+const prefersReducedMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches
 
 const HelpMenu = ({ seenTours }: Props) => {
   const { t, translate } = useT()
@@ -42,8 +56,10 @@ const HelpMenu = ({ seenTours }: Props) => {
   const notify = useNotify()
   const menuRef = useRef<Menu>(null)
   const running = useRef(false)
+  const observer = useRef<ResizeObserver | null>(null)
   const [seen, setSeen] = useState(() => new Set(seenTours))
   const [requested, setRequested] = useState<string | null>(null)
+  const [menuOpen, setMenuOpen] = useState(false)
   const tours = useMemo(() => buildTours(config), [config])
   const current = tourForPath(tours, pathname)
 
@@ -51,25 +67,43 @@ const HelpMenu = ({ seenTours }: Props) => {
     if (running.current) return
     running.current = true
     const { driver } = await import('driver.js')
-    driver({
+    const instance = driver({
       steps: toSteps(tour),
+      skipMissingElement: true,
+      waitForElement: WAIT_FOR_ANCHOR,
+      animate: !prefersReducedMotion(),
+      stagePadding: 4,
+      stageRadius: 12,
       showProgress: true,
       progressText: t('help.progress', { current: '{{current}}', total: '{{total}}' }),
       nextBtnText: t('help.next'),
       prevBtnText: t('help.previous'),
       doneBtnText: t('help.done'),
+      closeBtnLabel: t('help.close'),
       popoverClass: 'HelpMenu__Popover',
+      // The highlighted element can grow or shrink (an image loads, a list fills): keep the stage on it.
+      onHighlighted: element => {
+        observer.current?.disconnect()
+        if (!element) return
+        observer.current = new ResizeObserver(() => instance.refresh())
+        observer.current.observe(element)
+      },
+      onDeselected: () => observer.current?.disconnect(),
       // onDestroyed is skipped when the tour closes mid-animation; this hook always runs.
-      onDestroyStarted: (_element, _step, { driver: instance }) => {
+      onDestroyStarted: () => {
+        observer.current?.disconnect()
         instance.destroy()
         running.current = false
         setSeen(previous => new Set(previous).add(tour.id))
         actions.markTourSeen(tour.id)
       }
-    }).drive()
+    })
+    instance.drive()
   }
 
-  const startOnArrival = useEffectEvent((tour: TourType) => start(tour))
+  const startOnArrival = useEffectEvent((tour: TourType) => {
+    if (hasSomethingToShow(tour)) void start(tour)
+  })
 
   useEffect(() => {
     const tour = requested
@@ -84,8 +118,13 @@ const HelpMenu = ({ seenTours }: Props) => {
     return () => clearTimeout(timer)
   }, [pathname, requested, current, seen, tours])
 
+  useEffect(() => () => observer.current?.disconnect(), [])
+
   const open = (tour: TourType) => {
-    if (tour.matches(pathname)) return start(tour)
+    if (tour.matches(pathname)) {
+      if (!hasSomethingToShow(tour)) return notify({ severity: 'warn', summary: t('help.nothingHere') })
+      return start(tour)
+    }
     if (!tour.path) return
     setRequested(tour.id)
     router.push(tour.path as Route)
@@ -99,7 +138,7 @@ const HelpMenu = ({ seenTours }: Props) => {
   }
 
   const items: MenuItem[] = [
-    ...(current ? [{ label: t('help.thisScreen'), icon: 'pi pi-play', command: () => start(current) }, { separator: true }] : []),
+    ...(current ? [{ label: t('help.thisScreen'), icon: 'pi pi-play', command: () => open(current) }, { separator: true }] : []),
     {
       label: t('help.tours'),
       items: tours.map(tour => {
@@ -124,6 +163,7 @@ const HelpMenu = ({ seenTours }: Props) => {
         variant='ghost'
         size='sm'
         aria-haspopup='menu'
+        aria-expanded={menuOpen}
         aria-controls='cms-help-menu'
         data-tour='help'
         onClick={event => menuRef.current?.toggle(event)}
@@ -131,7 +171,15 @@ const HelpMenu = ({ seenTours }: Props) => {
         <i className='pi pi-question-circle' aria-hidden='true' />
         <span className='HelpMenu__Label'>{t('help.button')}</span>
       </CustomButton>
-      <Menu id='cms-help-menu' model={items} popup ref={menuRef} className='HelpMenu__Menu' />
+      <Menu
+        id='cms-help-menu'
+        model={items}
+        popup
+        ref={menuRef}
+        className='HelpMenu__Menu'
+        onShow={() => setMenuOpen(true)}
+        onHide={() => setMenuOpen(false)}
+      />
     </>
   )
 }
