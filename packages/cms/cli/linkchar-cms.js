@@ -4,6 +4,7 @@ import { readFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { parseArgs } from 'node:util'
+import { findBrandIcon } from '../next/index.js'
 import { createSuperadmin, readEnvFile } from './admin.js'
 import { authChecks, environmentChecks } from './doctor.js'
 import { importSettings, runImport } from './import.js'
@@ -35,7 +36,7 @@ const USAGE = `Usage:
   init writes the files a project owns (cms.config.ts, src/cms, the panel and site layouts) where none exist,
   then runs templates, routes and migrations sync, and lists what is left to wire by hand.
   admin makes the first superadmin with SUPABASE_SECRET_KEY: created with --password, else invited by email.
-  doctor checks routes, migrations, templates, variables, Supabase, the package registry and the ports.
+  doctor checks routes, the panel icon, migrations, templates, variables, Supabase, the package registry and the ports.
   contrast checks a panel primary against the text on it (exit 1 below 4.5:1).
   import runs the script's default export with a session signed in as --email (password in CMS_IMPORT_PASSWORD):
   cms.media(), cms.upsert() and cms.publish(); --no-publish makes cms.publish() report without publishing.`
@@ -141,6 +142,18 @@ const admin = async ({ email, password, name, 'env-file': envFile }) => {
   return 0
 }
 
+/**
+ * @param {import('./routes.js').RoutesConfigType} config
+ * @returns {import('./doctor.js').CheckType}
+ */
+const brandIconCheck = ({ branding }) => {
+  if (branding?.icon) return { level: 'ok', text: `Panel icon: ${branding.icon} (branding.icon)` }
+  const found = findBrandIcon(resolve('.'))
+  return found
+    ? { level: 'ok', text: `Panel icon: ${found.url} (from ${found.file})` }
+    : { level: 'warn', text: 'No product icon: add app/icon.svg or set branding.icon (the panel shows initials meanwhile)' }
+}
+
 /** @param {{ config: string, src?: string, dir: string, 'env-file': string }} options */
 const doctor = async ({ config, src, dir, 'env-file': envFile }) => {
   /** @type {import('./doctor.js').CheckType[]} */
@@ -163,6 +176,7 @@ const doctor = async ({ config, src, dir, 'env-file': envFile }) => {
     checks.push(behind > 0 || proxy !== 'ok'
       ? { level: 'fail', text: `Panel routes are behind (${behind} files${proxy === 'ok' ? '' : `, proxy ${proxy}`}): linkchar-cms routes` }
       : { level: 'ok', text: 'Panel routes and proxy are up to date' })
+    checks.push(brandIconCheck(loaded))
   }
   if (existsSync(join(supabaseDir, 'config.toml'))) {
     checks.push(...authChecks(await readFile(join(supabaseDir, 'config.toml'), 'utf8')))

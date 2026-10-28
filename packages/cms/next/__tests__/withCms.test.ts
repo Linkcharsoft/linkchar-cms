@@ -1,5 +1,8 @@
-import { describe, expect, it, vi } from 'vitest'
-import { readRedirects, withCms } from '../index.js'
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { findBrandIcon, readRedirects, withCms } from '../index.js'
 
 describe('withCms', () => {
   it('compiles the package with the project and allows the Supabase images', () => {
@@ -67,5 +70,56 @@ describe('readRedirects', () => {
 
   it('fails the build when they cannot be read', async () => {
     await expect(readRedirects('https://abc.supabase.co', 'key', async () => new Response('', { status: 500 }))).rejects.toThrow('HTTP 500')
+  })
+})
+
+describe('findBrandIcon', () => {
+  let root: string
+
+  const png = (width: number) => {
+    const head = Buffer.alloc(24)
+    head.write('IHDR', 12, 'latin1')
+    head.writeUInt32BE(width, 16)
+    return head
+  }
+  const add = (file: string, content: string | Buffer = '') => {
+    mkdirSync(join(root, file, '..'), { recursive: true })
+    writeFileSync(join(root, file), content)
+  }
+
+  beforeEach(() => { root = mkdtempSync(join(tmpdir(), 'cms-icon-')) })
+  afterEach(() => rmSync(root, { recursive: true, force: true }))
+
+  it('prefers the app icon Next serves', () => {
+    add('public/favicon192.png', png(192))
+    add('src/app/favicon.ico')
+    add('src/app/icon.png', png(512))
+    expect(findBrandIcon(root)).toEqual({ url: '/icon.png', file: 'src/app/icon.png' })
+  })
+
+  it('takes the largest favicon in public/ before a favicon.ico', () => {
+    add('app/favicon.ico')
+    add('public/favicon.png', png(16))
+    add('public/favicon192.png', png(192))
+    add('public/favicon48.png', png(48))
+    add('public/og.png', png(1200))
+    expect(findBrandIcon(root)).toEqual({ url: '/favicon192.png', file: 'public/favicon192.png' })
+  })
+
+  it('falls back to favicon.ico, and to nothing', () => {
+    expect(findBrandIcon(root)).toBeNull()
+    add('app/favicon.ico')
+    expect(findBrandIcon(root)).toEqual({ url: '/favicon.ico', file: 'app/favicon.ico' })
+  })
+
+  it('reaches the panel through CMS_BRAND_ICON, under the Next basePath', () => {
+    add('app/icon.svg')
+    const cwd = vi.spyOn(process, 'cwd').mockReturnValue(root)
+    try {
+      expect(withCms({ basePath: '/web' }, { redirects: false }).env).toEqual({ CMS_BRAND_ICON: '/web/icon.svg' })
+      expect(withCms({ env: { CMS_BRAND_ICON: '/own.png' } }, { redirects: false }).env).toEqual({ CMS_BRAND_ICON: '/own.png' })
+    } finally {
+      cwd.mockRestore()
+    }
   })
 })

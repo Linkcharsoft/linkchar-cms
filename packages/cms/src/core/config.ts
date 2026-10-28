@@ -16,9 +16,10 @@ export interface MediaFolderType {
   label: TextType
 }
 
+// The product slot of an Inferencia-branded panel: its name and its square icon, by default the site's favicon.
 export interface BrandingType {
   name: string
-  logo?: string
+  icon?: string
   // Line under the sidebar, e.g. who to contact for support.
   footer?: TextType
 }
@@ -247,6 +248,10 @@ export const defineCmsConfig = <const S extends ContentSchema, const L extends s
   if (input.site?.url && !/^https?:\/\/[^/]+$/.test(input.site.url)) throw new CmsConfigError(`site.url "${input.site.url}" must be an origin like https://acme.com.`)
   const xDefault = input.site?.xDefault ?? defaultLocale
   if (!locales.includes(xDefault)) throw new CmsConfigError(`site.xDefault "${xDefault}" is not in locales.`)
+  if (input.branding && 'logo' in input.branding) throw new CmsConfigError('branding.logo is now branding.icon: a square image, like the favicon.')
+  // withCms sets CMS_BRAND_ICON at build from the project's favicon files.
+  const icon = input.branding?.icon ?? process.env.CMS_BRAND_ICON
+  if (icon && !/^(\/|https:\/\/)/.test(icon)) throw new CmsConfigError(`branding.icon "${icon}" must be a path like /icon.svg or an https URL.`)
 
   return Object.freeze({
     schema: input.schema,
@@ -257,7 +262,7 @@ export const defineCmsConfig = <const S extends ContentSchema, const L extends s
     basePath,
     paths,
     timeZone: input.timeZone ?? 'America/Argentina/Buenos_Aires',
-    branding: input.branding ?? { name: 'CMS' },
+    branding: Object.freeze({ name: input.branding?.name ?? 'CMS', icon: icon || undefined, footer: input.branding?.footer }),
     site: Object.freeze({ url: input.site?.url ?? null, titleTemplate, defaults: siteDefaults(input.schema, input.site?.defaults as SiteDefaultsType | undefined), xDefault }),
     mediaFolders: input.mediaFolders ?? [],
     extensions: input.extensions ?? [],

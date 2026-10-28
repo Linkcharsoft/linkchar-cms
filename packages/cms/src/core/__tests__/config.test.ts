@@ -22,6 +22,21 @@ describe('defineCmsConfig', () => {
     expect(Object.isFrozen(config)).toBe(true)
   })
 
+  it('takes the product icon from the config, else from the favicon withCms found', () => {
+    const previous = process.env.CMS_BRAND_ICON
+    process.env.CMS_BRAND_ICON = '/icon.svg'
+    try {
+      expect(defineCmsConfig({ schema, branding: { name: 'Norte' } }).branding).toEqual({ name: 'Norte', icon: '/icon.svg' })
+      expect(defineCmsConfig({ schema, branding: { name: 'Norte', icon: 'https://cdn.test/n.png' } }).branding.icon).toBe('https://cdn.test/n.png')
+    } finally {
+      if (previous === undefined) delete process.env.CMS_BRAND_ICON
+      else process.env.CMS_BRAND_ICON = previous
+    }
+    expect(() => defineCmsConfig({ schema, branding: { name: 'Norte', icon: 'icon.svg' } })).toThrow('must be a path like /icon.svg')
+    // @ts-expect-error logo was renamed
+    expect(() => defineCmsConfig({ schema, branding: { name: 'Norte', logo: '/logo.svg' } })).toThrow('branding.logo is now branding.icon')
+  })
+
   it('keeps the locales as a type', () => {
     const config = defineCmsConfig({ schema, locales: ['es', 'en'], defaultLocale: 'en' })
     expectTypeOf(config.defaultLocale).toEqualTypeOf<'es' | 'en'>()

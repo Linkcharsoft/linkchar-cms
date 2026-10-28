@@ -1,6 +1,8 @@
 // Plain JS: next.config loads before anything is transpiled, and Node won't strip types in node_modules.
+import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { request as httpRequest } from 'node:http'
 import { request as httpsRequest } from 'node:https'
+import { join } from 'node:path'
 
 /** @param {string} path */
 const literal = path => path.replace(/[:()*+?{}\\]/g, char => `\\${char}`)
@@ -43,6 +45,39 @@ export const readRedirects = async (supabaseUrl, publishableKey, fetcher = getJs
 // `next typegen` loads the config with the build phase but only writes route types: nothing to read from the database for.
 const isTypegen = (argv = process.argv) => argv.includes('typegen')
 
+const APP_ICONS = ['icon.svg', 'icon.png', 'apple-icon.png']
+const PUBLIC_PNG = /^(icon|favicon|apple-touch-icon|android-chrome)[\w-]*\.png$/i
+
+/** @param {string} file */
+const pngWidth = file => {
+  const head = readFileSync(file).subarray(0, 24)
+  return head.toString('latin1', 12, 16) === 'IHDR' ? head.readUInt32BE(16) : 0
+}
+
+/**
+ * The product icon the panel shows next to its name: Next's app icon, else the largest favicon in public/.
+ * @param {string} [root]
+ * @returns {{ url: string, file: string } | null}
+ */
+export const findBrandIcon = (root = process.cwd()) => {
+  const appDirs = ['src/app', 'app'].filter(dir => existsSync(join(root, dir)))
+  for (const dir of appDirs) {
+    const name = APP_ICONS.find(icon => existsSync(join(root, dir, icon)))
+    if (name) return { url: `/${name}`, file: `${dir}/${name}` }
+  }
+  const publicDir = join(root, 'public')
+  const files = existsSync(publicDir) ? readdirSync(publicDir) : []
+  if (files.includes('icon.svg')) return { url: '/icon.svg', file: 'public/icon.svg' }
+  if (files.includes('favicon.svg')) return { url: '/favicon.svg', file: 'public/favicon.svg' }
+  const [largest] = files.filter(name => PUBLIC_PNG.test(name))
+    .map(name => ({ name, width: pngWidth(join(publicDir, name)) }))
+    .sort((a, b) => b.width - a.width)
+  if (largest) return { url: `/${largest.name}`, file: `public/${largest.name}` }
+  const favicon = appDirs.find(dir => existsSync(join(root, dir, 'favicon.ico')))
+  if (favicon) return { url: '/favicon.ico', file: `${favicon}/favicon.ico` }
+  return files.includes('favicon.ico') ? { url: '/favicon.ico', file: 'public/favicon.ico' } : null
+}
+
 /**
  * @param {import('next').NextConfig} [nextConfig]
  * @param {import('./index').WithCmsOptionsType} [options]
@@ -53,9 +88,11 @@ export const withCms = (nextConfig = {}, options = {}) => {
   const publishableKey = options.publishableKey ?? process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
   const bucket = supabaseUrl ? new URL(supabaseUrl) : null
   const images = nextConfig.images ?? {}
+  const icon = findBrandIcon()
 
   return {
     ...nextConfig,
+    env: { ...(icon ? { CMS_BRAND_ICON: `${nextConfig.basePath ?? ''}${icon.url}` } : {}), ...nextConfig.env },
     transpilePackages: [...new Set([...(nextConfig.transpilePackages ?? []), '@linkcharsoft/cms'])],
     images: {
       ...images,
