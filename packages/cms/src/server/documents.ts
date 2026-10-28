@@ -43,6 +43,9 @@ export interface CollectionQueryType {
 }
 
 export const COLLECTION_PAGE_SIZE = 20
+
+// Manual order shows more per page: reordering only works within a page.
+export const ORDERABLE_PAGE_SIZE = 100
 // "Incompleto" is not a column of the view: those filters read the candidates and pick in memory, up to this many.
 const DERIVED_STATUS_LIMIT = 200
 const DERIVED_STATUSES: readonly DocumentDisplayStatusType[] = ['new', 'changed', 'incomplete']
@@ -90,10 +93,11 @@ export const getDocument = async (ctx: CmsContextType, entryId: string, id: stri
 
 export const listCollection = async (ctx: CmsContextType, entryId: string, query: CollectionQueryType = {}) => {
   const entry = getCollection(ctx.config, entryId)
-  if (!entry) return { items: [], total: 0, page: 1, sort: 'updated' as CollectionSortType }
+  if (!entry) return { items: [], total: 0, page: 1, pageSize: COLLECTION_PAGE_SIZE, sort: 'updated' as CollectionSortType }
 
   const requested = Math.max(1, query.page ?? 1)
   const sort = query.sort ?? (entry.orderable ? 'manual' : 'updated')
+  const pageSize = sort === 'manual' ? ORDERABLE_PAGE_SIZE : COLLECTION_PAGE_SIZE
   const title = titleColumn(ctx, entry)
   const derived = !!query.status && DERIVED_STATUSES.includes(query.status)
 
@@ -105,8 +109,8 @@ export const listCollection = async (ctx: CmsContextType, entryId: string, query
       ? builder.order('sort_order').order('created_at')
       : sort === 'title' ? builder.order(title) : builder.order('updated_at', { ascending: false })
   }
-  const pageOf = (page: number) => request().range((page - 1) * COLLECTION_PAGE_SIZE, page * COLLECTION_PAGE_SIZE - 1)
-  const lastPageFor = (total: number) => Math.max(1, Math.ceil(total / COLLECTION_PAGE_SIZE))
+  const pageOf = (page: number) => request().range((page - 1) * pageSize, page * pageSize - 1)
+  const lastPageFor = (total: number) => Math.max(1, Math.ceil(total / pageSize))
 
   let { data, count } = derived ? await request().limit(DERIVED_STATUS_LIMIT) : await pageOf(requested)
   // A page past the end (a stale link, the last item of a page deleted) shows the last one instead of "no content".
@@ -129,11 +133,11 @@ export const listCollection = async (ctx: CmsContextType, entryId: string, query
     updatedAt: row.updated_at!
   }))
 
-  if (!derived) return { items, total: count ?? 0, page, sort }
+  if (!derived) return { items, total: count ?? 0, page, pageSize, sort }
   const matching = items.filter(item => item.status === query.status)
   const shownPage = Math.min(page, lastPageFor(matching.length))
-  const start = (shownPage - 1) * COLLECTION_PAGE_SIZE
-  return { items: matching.slice(start, start + COLLECTION_PAGE_SIZE), total: matching.length, page: shownPage, sort }
+  const start = (shownPage - 1) * pageSize
+  return { items: matching.slice(start, start + pageSize), total: matching.length, page: shownPage, pageSize, sort }
 }
 
 export const listTrash = async (ctx: CmsContextType): Promise<TrashItemType[]> => {

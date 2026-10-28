@@ -34,6 +34,11 @@ const lists = {
       title: 'Title'
     },
     reorderFailed: 'The order could not be saved',
+    moveUp: 'Move {title} up',
+    moveDown: 'Move {title} down',
+    reorderHint: 'To reorder, clear the search and the filters and pick "Manual order".',
+    backToManual: 'Show in manual order',
+    reorderPageOnly: 'Reordering happens within this page; the others keep their order.',
     createFailed: 'It could not be created',
     noResults: 'No results match those filters.',
     empty: 'There is no content yet.',

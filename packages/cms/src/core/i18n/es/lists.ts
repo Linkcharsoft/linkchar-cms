@@ -31,6 +31,11 @@ const lists = {
       title: 'Título'
     },
     reorderFailed: 'No se pudo guardar el orden',
+    moveUp: 'Subir {title}',
+    moveDown: 'Bajar {title}',
+    reorderHint: 'Para reordenar, quitá la búsqueda y los filtros y elegí "Orden manual".',
+    backToManual: 'Ver en orden manual',
+    reorderPageOnly: 'Se reordena dentro de esta página; las demás conservan su orden.',
     createFailed: 'No se pudo crear',
     noResults: 'No hay resultados con esos filtros.',
     empty: 'Todavía no hay contenido.',
