@@ -16,7 +16,7 @@ const shell = {
     }
   },
   shell: {
-    brandTag: 'Panel',
+    brandTag: 'CMS',
     skipToContent: 'Skip to content',
     tagline: 'Content panel',
     openMenu: 'Open menu',

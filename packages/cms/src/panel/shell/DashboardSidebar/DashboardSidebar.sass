@@ -12,23 +12,21 @@
     padding: 12px 16px
     @apply lg:py-6
 
-  &__Brand
+  &__Product
     display: flex
     align-items: center
-    gap: 8px
+    gap: 12px
+    min-width: 0
+    min-height: 44px
+    border-radius: 8px
     text-decoration: none
-    @apply font-cms-display cms-text-bold-18 text-cms-sidebar-ink
+    @apply text-cms-sidebar-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-cms-accent
 
-  &__BrandTag
-    padding: 2px 8px
-    border-radius: 999px
-    @apply cms-text-semibold-12 bg-cms-primary text-cms-primary-contrast
-
-  &__Logo
-    width: auto
-    max-width: 140px
-    height: 28px
-    object-fit: contain
+  &__ProductName
+    overflow: hidden
+    text-overflow: ellipsis
+    white-space: nowrap
+    @apply font-cms-display cms-text-bold-18
 
   &__Toggle
     display: flex
@@ -79,6 +77,7 @@
     @apply cms-text-medium-14 text-cms-sidebar-muted hover:bg-cms-sidebar-hover hover:text-cms-sidebar-ink
 
     &--Active
+      box-shadow: inset 3px 0 0 var(--cms-accent)
       @apply bg-cms-sidebar-active text-cms-sidebar-ink
 
   &__External
@@ -86,5 +85,12 @@
     font-size: 12px
 
   &__Footer
+    display: flex
+    flex-direction: column
+    gap: 12px
+    margin-top: 24px
     padding: 16px 12px 0
+    @apply border-t border-cms-sidebar-hover
+
+  &__FooterText
     @apply cms-text-regular-12 text-cms-sidebar-muted

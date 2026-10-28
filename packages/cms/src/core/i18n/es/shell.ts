@@ -13,7 +13,7 @@ const shell = {
     }
   },
   shell: {
-    brandTag: 'Panel',
+    brandTag: 'CMS',
     skipToContent: 'Saltar al contenido',
     tagline: 'Panel de contenido',
     openMenu: 'Abrir menú',

@@ -8,7 +8,7 @@ import type { ReactNode } from 'react'
 
 interface Props {
   groups: NavGroupType[]
-  brand: { name: string, logo?: string, footer?: string }
+  brand: { name: string, icon?: string, footer?: string }
   user: { name: string, role: RoleType, avatar: string | null, seenTours: string[] }
   latestPublish: PublishRecordType | null
   pendingCounts: PendingCountsType

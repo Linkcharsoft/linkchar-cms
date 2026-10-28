@@ -5,6 +5,8 @@ import { usePathname } from 'next/navigation'
 import { classNames } from 'primereact/utils'
 import { useState } from 'react'
 import { usePaths, useT } from '../../client/context'
+import BrandMark from '../BrandMark/BrandMark'
+import ProductIcon from '../ProductIcon/ProductIcon'
 import type { NavGroupType, NavItemType } from '../navigation'
 import type { Route } from 'next'
 
@@ -16,7 +18,7 @@ const isActive = (pathname: string, item: NavItemType, home: string) =>
 
 interface Props {
   groups: NavGroupType[]
-  brand: { name: string, logo?: string, footer?: string }
+  brand: { name: string, icon?: string, footer?: string }
 }
 
 const DashboardSidebar = ({ groups, brand }: Props) => {
@@ -28,11 +30,9 @@ const DashboardSidebar = ({ groups, brand }: Props) => {
   return (
     <aside className='DashboardSidebar'>
       <div className='DashboardSidebar__Top'>
-        <Link href={paths.home as Route} className='DashboardSidebar__Brand'>
-          {brand.logo
-            ? <img src={brand.logo} alt={brand.name} className='DashboardSidebar__Logo' />
-            : brand.name}
-          <span className='DashboardSidebar__BrandTag'>{t('shell.brandTag')}</span>
+        <Link href={paths.home as Route} className='DashboardSidebar__Product'>
+          <ProductIcon name={brand.name} icon={brand.icon} />
+          <span className='DashboardSidebar__ProductName'>{brand.name}</span>
         </Link>
 
         <button
@@ -82,7 +82,10 @@ const DashboardSidebar = ({ groups, brand }: Props) => {
           ))}
         </div>
 
-        {brand.footer && <p className='DashboardSidebar__Footer'>{brand.footer}</p>}
+        <div className='DashboardSidebar__Footer'>
+          {brand.footer && <p className='DashboardSidebar__FooterText'>{brand.footer}</p>}
+          <BrandMark tag={t('shell.brandTag')} />
+        </div>
       </nav>
     </aside>
   )
