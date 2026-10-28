@@ -1,9 +1,17 @@
 @use "sass:map"
+@use "sass:math"
 
 $dialog-widths: (sm: 480px, md: 640px, lg: 960px)
 
 @mixin dialog-width($size: md)
   width: min(map.get($dialog-widths, $size), calc(100vw - 32px))
+
+// Neutral ground that shows a transparent logo's edges without competing with the image.
+@mixin checkerboard($size: 10px)
+  background-color: var(--cms-surface)
+  background-image: linear-gradient(45deg, var(--cms-neutral-100) 25%, transparent 25%), linear-gradient(-45deg, var(--cms-neutral-100) 25%, transparent 25%), linear-gradient(45deg, transparent 75%, var(--cms-neutral-100) 75%), linear-gradient(-45deg, transparent 75%, var(--cms-neutral-100) 75%)
+  background-size: $size $size
+  background-position: 0 0, 0 math.div($size, 2), math.div($size, 2) math.div(-$size, 2), math.div(-$size, 2) 0
 
 @mixin card()
   padding: 20px

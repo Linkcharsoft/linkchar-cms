@@ -1,3 +1,5 @@
+@use '../../theme/mixins' as cms
+
 .MediaGrid
   display: grid
   grid-template-columns: repeat(auto-fill, minmax(140px, 1fr))
@@ -25,10 +27,10 @@
     aspect-ratio: 1
     overflow: hidden
     border-radius: 8px
-    @apply bg-cms-primary-50
+    @include cms.checkerboard
 
   &__Image
-    object-fit: cover
+    object-fit: contain
 
   &__Pdf
     font-size: 36px

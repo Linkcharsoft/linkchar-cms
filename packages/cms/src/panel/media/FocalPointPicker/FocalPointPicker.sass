@@ -1,7 +1,7 @@
 .FocalPointPicker
   position: relative
   display: block
-  width: 100%
+  margin: 0 auto
   padding: 0
   overflow: hidden
   border-radius: 12px
@@ -9,11 +9,7 @@
   @apply bg-cms-primary-50 focus-visible:ring-2 focus-visible:ring-cms-primary-ring
 
   &__Image
-    display: block
-    width: 100%
-    height: auto
-    max-height: 420px
-    object-fit: contain
+    object-fit: cover
 
   &__Marker
     position: absolute

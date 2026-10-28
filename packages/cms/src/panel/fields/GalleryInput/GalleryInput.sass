@@ -1,3 +1,5 @@
+@use '../../theme/mixins' as cms
+
 .GalleryInput
   display: flex
   flex-direction: column
@@ -24,10 +26,10 @@
     height: 40px
     overflow: hidden
     border-radius: 6px
-    @apply bg-cms-primary-50
+    @include cms.checkerboard(6px)
 
   &__Image
-    object-fit: cover
+    object-fit: contain
 
   &__Original
     display: flex

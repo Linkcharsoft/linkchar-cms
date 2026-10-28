@@ -101,7 +101,6 @@ const MediaInput = ({ name, field }: Props) => {
                   fill
                   sizes='240px'
                   className='MediaInput__Image'
-                  style={{ objectPosition: `${(item.focalX ?? 0.5) * 100}% ${(item.focalY ?? 0.5) * 100}%` }}
                 />
               ) : (
                 <i className='pi pi-file-pdf MediaInput__Pdf' aria-hidden='true' />

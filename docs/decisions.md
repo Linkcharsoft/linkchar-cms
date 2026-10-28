@@ -53,6 +53,7 @@ One line per decision that still shapes the package. Each is settled; reopening 
 - List and block items start open up to three, or when the item has an image field (`open` fixes it); Formik's `touched` is kept per item, never on the array, so the errors inside survive adding or reordering. The rich text toolbar is not sticky: it would sit under the editor's sticky bar.
 - Opening hours may close past midnight (20:00 to 02:00); only the same opening and closing time is an error, and a closed day's hours are kept but not validated.
 - The duplicate check hashes the original file (SHA-256), not the processed blob: the canvas WebP differs per browser.
+- Thumbnails never crop (`contain` on a subtle checkerboard, in the library, the picker, the uploader and the inputs): logos and screenshots must be recognizable; only the focal point picker shows the image at its own ratio, and the site is where the focal point crops.
 - Untouched drafts are purged on reading a collection list, only when revision 1, equal timestamps, data equal to the schema defaults and no usage.
 
 ## Dependencies and releases

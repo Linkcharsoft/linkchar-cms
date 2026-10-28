@@ -44,7 +44,6 @@ const MediaGrid = ({ items, selectable = false, selectedIds = [], onActivate }: 
                     placeholder={item.blurDataUrl ? 'blur' : 'empty'}
                     blurDataURL={item.blurDataUrl ?? undefined}
                     className='MediaGrid__Image'
-                    style={{ objectPosition: `${(item.focalX ?? 0.5) * 100}% ${(item.focalY ?? 0.5) * 100}%` }}
                   />
                 ) : (
                   <i className='pi pi-file-pdf MediaGrid__Pdf' aria-hidden='true' />
