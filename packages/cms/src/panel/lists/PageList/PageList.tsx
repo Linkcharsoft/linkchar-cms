@@ -73,8 +73,8 @@ const PageList = ({ pages }: Props) => {
   )
 
   return (
-    <div className='PageList' data-tour='pages-list'>
-      <DataTable responsiveLayout='stack' breakpoint='767px' value={pages} dataKey='id' className='PageList__Table'>
+    <div className='PageList'>
+      <DataTable responsiveLayout='stack' breakpoint='767px' value={pages} dataKey='id' className='PageList__Table' pt={{ bodyRow: { 'data-tour': 'pages-row' } }}>
         <Column header={t('pagesList.page')} body={nameTemplate} />
         <Column header={t('listColumns.status')} body={statusTemplate} />
         <Column header={t('listColumns.edited')} body={editedTemplate} />

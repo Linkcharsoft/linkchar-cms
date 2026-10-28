@@ -61,7 +61,7 @@ const PageSection = ({ sectionKey, label, icon, summary, open, onToggle, hideabl
 
   return (
     <section id={id} className={classNames('PageSection', { 'PageSection--Open': open, 'PageSection--Hidden': hideable && hidden })}>
-      <div className='PageSection__Header'>
+      <div className='PageSection__Header' data-tour='section'>
         <h2 className='PageSection__Heading'>
           <button
             type='button'

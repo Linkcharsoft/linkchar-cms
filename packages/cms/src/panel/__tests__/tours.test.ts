@@ -81,6 +81,16 @@ describe('guided tours', () => {
   it('build attribute selectors', () => {
     expect(tourAnchor('nav')).toBe('[data-tour="nav"]')
   })
+
+  it('place each card beside a small anchor, never over a tall wrapper', () => {
+    const anchored = tours.flatMap(item => item.steps).filter(step => step.anchor)
+    for (const step of anchored) expect(step.side, step.anchor).toBeDefined()
+    expect(anchored.map(step => step.anchor)).not.toEqual(expect.arrayContaining(['form', 'pages-list', 'collection-list']))
+    expect(tour('welcome').steps.find(step => step.anchor === 'nav')).toMatchObject({ side: 'right', align: 'start' })
+    expect(tour('page-editor').steps.find(step => step.anchor === 'preview')).toMatchObject({ side: 'bottom', align: 'end' })
+    expect(tour('page-editor').steps.map(step => step.anchor)).toContain('section')
+    expect(tour('document').steps.map(step => step.anchor)).toContain('field')
+  })
 })
 
 describe('isEditing', () => {

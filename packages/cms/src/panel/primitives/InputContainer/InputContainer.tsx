@@ -33,7 +33,7 @@ const InputContainer = ({
     : <Label htmlFor={htmlFor}>{label}</Label>
 
   return (
-    <div className="InputContainer">
+    <div className='InputContainer' data-tour='field'>
       {aside ? (
         <div className='InputContainer__Header'>
           {title}
