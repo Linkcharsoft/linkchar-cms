@@ -48,18 +48,23 @@ const MediaDetails = ({ item, canPurge, onChanged, onRemoved, onHide, focusLocal
   const [focal, setFocal] = useState({ x: item.focalX, y: item.focalY })
   const [error, setError] = useState<string>()
   const [isSaving, setIsSaving] = useState(false)
-  // null while loading.
-  const [usage, setUsage] = useState<MediaUsageType[] | null>(null)
+  const [isMoving, setIsMoving] = useState(false)
+  // null while loading; 'failed' when the lookup broke (the server still refuses to trash a file in use).
+  const [usage, setUsage] = useState<MediaUsageType[] | null | 'failed'>(null)
   const isImage = isImageMime(item.mime)
   const inTrash = !!item.deletedAt
-  const inUse = !!usage && usage.length > 0
+  const inUse = Array.isArray(usage) && usage.length > 0
+  const usageKnown = usage !== null
   const multilingual = locales.length > 1
   const lacking = isImage ? missingAltLocales(config, alt) : []
   const folderOptions = config.mediaFolders.map(option => ({ value: option.value, label: text(option.label) }))
 
-  useEffect(() => {
-    void actions.getMediaUsage(item.id).then(setUsage)
-  }, [item.id])
+  const loadUsage = () => {
+    setUsage(null)
+    actions.getMediaUsage(item.id).then(setUsage, () => setUsage('failed'))
+  }
+
+  useEffect(loadUsage, [item.id])
 
   const altLabel = (locale: string) => {
     const language = languageName(locale, config.panelLocale)
@@ -86,7 +91,8 @@ const MediaDetails = ({ item, canPurge, onChanged, onRemoved, onHide, focusLocal
   }
 
   const toggleTrash = async () => {
-    const result = inTrash ? await actions.restoreMedia(item.id) : await actions.trashMedia(item.id)
+    setIsMoving(true)
+    const result = await (inTrash ? actions.restoreMedia(item.id) : actions.trashMedia(item.id)).finally(() => setIsMoving(false))
     if (!result.ok) {
       if (result.usage.length > 0) setUsage(result.usage)
       notify({ severity: 'error', summary: result.usage.length > 0 ? t('media.details.inUse') : t('media.details.actionFailed') })
@@ -109,6 +115,7 @@ const MediaDetails = ({ item, canPurge, onChanged, onRemoved, onHide, focusLocal
         notify({ severity: 'error', summary: result.usage.length > 0 ? t('media.details.inUse') : t('media.details.purgeFailed') })
         return
       }
+      notify({ severity: 'success', summary: t('media.details.purged') })
       onRemoved(item.id)
       onHide()
     }
@@ -132,13 +139,13 @@ const MediaDetails = ({ item, canPurge, onChanged, onRemoved, onHide, focusLocal
       footer={(
         <DialogFooter
           start={inTrash && canPurge && (
-            <CustomButton type='button' variant='danger' disabled={usage === null || inUse} onClick={askPurge}>
+            <CustomButton type='button' variant='danger' disabled={!usageKnown || inUse} onClick={askPurge}>
               <i className='pi pi-trash' aria-hidden='true' />
               {t('media.details.purge')}
             </CustomButton>
           )}
         >
-          <CustomButton type='button' variant='secondary' disabled={!inTrash && (usage === null || inUse)} onClick={toggleTrash}>
+          <CustomButton type='button' variant='secondary' disabled={!inTrash && (!usageKnown || inUse)} loading={isMoving} onClick={toggleTrash}>
             <i className={inTrash ? 'pi pi-replay' : 'pi pi-trash'} aria-hidden='true' />
             {inTrash ? t('media.details.restore') : t('media.library.trash')}
           </CustomButton>
@@ -216,6 +223,10 @@ const MediaDetails = ({ item, canPurge, onChanged, onRemoved, onHide, focusLocal
             <p className='MediaDetails__UsageTitle'>{t('media.details.usageTitle')}</p>
             {usage === null ? (
               <Loader />
+            ) : usage === 'failed' ? (
+              <Notice tone='error' action={<CustomButton type='button' variant='secondary' size='sm' onClick={loadUsage}>{t('ui.retry')}</CustomButton>}>
+                {t('media.details.usageFailed')}
+              </Notice>
             ) : usage.length === 0 ? (
               <p className='MediaDetails__Meta'>{t('media.details.unused')}</p>
             ) : (
@@ -245,8 +256,12 @@ const MediaDetails = ({ item, canPurge, onChanged, onRemoved, onHide, focusLocal
                 icon='pi pi-copy'
                 aria-label={t('media.details.copyUrl')}
                 onClick={async () => {
-                  await navigator.clipboard.writeText(item.url)
-                  notify({ severity: 'info', summary: t('media.details.copied') })
+                  try {
+                    await navigator.clipboard.writeText(item.url)
+                    notify({ severity: 'info', summary: t('media.details.copied') })
+                  } catch {
+                    notify({ severity: 'error', summary: t('media.details.copyFailed') })
+                  }
                 }}
               />
             </div>
