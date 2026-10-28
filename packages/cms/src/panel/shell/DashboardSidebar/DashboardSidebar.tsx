@@ -28,7 +28,7 @@ const DashboardSidebar = ({ groups, brand }: Props) => {
   const [isOpen, setIsOpen] = useState(false)
 
   return (
-    <aside className='DashboardSidebar'>
+    <aside className={classNames('DashboardSidebar', { 'DashboardSidebar--Open': isOpen })}>
       <div className='DashboardSidebar__Top'>
         <Link href={paths.home as Route} className='DashboardSidebar__Product'>
           <ProductIcon name={brand.name} icon={brand.icon} />
@@ -47,13 +47,8 @@ const DashboardSidebar = ({ groups, brand }: Props) => {
         </button>
       </div>
 
-      <nav
-        id='cms-panel-nav'
-        data-tour='nav'
-        aria-label={t('shell.sections')}
-        className={classNames('DashboardSidebar__Nav', { 'DashboardSidebar__Nav--Open': isOpen })}
-      >
-        <div className='DashboardSidebar__Groups'>
+      <div id='cms-panel-nav' className='DashboardSidebar__Drawer'>
+        <nav data-tour='nav' aria-label={t('shell.sections')} className='DashboardSidebar__Nav'>
           {groups.map((group, index) => (
             <div key={group.label ?? `group-${index}`} className='DashboardSidebar__Group'>
               {group.label && <p className='DashboardSidebar__GroupLabel'>{group.label}</p>}
@@ -80,13 +75,13 @@ const DashboardSidebar = ({ groups, brand }: Props) => {
               </ul>
             </div>
           ))}
-        </div>
+        </nav>
 
         <div className='DashboardSidebar__Footer'>
           {brand.footer && <p className='DashboardSidebar__FooterText'>{brand.footer}</p>}
           <BrandMark tag={t('shell.brandTag')} />
         </div>
-      </nav>
+      </div>
     </aside>
   )
 }

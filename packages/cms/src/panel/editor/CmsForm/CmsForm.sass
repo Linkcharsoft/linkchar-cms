@@ -7,8 +7,9 @@
 
   // Sticky only from md: on phones a wrapped title + actions would cover most of the screen.
   &__Bar
+    top: var(--cms-header-height, 0px)
     padding: 12px 0
-    @apply bg-cms-neutral-50 border-b border-cms-border md:sticky md:top-0 md:z-20
+    @apply bg-cms-neutral-50 border-b border-cms-border md:sticky md:z-20
 
   &__Header
     margin-bottom: 0
