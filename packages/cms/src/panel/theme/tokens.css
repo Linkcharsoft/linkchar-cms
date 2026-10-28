@@ -1,9 +1,11 @@
-/* :where() keeps these at zero specificity, so a project's `:root { --cms-primary: … }` always wins. */
-:where(:root) {
-  --cms-primary: #2457a6;
+/* On .CmsRoot, not :root: the panel wears Inferencia's brand and a project's :root can't re-theme it. */
+.CmsRoot {
+  --cms-primary: #6e14be;
   --cms-on-primary: #ffffff;
-  --cms-sidebar: color-mix(in oklab, var(--cms-primary) 30%, #0b1524);
+  --cms-accent: #fe00fe;
+  --cms-sidebar: #0e0e13;
   --cms-on-sidebar: #ffffff;
+  --cms-on-sidebar-muted: #b4adc4;
 
   --cms-primary-hover: color-mix(in oklab, var(--cms-primary) 86%, #000000);
   --cms-primary-active: color-mix(in oklab, var(--cms-primary) 74%, #000000);
@@ -12,25 +14,24 @@
   --cms-primary-100: color-mix(in oklab, var(--cms-primary) 12%, #ffffff);
   --cms-primary-200: color-mix(in oklab, var(--cms-primary) 24%, #ffffff);
 
-  --cms-sidebar-hover: color-mix(in oklab, var(--cms-sidebar) 86%, var(--cms-on-sidebar));
-  --cms-sidebar-active: color-mix(in oklab, var(--cms-sidebar) 78%, var(--cms-on-sidebar));
-  --cms-on-sidebar-muted: color-mix(in oklab, var(--cms-on-sidebar) 68%, var(--cms-sidebar));
+  --cms-sidebar-hover: color-mix(in oklab, var(--cms-sidebar) 90%, var(--cms-on-sidebar));
+  --cms-sidebar-active: color-mix(in oklab, var(--cms-primary) 38%, var(--cms-sidebar));
 
-  --cms-ink-900: #172131;
-  --cms-ink-800: #263347;
-  --cms-ink-700: #3c4b60;
-  --cms-ink-600: #52627a;
-  --cms-ink-500: #67778d;
-  --cms-ink-400: #94a1b2;
-  --cms-ink-300: #c2cad5;
+  --cms-ink-900: #16141c;
+  --cms-ink-800: #26222f;
+  --cms-ink-700: #3d3849;
+  --cms-ink-600: #565066;
+  --cms-ink-500: #6c6680;
+  --cms-ink-400: #9a94ab;
+  --cms-ink-300: #c7c2d3;
 
   --cms-surface: #ffffff;
-  --cms-neutral-50: #f6f8fa;
-  --cms-neutral-100: #eef1f5;
-  --cms-neutral-200: #e2e7ee;
-  --cms-border: #e3e8ee;
-  --cms-border-strong: #cfd7e1;
-  --cms-overlay: rgb(15 23 42 / 0.45);
+  --cms-neutral-50: #faf8ff;
+  --cms-neutral-100: #f3f0fa;
+  --cms-neutral-200: #ebe6f4;
+  --cms-border: #e9e4f1;
+  --cms-border-strong: #d3c7ea;
+  --cms-overlay: rgb(0 0 6 / 0.55);
   --cms-veil: rgb(255 255 255 / 0.6);
 
   --cms-danger-50: #fef3f2;
@@ -49,6 +50,6 @@
   --cms-success-700: #067647;
   --cms-success-800: #085d3a;
 
-  --cms-font-sans: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
-  --cms-font-display: var(--cms-font-sans);
+  --cms-font-sans: 'Hanken Grotesk Variable', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --cms-font-display: 'Bricolage Grotesque Variable', var(--cms-font-sans);
 }

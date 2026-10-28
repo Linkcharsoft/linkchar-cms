@@ -1,3 +1,5 @@
+import '@fontsource-variable/bricolage-grotesque'
+import '@fontsource-variable/hanken-grotesk'
 import '../theme/styles.css'
 import { connection } from 'next/server'
 import { translatorFor } from '../../core/config'
@@ -6,13 +8,8 @@ import type { CmsClientPropsType } from '../client/createCmsClient'
 import type { Metadata } from 'next'
 import type { ComponentType, ReactNode } from 'react'
 
-interface RootLayoutOptionsType {
-  // Classes for <body>, e.g. next/font variables that --cms-font-sans and --cms-font-display read.
-  className?: string
-}
-
 // The panel's own root layout: its <html> carries the panel language and the CmsClient of the project.
-export const rootLayout = (cms: CmsServerType, CmsClient: ComponentType<CmsClientPropsType>, { className }: RootLayoutOptionsType = {}) => {
+export const rootLayout = (cms: CmsServerType, CmsClient: ComponentType<CmsClientPropsType>) => {
   const { t } = translatorFor(cms.config)
   const metadata: Metadata = {
     title: { template: `%s · ${cms.config.branding.name}`, default: t('shell.tagline') },
@@ -25,7 +22,7 @@ export const rootLayout = (cms: CmsServerType, CmsClient: ComponentType<CmsClien
     const { url, publishableKey } = cms.browserSupabase()
     return (
       <html lang={cms.config.panelLocale}>
-        <body className={['CmsRoot', className].filter(Boolean).join(' ')}>
+        <body className='CmsRoot'>
           <a href='#main' className='CmsSkipLink'>{t('shell.skipToContent')}</a>
           <CmsClient supabaseUrl={url} publishableKey={publishableKey}>{children}</CmsClient>
         </body>

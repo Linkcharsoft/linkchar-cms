@@ -40,6 +40,7 @@ const cmsPreset = {
             contrast: 'var(--cms-on-primary)',
             ...scale('primary', [50, 100, 200])
           },
+          accent: 'var(--cms-accent)',
           sidebar: {
             DEFAULT: 'var(--cms-sidebar)',
             hover: 'var(--cms-sidebar-hover)',
