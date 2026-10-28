@@ -1,3 +1,5 @@
+@use '../../theme/mixins' as cms
+
 .MediaUploader
   display: flex
   flex-direction: column
@@ -50,10 +52,10 @@
     align-items: center
     justify-content: center
     border-radius: 8px
-    @apply bg-cms-primary-50
+    @include cms.checkerboard(8px)
 
   &__Thumb
-    object-fit: cover
+    object-fit: contain
 
   &__PdfIcon
     font-size: 28px

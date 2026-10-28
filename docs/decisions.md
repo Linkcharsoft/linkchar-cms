@@ -49,6 +49,7 @@ One line per decision that still shapes the package. Each is settled; reopening 
 - The header counts only the changes the next publish takes; the editor announces each save (`cms:saved`) and the header refreshes, instead of `router.refresh()` per autosave.
 - Guided tours have neutral ids (`welcome`, `pages`, `document`…) and never start while a field has the focus.
 - The duplicate check hashes the original file (SHA-256), not the processed blob: the canvas WebP differs per browser.
+- Thumbnails never crop (`contain` on a subtle checkerboard, in the library, the picker, the uploader and the inputs): logos and screenshots must be recognizable; only the focal point picker shows the image at its own ratio, and the site is where the focal point crops.
 - Untouched drafts are purged on reading a collection list, only when revision 1, equal timestamps, data equal to the schema defaults and no usage.
 
 ## Dependencies and releases
