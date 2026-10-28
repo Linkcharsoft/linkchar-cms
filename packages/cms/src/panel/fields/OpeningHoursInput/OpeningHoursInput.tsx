@@ -1,6 +1,6 @@
 'use client'
 import './OpeningHoursInput.sass'
-import { useField } from 'formik'
+import { useField, useFormikContext } from 'formik'
 import { InputMask } from 'primereact/inputmask'
 import { InputSwitch } from 'primereact/inputswitch'
 import { InputText } from 'primereact/inputtext'
@@ -21,15 +21,14 @@ const DayRow = ({ name, index }: { name: string, index: number }) => {
   const { config } = useCms()
   const path = `${name}.days.${index}`
   const [{ value: day }, , helpers] = useField<DayHoursType>(path)
+  const { setFieldTouched } = useFormikContext()
   const fromError = useFieldError(`${path}.from`)
   const toError = useFieldError(`${path}.to`)
   const id = fieldId(path)
   const label = weekDayName(day.day, config.panelLocale)
 
-  const update = (patch: Partial<DayHoursType>) => {
-    helpers.setValue({ ...day, ...patch })
-    helpers.setTouched(true, false)
-  }
+  // Only the time inputs get touched (on blur): touching the whole day would hide their errors.
+  const update = (patch: Partial<DayHoursType>) => void helpers.setValue({ ...day, ...patch }, true)
 
   return (
     <li className='OpeningHoursInput__Day'>
@@ -37,9 +36,7 @@ const DayRow = ({ name, index }: { name: string, index: number }) => {
 
       <div className='flex items-center gap-2'>
         <InputSwitch inputId={`${id}-open`} checked={!day.closed} onChange={event => update({ closed: !event.value })} />
-        <label htmlFor={`${id}-open`} className='OpeningHoursInput__Status'>
-          {day.closed ? t('openingHoursInput.closed') : t('openingHoursInput.open')}
-        </label>
+        <label htmlFor={`${id}-open`} className='OpeningHoursInput__Status'>{t('openingHoursInput.open')}</label>
       </div>
 
       {!day.closed && (
@@ -49,9 +46,11 @@ const DayRow = ({ name, index }: { name: string, index: number }) => {
             mask='99:99'
             slotChar='HH:MM'
             value={day.from}
+            autoClear={false}
             aria-label={t('openingHoursInput.from', { day: label })}
             invalid={!!fromError}
             className='OpeningHoursInput__Time'
+            onBlur={() => void setFieldTouched(`${path}.from`, true, true)}
             onChange={event => update({ from: event.target.value ?? '' })}
           />
           <span aria-hidden='true'>{t('openingHoursInput.until')}</span>
@@ -60,9 +59,11 @@ const DayRow = ({ name, index }: { name: string, index: number }) => {
             mask='99:99'
             slotChar='HH:MM'
             value={day.to}
+            autoClear={false}
             aria-label={t('openingHoursInput.to', { day: label })}
             invalid={!!toError}
             className='OpeningHoursInput__Time'
+            onBlur={() => void setFieldTouched(`${path}.to`, true, true)}
             onChange={event => update({ to: event.target.value ?? '' })}
           />
         </div>

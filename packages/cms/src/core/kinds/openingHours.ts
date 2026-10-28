@@ -45,11 +45,14 @@ const dayIssues = (day: unknown, index: number): IssueType[] => {
   if (!isRecord(day)) return [issue('invalid', undefined, `days.${index}`)]
   const issues: IssueType[] = []
   if (!WEEK_DAYS.includes(day.day as WeekDayType)) issues.push(issue('invalid', undefined, at('day')))
+  // A closed day keeps its hours for when it opens again, but nothing reads them.
+  if (day.closed === true) return issues
   for (const key of ['from', 'to'] as const) {
     const time = day[key] ?? ''
     if (typeof time !== 'string' || (time && !TIME.test(time))) issues.push(issue('time', undefined, at(key)))
   }
-  if (issues.length === 0 && day.from && day.to && (day.from as string) >= (day.to as string)) issues.push(issue('timeOrder', undefined, at('to')))
+  // A closing time before the opening one is the next day (20:00 to 02:00); only the same time is meaningless.
+  if (issues.length === 0 && day.from && day.to && day.from === day.to) issues.push(issue('timeOrder', undefined, at('to')))
   return issues
 }
 

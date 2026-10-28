@@ -35,7 +35,7 @@ const core = {
     linkAnchor: 'Anchors start with #',
     variant: 'Invalid variant',
     time: 'Use the HH:MM format',
-    timeOrder: 'Closing time must be after opening time',
+    timeOrder: 'Closing time cannot be the same as opening time',
     file: 'Invalid file',
     maxImages: 'You can choose up to {max} images',
     minImages: 'Choose at least {min} images',
