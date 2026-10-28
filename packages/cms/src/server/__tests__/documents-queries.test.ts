@@ -50,6 +50,16 @@ describe('listCollection', () => {
     expect(ready.total).toBe(1)
   })
 
+  it('shows the last page when the requested one is past the end', async () => {
+    const ctx = fakeContext(db, cmsConfig)
+    const beyond = await listCollection(ctx, 'posts', { page: 9 })
+    expect(beyond.page).toBe(1)
+    expect(beyond.items).toHaveLength(2)
+    const filtered = await listCollection(ctx, 'posts', { page: 9, status: 'incomplete' })
+    expect(filtered.page).toBe(1)
+    expect(filtered.items.map(item => item.id)).toEqual([ID(2)])
+  })
+
   it('says whether a document is incomplete', async () => {
     const ctx = fakeContext(db, cmsConfig)
     expect(await getDocumentState(ctx, ID(2))).toEqual({ status: 'new', visible: true, incomplete: true })

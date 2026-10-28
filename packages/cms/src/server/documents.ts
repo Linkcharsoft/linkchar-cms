@@ -92,23 +92,26 @@ export const listCollection = async (ctx: CmsContextType, entryId: string, query
   const entry = getCollection(ctx.config, entryId)
   if (!entry) return { items: [], total: 0, page: 1, sort: 'updated' as CollectionSortType }
 
-  const page = Math.max(1, query.page ?? 1)
+  const requested = Math.max(1, query.page ?? 1)
   const sort = query.sort ?? (entry.orderable ? 'manual' : 'updated')
-  const from = (page - 1) * COLLECTION_PAGE_SIZE
   const title = titleColumn(ctx, entry)
-
   const derived = !!query.status && DERIVED_STATUSES.includes(query.status)
-  let request = ctx.db.from('document_status').select(LIST_COLUMNS, { count: 'exact' })
-    .eq('type', entryId).is('deleted_at', null)
 
-  if (query.status) request = derived ? request.in('status', query.status === 'incomplete' ? ['new', 'changed'] : [query.status]) : request.eq('status', query.status)
-  if (query.search?.trim()) request = request.ilike(title, `%${escapeLike(query.search.trim())}%`)
+  const request = () => {
+    let builder = ctx.db.from('document_status').select(LIST_COLUMNS, { count: 'exact' }).eq('type', entryId).is('deleted_at', null)
+    if (query.status) builder = derived ? builder.in('status', query.status === 'incomplete' ? ['new', 'changed'] : [query.status]) : builder.eq('status', query.status)
+    if (query.search?.trim()) builder = builder.ilike(title, `%${escapeLike(query.search.trim())}%`)
+    return sort === 'manual'
+      ? builder.order('sort_order').order('created_at')
+      : sort === 'title' ? builder.order(title) : builder.order('updated_at', { ascending: false })
+  }
+  const pageOf = (page: number) => request().range((page - 1) * COLLECTION_PAGE_SIZE, page * COLLECTION_PAGE_SIZE - 1)
+  const lastPageFor = (total: number) => Math.max(1, Math.ceil(total / COLLECTION_PAGE_SIZE))
 
-  request = sort === 'manual'
-    ? request.order('sort_order').order('created_at')
-    : sort === 'title' ? request.order(title) : request.order('updated_at', { ascending: false })
-
-  const { data, count } = derived ? await request.limit(DERIVED_STATUS_LIMIT) : await request.range(from, from + COLLECTION_PAGE_SIZE - 1)
+  let { data, count } = derived ? await request().limit(DERIVED_STATUS_LIMIT) : await pageOf(requested)
+  // A page past the end (a stale link, the last item of a page deleted) shows the last one instead of "no content".
+  const page = derived ? requested : Math.min(requested, lastPageFor(count ?? 0))
+  if (page !== requested) ({ data, count } = await pageOf(page))
   const rows = data ?? []
   const incomplete = await incompleteIds(ctx, rows.map(row => ({ id: row.id, type: entryId, data: row.data, status: row.status })))
   const paths = panelPaths(ctx.config)
@@ -128,7 +131,9 @@ export const listCollection = async (ctx: CmsContextType, entryId: string, query
 
   if (!derived) return { items, total: count ?? 0, page, sort }
   const matching = items.filter(item => item.status === query.status)
-  return { items: matching.slice(from, from + COLLECTION_PAGE_SIZE), total: matching.length, page, sort }
+  const shownPage = Math.min(page, lastPageFor(matching.length))
+  const start = (shownPage - 1) * COLLECTION_PAGE_SIZE
+  return { items: matching.slice(start, start + COLLECTION_PAGE_SIZE), total: matching.length, page: shownPage, sort }
 }
 
 export const listTrash = async (ctx: CmsContextType): Promise<TrashItemType[]> => {
