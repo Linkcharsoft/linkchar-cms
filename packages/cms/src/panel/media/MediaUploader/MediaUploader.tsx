@@ -7,7 +7,7 @@ import { ProgressBar } from 'primereact/progressbar'
 import { classNames } from 'primereact/utils'
 import { useEffect, useRef, useState } from 'react'
 import { languageName } from '../../../core/i18n/translator'
-import { buildMediaPath, formatBytes, isImageMime, MAX_MEDIA_BYTES, MEDIA_MIME_TYPES } from '../../../core/media'
+import { buildMediaPath, formatBytes, isImageMime, MAX_MEDIA_BYTES, MAX_RAW_IMAGE_BYTES, MEDIA_MIME_TYPES } from '../../../core/media'
 import { useCms, useT } from '../../client/context'
 import { useBrowserSupabase } from '../../client/supabase'
 import { useText } from '../../fields/fieldUtils'
@@ -17,13 +17,15 @@ import Notice from '../../primitives/Notice/Notice'
 import { sha256Hex } from '../hashBlob'
 import processImage from '../processImage'
 import uploadToStorage, { UploadError } from '../uploadToStorage'
+import type { MessageKeyType } from '../../../core/i18n/types'
 import type { MediaItemType } from '../../../core/media'
 import type { DragEvent } from 'react'
 
 interface Props {
   defaultFolder?: string
   accept?: 'image' | 'document' | 'any'
-  onUploaded: (items: MediaItemType[]) => void
+  // `remaining` counts the files still in the queue: failed, waiting for a duplicate decision or not yet sent.
+  onUploaded: (items: MediaItemType[], remaining: number) => void
 }
 
 interface QueueItemType {
@@ -39,10 +41,9 @@ interface QueueItemType {
   existing: MediaItemType | null
 }
 
-// Raw photos are compressed before upload; this only guards the browser against huge files.
-const MAX_RAW_IMAGE_BYTES = 50 * 1024 * 1024
-
 const MAX_MB = MAX_MEDIA_BYTES / 1024 / 1024
+
+const MAX_RAW_IMAGE_MB = MAX_RAW_IMAGE_BYTES / 1024 / 1024
 
 const ACCEPT = {
   image: 'image/jpeg,image/png,image/webp,image/avif,image/gif',
@@ -58,11 +59,12 @@ const UPLOAD_ERRORS = {
 
 class ReadableError extends Error {}
 
-const rejectReason = (file: File, accept: Props['accept']) => {
-  if (!MEDIA_MIME_TYPES.includes(file.type)) return 'media.uploader.errors.invalidType'
-  if (accept === 'image' && !isImageMime(file.type)) return 'media.uploader.errors.onlyImages'
-  if (accept === 'document' && isImageMime(file.type)) return 'media.uploader.errors.onlyDocuments'
-  if (isImageMime(file.type) ? file.size > MAX_RAW_IMAGE_BYTES : file.size > MAX_MEDIA_BYTES) return 'media.uploader.errors.tooLarge'
+const rejectReason = (file: File, accept: Props['accept']): { key: MessageKeyType, max?: number } | null => {
+  if (!MEDIA_MIME_TYPES.includes(file.type)) return { key: 'media.uploader.errors.invalidType' }
+  if (accept === 'image' && !isImageMime(file.type)) return { key: 'media.uploader.errors.onlyImages' }
+  if (accept === 'document' && isImageMime(file.type)) return { key: 'media.uploader.errors.onlyDocuments' }
+  if (isImageMime(file.type) && file.size > MAX_RAW_IMAGE_BYTES) return { key: 'media.uploader.errors.tooLarge', max: MAX_RAW_IMAGE_MB }
+  if (!isImageMime(file.type) && file.size > MAX_MEDIA_BYTES) return { key: 'media.uploader.errors.tooLarge', max: MAX_MB }
   return null
 }
 
@@ -80,6 +82,10 @@ const MediaUploader = ({ defaultFolder, accept = 'any', onUploaded }: Props) => 
   const [reused, setReused] = useState<MediaItemType[]>([])
   const inputRef = useRef<HTMLInputElement>(null)
   const previewUrls = useRef<string[]>([])
+  // dragenter/dragleave fire for every child crossed: only the outermost leave ends the highlight.
+  const dragDepth = useRef(0)
+  // Mirror of the queue for the upload loop: state updates land after the await, the ref right away.
+  const latestQueue = useRef<QueueItemType[]>([])
   const folderOptions = config.mediaFolders.map(option => ({ value: option.value, label: text(option.label) }))
   const altLabel = config.locales.length > 1
     ? t('media.texts.altIn', { language: languageName(config.defaultLocale, config.panelLocale) })
@@ -90,17 +96,22 @@ const MediaUploader = ({ defaultFolder, accept = 'any', onUploaded }: Props) => 
   useEffect(() => {
     if (queue.length === 0 && reused.length > 0) {
       setReused([])
-      onUploaded(reused)
+      onUploaded(reused, 0)
     }
   }, [queue, reused])
 
-  const remove = (key: string) => setQueue(current => current.filter(item => {
+  const updateQueue = (change: (current: QueueItemType[]) => QueueItemType[]) => {
+    latestQueue.current = change(latestQueue.current)
+    setQueue(latestQueue.current)
+  }
+
+  const remove = (key: string) => updateQueue(current => current.filter(item => {
     if (item.key === key && item.previewUrl) URL.revokeObjectURL(item.previewUrl)
     return item.key !== key
   }))
 
   const patch = (key: string, changes: Partial<QueueItemType>) =>
-    setQueue(current => current.map(item => (item.key === key ? { ...item, ...changes } : item)))
+    updateQueue(current => current.map(item => (item.key === key ? { ...item, ...changes } : item)))
 
   const trackPreview = (url: string) => {
     previewUrls.current.push(url)
@@ -112,7 +123,7 @@ const MediaUploader = ({ defaultFolder, accept = 'any', onUploaded }: Props) => 
     const added = [...files].flatMap(file => {
       const reason = rejectReason(file, accept)
       if (reason) {
-        errors.push(t('media.uploader.rejected', { name: file.name, reason: translate(reason, { max: MAX_MB }) }))
+        errors.push(t('media.uploader.rejected', { name: file.name, reason: translate(reason.key, { max: reason.max ?? MAX_MB }) }))
         return []
       }
       return [{
@@ -128,7 +139,7 @@ const MediaUploader = ({ defaultFolder, accept = 'any', onUploaded }: Props) => 
       }]
     })
     setRejected(errors)
-    setQueue(current => [...current, ...added])
+    updateQueue(current => [...current, ...added])
     added.forEach(item => void check(item))
   }
 
@@ -146,7 +157,6 @@ const MediaUploader = ({ defaultFolder, accept = 'any', onUploaded }: Props) => 
   }
 
   const pending = queue.filter(item => item.status === 'ready' || item.status === 'error')
-  const queued = queue.filter(item => item.status !== 'done')
   const checking = queue.some(item => item.status === 'checking')
   const missingAlt = pending.some(item => isImageMime(item.file.type) && !item.alt.trim())
 
@@ -201,6 +211,7 @@ const MediaUploader = ({ defaultFolder, accept = 'any', onUploaded }: Props) => 
     const uploaded: MediaItemType[] = []
 
     for (const item of pending) {
+      if (!latestQueue.current.some(entry => entry.key === item.key)) continue
       if (!token) {
         patch(item.key, { status: 'error', error: t('media.uploader.errors.sessionExpired') })
         continue
@@ -211,13 +222,29 @@ const MediaUploader = ({ defaultFolder, accept = 'any', onUploaded }: Props) => 
 
     setIsUploading(false)
     const results = [...uploaded, ...reused]
+    updateQueue(current => current.filter(item => item.status !== 'done'))
+    const remaining = latestQueue.current.length
     setReused([])
-    setQueue(current => current.filter(item => item.status !== 'done'))
-    if (results.length) onUploaded(results)
+    if (results.length) onUploaded(results, remaining)
+  }
+
+  const hasFiles = (event: DragEvent<HTMLDivElement>) => event.dataTransfer.types.includes('Files')
+
+  const onDragEnter = (event: DragEvent<HTMLDivElement>) => {
+    if (!hasFiles(event)) return
+    event.preventDefault()
+    dragDepth.current += 1
+    setIsDragging(true)
+  }
+
+  const onDragLeave = () => {
+    dragDepth.current = Math.max(0, dragDepth.current - 1)
+    if (dragDepth.current === 0) setIsDragging(false)
   }
 
   const onDrop = (event: DragEvent<HTMLDivElement>) => {
     event.preventDefault()
+    dragDepth.current = 0
     setIsDragging(false)
     addFiles(event.dataTransfer.files)
   }
@@ -226,11 +253,9 @@ const MediaUploader = ({ defaultFolder, accept = 'any', onUploaded }: Props) => 
     <div className='MediaUploader'>
       <div
         className={classNames('MediaUploader__Drop', { 'MediaUploader__Drop--Active': isDragging })}
-        onDragOver={event => {
-          event.preventDefault()
-          setIsDragging(true)
-        }}
-        onDragLeave={() => setIsDragging(false)}
+        onDragEnter={onDragEnter}
+        onDragOver={event => event.preventDefault()}
+        onDragLeave={onDragLeave}
         onDrop={onDrop}
       >
         <i className='pi pi-cloud-upload MediaUploader__DropIcon' aria-hidden='true' />
@@ -238,7 +263,7 @@ const MediaUploader = ({ defaultFolder, accept = 'any', onUploaded }: Props) => 
         <CustomButton type='button' variant='secondary' size='sm' onClick={() => inputRef.current?.click()}>
           {t('media.uploader.choose')}
         </CustomButton>
-        <p className='MediaUploader__Hint'>{t('media.uploader.hint', { max: MAX_MB })}</p>
+        <p className='MediaUploader__Hint'>{t('media.uploader.hint', { max: MAX_MB, imageMax: MAX_RAW_IMAGE_MB })}</p>
         <input
           ref={inputRef}
           type='file'
@@ -321,7 +346,7 @@ const MediaUploader = ({ defaultFolder, accept = 'any', onUploaded }: Props) => 
                     iconOnly
                     icon='pi pi-times'
                     aria-label={t('media.uploader.remove', { name: item.file.name })}
-                    disabled={item.status === 'uploading'}
+                    disabled={isUploading}
                     onClick={() => remove(item.key)}
                   />
                 </li>
@@ -333,7 +358,7 @@ const MediaUploader = ({ defaultFolder, accept = 'any', onUploaded }: Props) => 
             {missingAlt && <p className='MediaUploader__Blocked'>{t('media.uploader.missingAlt')}</p>}
             <CustomButton type='button' disabled={missingAlt || pending.length === 0 || !folder || checking} loading={isUploading} onClick={uploadAll}>
               <i className='pi pi-upload' aria-hidden='true' />
-              {t('media.uploader.submit', { count: queued.length })}
+              {t('media.uploader.submit', { count: Math.max(pending.length, 1) })}
             </CustomButton>
           </div>
         </>
