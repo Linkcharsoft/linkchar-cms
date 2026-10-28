@@ -28,7 +28,7 @@ describe('OverviewPage', () => {
       />
     )
     expect(screen.getByText(/No se pudo actualizar el sitio/)).toBeTruthy()
-    expect(screen.getByText('"Casa Sur" no se publica hasta completar: Foto principal, Nombre.')).toBeTruthy()
+    expect(screen.getByText('"Casa Sur" no se publica hasta completar: Foto principal y Nombre.')).toBeTruthy()
     expect(screen.getByText('"Vieja" lleva 20 días como borrador sin publicar. Publicalo o mandalo a la papelera.')).toBeTruthy()
     expect(screen.getByText('2 cambios pendientes de publicar')).toBeTruthy()
     expect(screen.getAllByRole('link', { name: 'Ver' }).map(link => link.getAttribute('href')))

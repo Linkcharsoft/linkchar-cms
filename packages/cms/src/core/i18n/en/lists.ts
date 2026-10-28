@@ -60,9 +60,9 @@ const lists = {
       changed: 'With changes',
       removed: 'Removed from the site'
     },
-    sectionsChanged: 'Changed: ',
+    sectionsChanged: 'Changed: {sections}',
     urlChange: 'The URL changes from {from} to {to}. Old links will redirect to the new one.',
-    problems: 'Not published until these are filled in: ',
+    problems: 'Not published until these are filled in: {fields}.',
     confirm: {
       publishes: 'To be published:',
       removes: 'To be removed from the site:',

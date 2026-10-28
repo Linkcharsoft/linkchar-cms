@@ -57,9 +57,9 @@ const lists = {
       changed: 'Con cambios',
       removed: 'Se quitan del sitio'
     },
-    sectionsChanged: 'Cambió: ',
+    sectionsChanged: 'Cambió: {sections}',
     urlChange: 'La URL cambia de {from} a {to}. Los links viejos van a redirigir a la nueva.',
-    problems: 'No se publica hasta completar: ',
+    problems: 'No se publica hasta completar: {fields}.',
     confirm: {
       publishes: 'Se publica:',
       removes: 'Se quita del sitio:',

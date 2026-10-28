@@ -5,13 +5,14 @@ import { useRouter } from 'next/navigation'
 import { Checkbox } from 'primereact/checkbox'
 import { Tag } from 'primereact/tag'
 import { classNames } from 'primereact/utils'
-import { Fragment, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { publishDisplayStatus } from '../../../core/publish'
 import { selectionWarnings } from '../../../core/publishSelection'
 import { useCms, useFormatDate, useT } from '../../client/context'
 import { useConfirm } from '../../primitives/ConfirmAction/ConfirmAction'
 import CustomButton from '../../primitives/CustomButton/CustomButton'
 import EmptyState from '../../primitives/EmptyState/EmptyState'
+import InlineList, { fillTemplate } from '../../primitives/InlineList/InlineList'
 import Notice from '../../primitives/Notice/Notice'
 import { useNotify } from '../../providers/notify'
 import { PUBLISH_SEVERITIES } from '../../shell/PublishStatus/PublishStatus'
@@ -69,13 +70,9 @@ const ChangeItem = ({ change, highlighted, warnings, checked, onToggle }: Change
       </div>
       {change.sections.length > 0 && (
         <p className='PublishPanel__Sections'>
-          {t('publishPanel.sectionsChanged')}
-          {change.sections.map((section, index) => (
-            <Fragment key={section.href}>
-              {index > 0 && ', '}
-              <Link href={section.href as Route} className='PublishPanel__SectionLink'>{section.label}</Link>
-            </Fragment>
-          ))}
+          {fillTemplate(t('publishPanel.sectionsChanged', { sections: '{sections}' }), {
+            sections: <InlineList items={change.sections} label={section => section.label} render={section => <Link href={section.href as Route} className='PublishPanel__SectionLink'>{section.label}</Link>} />
+          })}
         </p>
       )}
       {change.urlChanges.map(urlChange => (
@@ -88,14 +85,9 @@ const ChangeItem = ({ change, highlighted, warnings, checked, onToggle }: Change
         <p className='PublishPanel__Problem'>
           <i className='pi pi-exclamation-triangle' aria-hidden='true' />
           <span>
-            {t('publishPanel.problems')}
-            {missing.map((item, index) => (
-              <Fragment key={item.label}>
-                {index > 0 && ', '}
-                <Link href={item.href as Route} className='PublishPanel__MissingLink'>{item.label}</Link>
-              </Fragment>
-            ))}
-            .
+            {fillTemplate(t('publishPanel.problems', { fields: '{fields}' }), {
+              fields: <InlineList items={missing} label={item => item.label} render={item => <Link href={item.href as Route} className='PublishPanel__MissingLink'>{item.label}</Link>} />
+            })}
           </span>
         </p>
       )}

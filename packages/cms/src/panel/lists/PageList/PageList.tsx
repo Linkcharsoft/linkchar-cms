@@ -4,10 +4,10 @@ import Link from 'next/link'
 import { Column } from 'primereact/column'
 import { DataTable } from 'primereact/datatable'
 import { Tag } from 'primereact/tag'
-import { Fragment } from 'react'
 import { useT } from '../../client/context'
 import CustomButton from '../../primitives/CustomButton/CustomButton'
 import DateCell from '../../primitives/DateCell/DateCell'
+import InlineList from '../../primitives/InlineList/InlineList'
 import { DOCUMENT_SEVERITIES } from '../documentStatus'
 import type { PageListItemType } from '../../../server/pages'
 import type { Route } from 'next'
@@ -52,14 +52,15 @@ const PageList = ({ pages }: Props) => {
     ? <span className='PageList__Meta'>{t('common.empty')}</span>
     : (
       <span className='PageList__Uses'>
-        {page.uses.map((use, index) => (
-          <Fragment key={use.href}>
-            {index > 0 && ', '}
+        <InlineList
+          items={page.uses}
+          label={use => (use.count === null ? use.label : t('pagesList.useCount', { label: use.label, count: use.count }))}
+          render={use => (
             <Link href={use.href as Route} className='PageList__UseLink'>
               {use.count === null ? use.label : t('pagesList.useCount', { label: use.label, count: use.count })}
             </Link>
-          </Fragment>
-        ))}
+          )}
+        />
       </span>
     ))
 
