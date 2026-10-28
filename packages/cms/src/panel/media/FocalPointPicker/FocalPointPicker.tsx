@@ -17,6 +17,8 @@ const clamp = (value: number) => Math.min(1, Math.max(0, Math.round(value * 100)
 
 const STEP = 0.05
 
+const MAX_HEIGHT = 420
+
 const MOVES: Record<string, [number, number]> = {
   ArrowLeft: [-STEP, 0],
   ArrowRight: [STEP, 0],
@@ -42,15 +44,17 @@ const FocalPointPicker = ({ src, width, height, x, y, onChange }: Props) => {
     onChange(clamp(fx + move[0]), clamp(fy + move[1]))
   }
 
+  // The box is the image, so a click anywhere maps to the picture and not to a letterbox around it.
   return (
     <button
       type='button'
       className='FocalPointPicker'
+      style={{ aspectRatio: `${width} / ${height}`, width: `min(100%, calc(${MAX_HEIGHT}px * ${width} / ${height}))` }}
       aria-label={t('media.focalPoint', { x: Math.round(fx * 100), y: Math.round(fy * 100) })}
       onClick={pick}
       onKeyDown={nudge}
     >
-      <Image src={src} alt='' width={width} height={height} sizes='(min-width: 768px) 480px, 90vw' className='FocalPointPicker__Image' />
+      <Image src={src} alt='' fill sizes='(min-width: 768px) 480px, 90vw' className='FocalPointPicker__Image' />
       <span className='FocalPointPicker__Marker' style={{ left: `${fx * 100}%`, top: `${fy * 100}%` }} aria-hidden='true' />
     </button>
   )
