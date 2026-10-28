@@ -2,7 +2,6 @@
 import { existsSync } from 'node:fs'
 import { readFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
-import { fileURLToPath } from 'node:url'
 import { parseArgs } from 'node:util'
 import { findBrandIcon } from '../next/index.js'
 import { createSuperadmin, readEnvFile } from './admin.js'
@@ -25,7 +24,6 @@ const USAGE = `Usage:
   linkchar-cms templates [--config cms.config.ts] [--dir supabase] [--check]
   linkchar-cms admin --email ana@acme.com [--password …] [--name "Ana"] [--env-file .env.local]
   linkchar-cms doctor [--config cms.config.ts] [--src src] [--dir supabase] [--env-file .env.local]
-  linkchar-cms contrast <primary> [--on #ffffff]
   linkchar-cms import <script.ts> --email ana@acme.com [--otp 123456] [--no-publish] [--config cms.config.ts] [--env-file .env.local]
 
   --dir     The project's Supabase folder (default: ./supabase)
@@ -37,7 +35,6 @@ const USAGE = `Usage:
   then runs templates, routes and migrations sync, and lists what is left to wire by hand.
   admin makes the first superadmin with SUPABASE_SECRET_KEY: created with --password, else invited by email.
   doctor checks routes, the panel icon, migrations, templates, variables, Supabase, the package registry and the ports.
-  contrast checks a panel primary against the text on it (exit 1 below 4.5:1).
   import runs the script's default export with a session signed in as --email (password in CMS_IMPORT_PASSWORD):
   cms.media(), cms.upsert() and cms.publish(); --no-publish makes cms.publish() report without publishing.`
 
@@ -212,25 +209,6 @@ const importContent = async (script, { config, email, password, otp, publish, 'e
   return 0
 }
 
-/** @param {string | undefined} color @param {{ on: string }} options */
-const contrast = async (color, { on }) => {
-  if (!color) throw new CliError('Usage: linkchar-cms contrast <primary> [--on #ffffff]')
-  const { createJiti } = await import('jiti')
-  const { contrastRatio, MIN_TEXT_CONTRAST } = /** @type {typeof import('../src/core/contrast')} */ (
-    await createJiti(import.meta.url).import(fileURLToPath(new URL('../src/core/contrast.ts', import.meta.url)))
-  )
-  /** @type {number} */
-  let ratio
-  try {
-    ratio = contrastRatio(color, on)
-  } catch (error) {
-    throw new CliError(error instanceof Error ? error.message : String(error))
-  }
-  const passes = ratio >= MIN_TEXT_CONTRAST
-  console.log(`${color} under ${on}: ${ratio.toFixed(2)}:1, ${passes ? 'passes' : 'below'} ${MIN_TEXT_CONTRAST}:1${passes ? '' : ' (darken the primary or set --cms-on-primary)'}`)
-  return passes ? 0 : 1
-}
-
 const main = async () => {
   const { positionals, values } = parseArgs({
     allowPositionals: true,
@@ -246,7 +224,6 @@ const main = async () => {
       otp: { type: 'string' },
       publish: { type: 'boolean', default: true },
       'env-file': { type: 'string', default: '.env.local' },
-      on: { type: 'string', default: '#ffffff' },
       'base-path': { type: 'string', default: '/dashboard' },
       locales: { type: 'string', default: 'es' },
       'panel-locale': { type: 'string', default: 'es' },
@@ -259,7 +236,6 @@ const main = async () => {
   if (command === 'init') return init(values)
   if (command === 'admin') return admin(values)
   if (command === 'doctor') return doctor(values)
-  if (positionals[0] === 'contrast') return contrast(positionals[1], values)
   if (positionals[0] === 'import') return importContent(positionals[1], values)
   if (command === 'migrations sync') return migrations(values)
   if (command === 'routes') return routes(values)

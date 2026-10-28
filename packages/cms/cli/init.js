@@ -145,13 +145,7 @@ export const planInit = ({ name, basePath, locales, panelLocale, siteUrl }, { so
       '// Replaced by `supabase gen types typescript --local > src/types/supabase.ts` once the project has its own tables.',
       'export type { Database, Json } from \'@linkcharsoft/cms/server\''
     ]],
-    [join(app, '(cms)', 'theme.css'), [
-      ':root {',
-      '  --cms-primary: #1f5fa8;',
-      '}'
-    ]],
     [join(app, '(cms)', 'layout.tsx'), [
-      'import \'./theme.css\'',
       'import { rootLayout } from \'@linkcharsoft/cms/panel/routes/root\'',
       `import { CmsClient } from '${at(join(app, '(cms)', 'layout.tsx'), 'cms/client')}'`,
       `import { cms } from '${at(join(app, '(cms)', 'layout.tsx'), 'cms/server')}'`,

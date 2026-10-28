@@ -1,6 +1,5 @@
 export * from './activity'
 export * from './config'
-export * from './contrast'
 export * from './dates'
 export * from './defaults'
 export * from './define'
