@@ -1,5 +1,139 @@
 # @linkcharsoft/cms
 
+## 0.12.0
+
+### Minor Changes
+
+- 9ea58be: `color()` is a built-in field kind: `color({ label: 'Color de marca', presets: ['#1f5fa8', '#0e0e13'] })` stores one `#rrggbb` in lower case (a stored `#1F5FA8` is repaired on read; `red` or `#abc` is "Usá un color como #1f5fa8", a new `validation.color` catalog key). The panel input is the browser's color picker next to the hex text, with `presets` as swatches the editor picks in one click, and the version history shows each color with its swatch. Imports take the same hex through `upsert()`. Core exports `color`, `ColorField`, `HEX_COLOR` and `isHexColor`. The README's example of a project kind is now `rating` (the playground's), since `color` no longer needs to be one.
+  
+  To update a project: a project with its own `color` kind removes it (`defineCmsConfig` rejects a kind defined twice), drops it from `fields` and from `createCmsClient({ inputs })`, and imports `color` from `@linkcharsoft/cms/core`; stored values stay valid.
+- 7a5be20: Field errors are tied to their inputs for assistive technology: the message `InputContainer` shows has an id, the package's inputs list it in `aria-describedby` while it shows and set `aria-invalid`, switches show the required asterisk and their own error, the "Borrar la búsqueda" icon of search boxes is a real button, and the character counter has a spoken "12 de 80 caracteres". `errorId(name)` is exported from `@linkcharsoft/cms/panel` for project inputs.
+  
+  To update a project: nothing; a project input may add `errorId(name)` to its `aria-describedby`.
+- 247094b: List and block items no longer start collapsed: they open while there are at most three, or when the item has an image field, and `list()`/`blocks()` take `open: true | false` to fix it. The legend gets "Expandir todo" / "Colapsar todo", items collapsed for a drag open again after the drop, and a collapsed item shows its image as a thumbnail (the item's first image field, or the one `thumbnail` names on `list()`; a block uses its own first image field) and a count of its fields with a problem. `list()` takes `singularLabel` ("servicio"): the button reads "Agregar servicio" and an untitled item "Servicio 3". With `min`, the legend reads "2 de 6, mínimo 1" and the last `min` items can't be removed; at `max`, "Agregar" and "Duplicar" stay disabled with the reason as their tooltip instead of disappearing. A block whose type left the schema used to be invisible but counted: it now shows as 'Bloque "x", que ya no existe en el esquema' with its remove button. `defineCmsConfig` rejects a `thumbnail` that is not an image field of the items.
+  
+  To update a project: nothing; set `open: false` on lists that should keep starting collapsed, and `singularLabel` where "Agregar" should name the item.
+- 81ffb65: `linkchar-cms routes` now writes the panel's own `error.tsx` and `not-found.tsx` under `(panel)`, plus a `[...notFound]` catch-all in the workspace: a screen that throws shows "Algo salió mal" with "Probar de nuevo" inside the panel layout instead of the site's `global-error`, and an unknown panel URL or a missing document shows "No encontramos esta pantalla" with a link to the overview instead of Next's bare 404. The editors (pages, documents, site entries) get their own `loading.tsx` with a skeleton of labels and inputs; the lists keep the table rows. `@linkcharsoft/cms/panel/routes/{error,not-found,loading-editor}` are the new route modules.
+  
+  To update a project: `linkchar-cms routes` (it adds the files; `routes --check` fails until then).
+- d620ad0: A URL another document still holds on the site no longer aborts the whole publish with a generic message. Publish now lists, on each change, the live document that holds its URL: when that document's own pending change frees it (its URL moved, or it is being removed), the item stays tickable and warns "La URL /blog/casa la usa "Casa" en el sitio: marcalo también para que salgan juntos." while the other is unticked; when nothing frees it, the item can't be ticked and says to change one of the two URLs. `publishChanges` refuses such a selection before touching the database and answers `conflicts: [{ id, takenBy }]`; the screen marks both documents and names them in the toast. Documents whose URL moves are published first, since `publish_site` now takes them in the given order, and the new migration `20261029000000_publish_conflicts.sql` makes it report the holder of a taken slug or URL in the error detail. The editor warns on save too: a slug free among drafts but live on another document shows "En el sitio, "Casa" todavía usa esta URL…" under the field (`saveDocument` returns it as `warnings`, the document is saved). `PendingChangeType.urlConflicts`, `unfreedConflicts` and `UrlConflictType` are new in `@linkcharsoft/cms/core`.
+  
+  To update a project: `linkchar-cms migrations sync`, then `supabase db push` (new migration `20261029000000_publish_conflicts.sql`).
+- d53380d: `select({ display: 'cards', options: [{ value, label, preview }] })` shows one card per option instead of a dropdown, for choices that are easier to see than to read, like the layout of an image mosaic. `preview` is serializable, so the config still crosses to the browser: a PrimeIcons name (`{ icon: 'pi-th-large' }`), an image (`{ image: '/layouts/mosaic.svg' }`) or a mosaic sketch the panel draws (`{ grid: { columns, rows, cells: [{ column, row, columnSpan?, rowSpan? }] } }`, 1-based like CSS grid lines). The cards are an accessible radio group (arrows move between them, the chosen one has the brand border) and validate on each pick. `defineCmsConfig` rejects cards with an option that has no preview, previews without `display: 'cards'`, and a cell outside its grid; `multiSelect` has no cards. Core exports `SelectOptionType`, `SelectPreviewType`, `GridPreviewCellType` and `selectDisplayProblem`.
+  
+  To update a project: nothing; every `select` keeps its dropdown until it sets `display: 'cards'`.
+- 3a970ee: `paths.siteHome` (from `panelPaths`) is the published site's front page: `/`, or the default locale's prefix (`/es`) under `prefixDefaultLocale`. The header's "Ver sitio" link opens it instead of a fixed `/`.
+  
+  To update a project: nothing.
+
+### Patch Changes
+
+- 1f2a225: Sign-in and account forms: the invitation screen shows the invited address ("Tu usuario", read-only, `autocomplete="username"`) and the password rules under the field; the password reset and change-password forms carry a hidden `username` input with the account's address, so password managers pair the new password with the right account; a submit button stays in its loading state after a successful sign-in, invitation, reset or code until the navigation completes instead of re-enabling itself for a moment; a wrong current password in "Cambiar contraseña" is shown under that field, with the focus on it, instead of only as a toast; after a failed submit, every field re-checks itself while typing (`validateOnChange`), so a corrected value drops its error without another submit; and the two-step verification screen has "No tengo el celular", which explains that an administrator can reset the verification from Users.
+  
+  To update a project: nothing.
+- 0ab0566: The loading spinner of relation fields sat below the input's middle while it spun (the spin animation replaced the transform that centered it), and a multiple relation showed the browser's outline inside the field on top of the field's own focus ring. The spinner is centered with a margin and the inner input has no outline.
+  
+  To update a project: nothing.
+- 39bc32a: A save that failed (no network, a server error) is tried again on its own after 3, 6, 12 and 24 seconds, and the status shows "No se pudo guardar" with a "Reintentar" button meanwhile; before, nothing happened until the editor typed again. The status also stops reading every "Cambios sin guardar" and "Guardando…" to screen readers: only the outcome of a save is announced.
+  
+  To update a project: nothing.
+- f50faba: A collection list asked for a page past the end (`?page=9`, or the last item of a page just sent to the trash) showed "Todavía no hay contenido" with the create button as the only way out. It now shows the last page that exists, with the paginator on it.
+  
+  To update a project: nothing.
+- aa2fc42: Manual order of an `orderable` collection: each row has "Subir" and "Bajar" buttons next to the drag handle, so the order can be changed from the keyboard; a refused save puts the rows back in their previous order instead of leaving the screen out of sync with the server; manual order shows 100 items per page (`ORDERABLE_PAGE_SIZE`) and says "Se reordena dentro de esta página…" when there are more; and while a search, a status filter or another sort hides the handle, the list says why and offers "Ver en orden manual". `listCollection` now returns `pageSize`.
+  
+  To update a project: nothing.
+- d08b24e: The link, video and "Nuevo …" dialogs focus their first field when they open instead of the close button. Creating a related item that fails no longer leaves the "Crear" button spinning, and "Duplicar" is busy while the copy is made, so a double click can't make two.
+  
+  To update a project: nothing.
+- c72bf33: Dialog widths no longer depend on the order of the CSS: the panel's dialogs (Media, the picker, the block picker, links, confirmations) set `--cms-dialog-width` and the Dialog passthrough reads it, where before each dialog's class competed with the passthrough's `w-[min(640px,…)]` at equal specificity and a build could leave the media dialogs at 640 px.
+  
+  To update a project: nothing.
+- c91b231: The focal point picker sizes its box with the image's own ratio (up to 420px tall, centered), so a click on a vertical image is measured over the picture and not over the letterbox around it. Before, the saved point on a tall image was off by the empty margins.
+  
+  To update a project: nothing.
+- de591c6: One focus indicator across the panel: a 2 px ring in the brand violet on light grounds and a 2 px magenta outline on the dark sidebar and the dark ground of the sign-in screens. Page outline, section headers, collection tabs and the sidebar used their own outlines, list handles, media tiles, the block picker and the focal point picker showed the ring and the browser's outline together, and plain links (missing-content links, media usage, the overview, publish, list titles, the preview link, the guide's buttons) showed only what the browser drew. The ring and outline are defined once (`FOCUS_RING`, `FOCUS_VISIBLE_RING` and `FOCUS_OUTLINE_DARK` in the passthrough, `focus-ring` and `focus-outline-dark` mixins in Sass, a base rule for anything else) and a unit test keeps every stylesheet on them.
+  
+  To update a project: nothing; a project input that still spells its own ring keeps working.
+- c9a73a2: The focus ring (`--cms-primary-ring`) is now 65% of the brand violet instead of 55%: with the 0.11.0 palette the lighter mix reached 2.8:1 on white and 2.5:1 on the panel's grey, under the 3:1 WCAG asks of a non-text indicator; the new mix reaches 3.5:1 on white and 3.1:1 on the darkest ground an input sits on. The tokens test now resolves the `color-mix()` the way the browser does (`mixOklab` in core) and keeps the ring at 3:1 on the surface and both neutrals.
+  
+  To update a project: nothing.
+- f4242a5: A gallery that gets more images than its `max` says how many fit instead of leaving the rest out silently, and removing an image from a gallery or the file of an image field asks first, as lists and blocks do. Link fields show their `help`, changing the type of a link clears the destination typed for the previous one, and "Abrir en una pestaña nueva" is gone for emails and phone numbers.
+  
+  To update a project: nothing.
+- ffe283a: A collection document that is not shown on the site reads "Oculto" ("Hidden") in the editor, the lists and the overview instead of "Borrador": the panel already calls every unpublished edit a draft, so the same word for the visibility switch made editors think a hidden item would come out with the next publish.
+  
+  To update a project: nothing, unless its `messages` override `documentStatus.hidden`.
+- 3a7ffc8: Lists of names in Publish (changed sections, missing fields), Pages ("Muestra también") and the overview's incomplete alerts are joined with `Intl.ListFormat` in the panel language ("Título, Dirección y Texto") instead of a hardcoded ", ", and the sentence punctuation moved into the catalog keys (`publishPanel.sectionsChanged` and `publishPanel.problems` now take `{sections}` / `{fields}`). `formatList` and `listParts` are exported from the core translator and `InlineList` from the panel. In Activity, picking one day and closing the calendar filters that day; before, the same day had to be clicked twice.
+  
+  To update a project: nothing, unless its `messages` override those two keys: they need the placeholder now.
+- 629c694: Adding, duplicating, removing or reordering an item of a list or blocks field marked the whole array as touched, which hid the errors shown on the items inside ("Ingresá una URL que empiece con https://" went away as soon as another item was added), and the opening hours input did the same with each day, so a wrong time ("25:00") never showed its error. Touched is now kept per item and moves with it, the time inputs mark themselves on blur, and a list change validates the form at once.
+  
+  To update a project: nothing.
+- a9327c5: A signed-out visit to a panel screen (an expired session, a link someone shared) comes back to that screen after signing in: the proxy sends the browser to `login?next=/dashboard/paginas/home?locale=en` and the sign-in screen, and the second step when the user has two-step verification, follow it. `next` is accepted only when it is a panel path on the same origin and not a guest screen (`safePanelPath` in `@linkcharsoft/cms/core`); anything else lands on the panel home as before.
+  
+  To update a project: nothing; the proxy and the generated routes are the same.
+- 8e64416: In a file's details, a failed "Dónde se usa" lookup shows "No pudimos ver dónde se usa." with "Reintentar" instead of a loader that never ends, and the trash button is enabled (the server still refuses to trash a file in use). The trash and restore button locks while the move runs, so a double click can't send it twice; "Borrar para siempre" confirms with a toast; and a clipboard that refuses to copy the address says so instead of failing silently.
+  
+  To update a project: nothing.
+- fe14aee: The media library and the picker load the next page as the end of the list comes into view; "Cargar más" stays as a fallback. A search that fails no longer leaves the loader spinning: it shows "No pudimos cargar los archivos." with "Reintentar". A response that arrives after a newer search is ignored instead of replacing its results, and the picker shows a skeleton grid during its first load instead of a blank area. The number of results is announced to screen readers ("45 archivos") from a text outside the grid, instead of reading the whole grid on every change.
+  
+  To update a project: nothing.
+- fe14aee: The media picker's "Elegí un archivo / Usar archivo" bar is now the dialog's footer instead of a sticky strip inside the scrolling list: it no longer floats mid-dialog when the folder has few files, and the grid no longer shows through the gap under it. The dialog's content area grows to the dialog's height, so a fixed-height dialog scrolls its content instead of overflowing.
+  
+  To update a project: nothing.
+- a69e62b: Thumbnails in the media library, the picker, the uploader queue, image fields and galleries show the whole image on a subtle checkerboard instead of cropping it to the tile: logos and screenshots are recognizable at a glance. Only the focal point picker keeps the image at its own ratio.
+  
+  To update a project: nothing.
+- f3edbb8: A `row()` inside a list or block item overflowed its card on screens under 360px: its columns asked for 200px each even when the item was narrower. They now take the available width.
+  
+  To update a project: nothing.
+- bcdba88: Opening hours accept a closing time past midnight (20:00 to 02:00): only the same opening and closing time is rejected ("El cierre no puede ser a la misma hora que la apertura"), and a day switched to closed keeps its hours without validating them. The switch's label is a fixed "Abierto" (the switch itself says whether the day is open), and a time typed halfway ("09:3") stays in the input on blur instead of being cleared.
+  
+  To update a project: nothing. `openingHoursSpecification` passes the times through as entered, which is how schema.org expresses hours that end the next day.
+- 2bf7e04: The "Nuevo …" tasks of the overview were plain forms without a pending state, so a double click created two drafts. They now use the same button as the collection lists, which shows a spinner and ignores clicks while the draft is being created.
+  
+  To update a project: nothing.
+- 7104d7f: On phones the menu opens as a full-screen drawer over the page instead of pushing the content down, and it closes with Escape (the focus goes back to the menu button), when the route changes and when the browser goes back.
+  
+  To update a project: nothing.
+- d3e2cf5: Publishing while the site was still building the previous publish started another build of the same content: on Amplify the jobs piled up. Now `publishChanges` answers "El sitio todavía se está actualizando con la publicación anterior…" (`errors.publish.building`) while the latest publish is building, and the Publish screen says so ("El sitio se está actualizando con la publicación anterior (hace 3 minutos)…") with the button held until the build reports its end, or until the 30 minutes after which a build counts as unconfirmed.
+  
+  To update a project: nothing. A project without the build webhook (no EventBridge rule) waits those 30 minutes between publishes: wire the webhook as the Amplify setup describes.
+- 0ab0566: Relation fields (`relation`, `relations`) and the document picker of links lost their value on a plain focus and blur: PrimeReact's forced selection compared the shown label against an empty list of suggestions and cleared it. They now list the first options as soon as they get the focus (the text is selected, so typing replaces it), keep what the editor types while answers arrive, ignore answers that come back out of order, and on blur put the chosen item back when the typed text matched nothing; an emptied field clears the choice, as before. The document picker says "No hay resultados" when there are none, and the "Nuevo …" button opens the dialog with an empty name instead of the last search.
+  
+  To update a project: nothing.
+- 2ffd0b4: The rich text editor showed headings, lists, quotes, links and images as plain text since 0.10.0: their styles were nested under the inline variant by mistake. The editor now takes the same focus ring as every other input and says `aria-invalid` on its text when the field has an error, the toolbar no longer declares itself sticky (it never stuck, clipped by the editor's rounded border, and would sit under the document's own sticky bar), and "Rehacer" shows a redo arrow instead of a refresh icon.
+  
+  To update a project: nothing.
+- dad8bba: The address of a published document (`slug`) no longer follows its title: retitling "Casa" to "Casa grande" used to change a live URL without a word. Once a document has been published, the address only changes by hand or with "Generar de nuevo", which now regenerates it once from the title and says that the old address will redirect to the new one. Drafts never published keep following the title.
+  
+  To update a project: nothing.
+- c086416: The sidebar and the header stay on screen while the page scrolls. On desktop the sidebar is sticky and as tall as the viewport, its groups scroll inside it and the product footer is always visible at the bottom; the header, with "Publicar", "Ayuda" and "Ver sitio", sticks on every screen size, and the editor bar, the page outline, the section anchors and the preview pane sit below it. The preview pane also stops below the editor bar instead of under it, and its frame is never taller than what fits under both, so the bottom of the previewed page (the Draft Mode exit link) stays reachable on a short screen.
+  
+  To update a project: nothing.
+- 1e4bc16: Guided tours anchor their cards to small elements, each with a fixed side: the first section's header or the first field instead of the whole form, the first row instead of the whole list, the summary and the history title on Publish, and the header buttons get their card right-aligned under them. Before, a wrapper taller than the viewport sent the card to the bottom center and the editor's sticky bar covered the top of the form. The unused `users-invite` anchor is gone.
+  
+  To update a project: nothing.
+- 358a3ee: A tour looks its anchors up when each step shows, instead of once 700 ms after arriving: a button that re-mounts (the preview or publish button, when its tooltip appears) keeps its highlight instead of jumping to the corner, an anchor still loading gets up to 1.5 s, and one missing on this screen is skipped. A tour with nothing to show never starts nor counts as seen; from the Help menu it says "Esta guía no tiene nada para mostrar en esta pantalla todavía.". The stage hugs the element (4 px padding, 12 px radius), the close button reads "Cerrar la guía", the animations follow `prefers-reduced-motion`, the Help button exposes `aria-expanded`, and the highlight follows the element when it resizes.
+  
+  To update a project: nothing.
+- c2b52fc: A guide that finds the focus in a field when the screen opens now waits and looks again every second until the field loses it, instead of giving up for that visit; a focused button inside the form no longer holds it back.
+  
+  To update a project: nothing.
+- 17d4ba1: The trash is paged (50 per page) and searchable by title instead of capped at 200 rows; "Restaurar" shows a spinner and the row's buttons share one size. The version history loads 50 versions and offers "Cargar más" for older ones, and says "No pudimos cargar el historial." with "Reintentar" instead of spinning forever when the request fails (`listVersions` now returns `{ items, more }` and takes a `before` date). The publish history links to Activity filtered to publishes for admins, its rows say how long a build has been running ("Publicando · hace 7 min") instead of "~5 min", and "Reintentar" is offered for an unconfirmed build and no longer for a publish that failed because no publish target is configured (`retryPublish` follows the same rule).
+  
+  To update a project: nothing.
+- ff35381: Dragging files over the uploader no longer flickers while the pointer crosses its children, and a file dropped anywhere else in the panel (or with the uploader closed) no longer opens in the tab and leaves the panel. The upload button counts only the files ready to go, the remove buttons are locked while an upload runs, and a file removed before its turn is skipped. The hint and the rejection message now say the real limits: images up to 50 MB (optimized in the browser) and PDFs up to 10 MB; `MAX_RAW_IMAGE_BYTES` is exported from `@linkcharsoft/cms/core`.
+  
+  To update a project: nothing.
+- ff35381: The uploader stays open when some files failed or still wait for a duplicate decision, instead of closing as soon as one upload succeeded; a toast says how many went up and how many still need attention ("Se subió 1 archivo; quedan 2 con problemas."). `MediaUploader`'s `onUploaded` now receives the number of files left in the queue as a second argument.
+  
+  To update a project: nothing.
+- e8c0190: Selects, dates, switches, relations, images, files and galleries revalidate as soon as a value is picked: the editor only validates on blur, which those inputs never get, so a corrected value kept showing its error until some other field lost the focus.
+  
+  To update a project: nothing.
+
 ## 0.11.0
 
 ### Minor Changes
