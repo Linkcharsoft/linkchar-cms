@@ -10,6 +10,7 @@ import { useCms, useT } from '../../client/context'
 import EntryPicker from '../../fields/LinkInput/EntryPicker'
 import CustomButton from '../../primitives/CustomButton/CustomButton'
 import DialogFooter from '../../primitives/DialogFooter/DialogFooter'
+import { focusField } from '../../primitives/DialogFooter/focusField'
 import InputContainer from '../../primitives/InputContainer/InputContainer'
 import InputError from '../../primitives/InputError/InputError'
 import type { EntryTargetType } from '../../fields/LinkInput/EntryPicker'
@@ -70,6 +71,8 @@ const LinkDialog = ({ initialValue, onSubmit, onRemove, onHide }: Props) => {
       modal
       dismissableMask
       className='LinkDialog'
+      focusOnShow={false}
+      onShow={() => focusField(mode === 'entry' ? 'link-dialog-entry' : 'link-dialog-url')}
       onHide={onHide}
       footer={(
         <DialogFooter start={onRemove && <CustomButton type='button' variant='danger-ghost' onClick={onRemove}>{t('urlDialog.remove')}</CustomButton>}>

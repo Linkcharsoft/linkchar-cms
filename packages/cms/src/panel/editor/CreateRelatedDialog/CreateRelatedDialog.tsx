@@ -9,6 +9,7 @@ import { useCms, useT, useTextContext } from '../../client/context'
 import { useText } from '../../fields/fieldUtils'
 import CustomButton from '../../primitives/CustomButton/CustomButton'
 import DialogFooter from '../../primitives/DialogFooter/DialogFooter'
+import { focusField } from '../../primitives/DialogFooter/focusField'
 import InputContainer from '../../primitives/InputContainer/InputContainer'
 import { entryNavLabel } from '../../shell/navigation'
 import type { RelationOptionType } from '../../../server/documents'
@@ -41,13 +42,16 @@ const CreateRelatedDialog = ({ entryId, initialTitle = '', onCreated, onHide }: 
       return
     }
     setSaving(true)
-    const created = await actions.createRelated(entryId, title)
-    setSaving(false)
-    if (!created) {
-      setError(t('createRelated.failed'))
-      return
+    try {
+      const created = await actions.createRelated(entryId, title).catch(() => null)
+      if (!created) {
+        setError(t('createRelated.failed'))
+        return
+      }
+      onCreated(created)
+    } finally {
+      setSaving(false)
     }
-    onCreated(created)
   }
 
   if (!entry) return null
@@ -59,6 +63,8 @@ const CreateRelatedDialog = ({ entryId, initialTitle = '', onCreated, onHide }: 
       modal
       dismissableMask
       className='CreateRelatedDialog'
+      focusOnShow={false}
+      onShow={() => focusField('create-related-title')}
       onHide={onHide}
       footer={(
         <DialogFooter>
