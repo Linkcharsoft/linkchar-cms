@@ -27,21 +27,34 @@ export type ReplaceDraftResultType =
   | { status: 'conflict' }
   | { status: 'error', error: MessageKeyType }
 
-export const listVersions = async (ctx: CmsContextType, entryId: string, documentId: string): Promise<VersionItemType[]> => {
+export const VERSIONS_PAGE_SIZE = 50
+
+export interface VersionListType {
+  items: VersionItemType[]
+  // Older versions exist past this page: ask again with `before` = the last item's createdAt.
+  more: boolean
+}
+
+export const listVersions = async (ctx: CmsContextType, entryId: string, documentId: string, before?: string): Promise<VersionListType> => {
   await requireRole(ctx, 'editor')
-  if (!getEntry(ctx.config, entryId)) return []
+  if (!getEntry(ctx.config, entryId)) return { items: [], more: false }
 
-  const { data } = await ctx.db.from('document_versions').select('id, reason, created_at, created_by')
-    .eq('document_id', documentId).order('created_at', { ascending: false }).limit(50)
+  let request = ctx.db.from('document_versions').select('id, reason, created_at, created_by')
+    .eq('document_id', documentId).order('created_at', { ascending: false }).limit(VERSIONS_PAGE_SIZE + 1)
+  if (before) request = request.lt('created_at', before)
+  const { data } = await request
 
-  const rows = data ?? []
+  const rows = (data ?? []).slice(0, VERSIONS_PAGE_SIZE)
   const names = await authorNames(ctx, rows.map(row => row.created_by))
-  return rows.map(row => ({
-    id: row.id,
-    reason: row.reason as VersionReasonType,
-    createdAt: row.created_at,
-    createdBy: row.created_by ? names[row.created_by] ?? null : null
-  }))
+  return {
+    items: rows.map(row => ({
+      id: row.id,
+      reason: row.reason as VersionReasonType,
+      createdAt: row.created_at,
+      createdBy: row.created_by ? names[row.created_by] ?? null : null
+    })),
+    more: (data ?? []).length > VERSIONS_PAGE_SIZE
+  }
 }
 
 // The current draft is kept as a version first, so restoring or discarding can always be undone.

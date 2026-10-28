@@ -8,7 +8,7 @@ const status = {
     unpublishing: 'Se quita al publicar'
   },
   publishStatus: {
-    building: 'Publicando · ~5 min',
+    building: 'Publicando',
     buildingStarted: 'Publicando · recién empezó',
     buildingFor: 'Publicando · hace {minutes} min',
     success: 'Listo',

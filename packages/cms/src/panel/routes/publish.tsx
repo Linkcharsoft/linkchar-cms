@@ -1,5 +1,6 @@
 import { translatorFor } from '../../core/config'
-import { canPublish } from '../../core/roles'
+import { panelPaths } from '../../core/paths'
+import { canPublish, hasRole } from '../../core/roles'
 import DashboardPageHeader from '../primitives/DashboardPageHeader/DashboardPageHeader'
 import PublishPanel from '../publish/PublishPanel/PublishPanel'
 import type { CmsServerType } from '../../server/next'
@@ -27,6 +28,7 @@ export const publishRoute = (cms: CmsServerType) => {
             history={history}
             canPublish={canPublish(profile)}
             highlight={typeof doc === 'string' ? doc : undefined}
+            activityHref={hasRole(profile.role, 'admin') ? `${panelPaths(cms.config).activity}?accion=publishing` : undefined}
           />
         </section>
       </main>

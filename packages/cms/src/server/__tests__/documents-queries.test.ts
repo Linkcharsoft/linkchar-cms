@@ -141,10 +141,15 @@ describe('titleColumn', () => {
 })
 
 describe('trash', () => {
-  it('lists trashed documents with their collection', async () => {
-    expect(await listTrash(fakeContext(db, cmsConfig))).toEqual([
-      { id: ID(3), entryLabel: 'Blog', title: 'Patio interno', deletedAt: '2026-10-05T00:00:00Z', published: false }
-    ])
+  it('lists trashed documents with their collection, searched by title', async () => {
+    const ctx = fakeContext(db, cmsConfig)
+    expect(await listTrash(ctx)).toEqual({
+      items: [{ id: ID(3), entryLabel: 'Blog', title: 'Patio interno', deletedAt: '2026-10-05T00:00:00Z', published: false }],
+      total: 1,
+      page: 1
+    })
+    expect((await listTrash(ctx, { search: 'patio' })).items.map(item => item.id)).toEqual([ID(3)])
+    expect((await listTrash(ctx, { search: 'nada' })).total).toBe(0)
   })
 
   it('purges documents trashed long ago, except the ones still on the site', async () => {

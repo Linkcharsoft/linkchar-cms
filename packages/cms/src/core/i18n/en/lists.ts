@@ -94,11 +94,14 @@ const lists = {
     retry: 'Retry',
     retryOf: 'Retry',
     retrying: 'Retrying the site update',
-    retryFailed: 'Could not retry'
+    retryFailed: 'Could not retry',
+    allInActivity: 'See all in Activity'
   },
   trashList: {
     subtitle: 'Content stays here for {days} days and is then deleted automatically. Images and files have their own trash in {media}.',
     content: 'Content',
+    searchPlaceholder: 'Search by title',
+    noResults: 'Nothing matches that search.',
     trashedAt: 'Moved to the trash',
     offSite: 'Off the site',
     empty: 'The trash is empty.',

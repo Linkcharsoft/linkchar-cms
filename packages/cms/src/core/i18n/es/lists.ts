@@ -91,11 +91,14 @@ const lists = {
     retry: 'Reintentar',
     retryOf: 'Reintento',
     retrying: 'Reintentando la actualización del sitio',
-    retryFailed: 'No se pudo reintentar'
+    retryFailed: 'No se pudo reintentar',
+    allInActivity: 'Ver todas en Actividad'
   },
   trashList: {
     subtitle: 'Los contenidos quedan acá {days} días y después se borran solos. Las imágenes y archivos tienen su propia papelera en {media}.',
     content: 'Contenido',
+    searchPlaceholder: 'Buscar por título',
+    noResults: 'No hay resultados para esa búsqueda.',
     trashedAt: 'Enviado a la papelera',
     offSite: 'Fuera del sitio',
     empty: 'La papelera está vacía.',

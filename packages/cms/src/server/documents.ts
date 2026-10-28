@@ -60,6 +60,8 @@ export interface TrashItemType {
 }
 
 export const TRASH_RETENTION_DAYS = 30
+
+export const TRASH_PAGE_SIZE = 50
 const DAY_MS = 24 * 60 * 60 * 1000
 
 const LIST_COLUMNS = 'id, slug, data, sort_order, updated_at, status, visible'
@@ -140,12 +142,25 @@ export const listCollection = async (ctx: CmsContextType, entryId: string, query
   return { items: matching.slice(start, start + pageSize), total: matching.length, page: shownPage, pageSize, sort }
 }
 
-export const listTrash = async (ctx: CmsContextType): Promise<TrashItemType[]> => {
-  const { data } = await ctx.db.from('document_status').select('id, type, data, deleted_at, status')
-    .not('deleted_at', 'is', null).in('type', entryIds(ctx.config))
-    .order('deleted_at', { ascending: false }).limit(200)
+// PostgREST `or()` values are quoted: commas, parentheses and quotes from the search can't break the filter.
+const orValue = (search: string) => `"%${search.replace(/["\\%_]/g, char => `\\${char}`)}%"`
 
-  return (data ?? []).flatMap(row => {
+export const listTrash = async (ctx: CmsContextType, query: { search?: string, page?: number } = {}) => {
+  const page = Math.max(1, query.page ?? 1)
+  const from = (page - 1) * TRASH_PAGE_SIZE
+  const collections = entryIds(ctx.config).flatMap(id => {
+    const entry = getCollection(ctx.config, id)
+    return entry ? [{ id, entry }] : []
+  })
+  let request = ctx.db.from('document_status').select('id, type, data, deleted_at, status', { count: 'exact' })
+    .not('deleted_at', 'is', null).in('type', collections.map(({ id }) => id))
+  if (query.search?.trim()) {
+    const value = orValue(query.search.trim())
+    request = request.or([...new Set(collections.map(({ entry }) => titleColumn(ctx, entry)))].map(column => `${column}.ilike.${value}`).join(','))
+  }
+  const { data, count } = await request.order('deleted_at', { ascending: false }).range(from, from + TRASH_PAGE_SIZE - 1)
+
+  const items = (data ?? []).flatMap((row): TrashItemType[] => {
     const entry = row.type ? getCollection(ctx.config, row.type) : null
     if (!entry || !row.id || !row.deleted_at) return []
     return [{
@@ -156,6 +171,7 @@ export const listTrash = async (ctx: CmsContextType): Promise<TrashItemType[]> =
       published: row.status === 'unpublishing'
     }]
   })
+  return { items, total: count ?? 0, page }
 }
 
 // Lazy purge when the trash is opened. Published documents wait: deleting them would skip the next publish.

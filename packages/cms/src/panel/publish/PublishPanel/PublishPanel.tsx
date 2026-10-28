@@ -25,6 +25,8 @@ interface Props {
   history: PublishRecordType[]
   canPublish: boolean
   highlight?: string
+  // The activity screen filtered to publishes, for the roles that may open it.
+  activityHref?: string
 }
 
 const POLL_INTERVAL_MS = 10_000
@@ -133,6 +135,8 @@ const HistoryItem = ({ record, onRetry }: { record: PublishRecordType, onRetry?:
   const [retrying, setRetrying] = useState(false)
   const formatDate = useFormatDate()
   const displayed = publishDisplayStatus(record.buildStatus, record.requestedAt)
+  const minutes = publishMinutes(record.requestedAt)
+  const statusLabel = displayed !== 'building' ? t(`publishStatus.${displayed}`) : minutes < 1 ? t('publishStatus.buildingStarted') : t('publishStatus.buildingFor', { minutes })
 
   return (
     <li className='PublishPanel__Item'>
@@ -142,7 +146,7 @@ const HistoryItem = ({ record, onRetry }: { record: PublishRecordType, onRetry?:
         </span>
         <span className='PublishPanel__ItemTags'>
           {record.retryOf !== null && <Tag value={t('publishPanel.retryOf')} severity='secondary' />}
-          <Tag value={t(`publishStatus.${displayed}`)} severity={PUBLISH_SEVERITIES[displayed]} />
+          <Tag value={statusLabel} severity={PUBLISH_SEVERITIES[displayed]} />
         </span>
       </div>
       <details className='PublishPanel__Details'>
@@ -188,7 +192,7 @@ const HistoryItem = ({ record, onRetry }: { record: PublishRecordType, onRetry?:
   )
 }
 
-const PublishPanel = ({ changes, history, canPublish, highlight }: Props) => {
+const PublishPanel = ({ changes, history, canPublish, highlight, activityHref }: Props) => {
   const { t, translate, locale } = useT()
   const { actions } = useCms()
   const router = useRouter()
@@ -354,15 +358,25 @@ const PublishPanel = ({ changes, history, canPublish, highlight }: Props) => {
           ? <EmptyState compact icon='pi pi-send' title={t('publishPanel.historyEmpty')} />
           : (
             <ul className='PublishPanel__List'>
-              {history.map((record, index) => (
-                <HistoryItem
-                  key={record.id}
-                  record={record}
-                  onRetry={index === 0 && canPublish && record.buildStatus === 'failed' ? () => retry(record.id) : undefined}
-                />
-              ))}
+              {history.map((record, index) => {
+                const displayed = publishDisplayStatus(record.buildStatus, record.requestedAt)
+                const retryable = (displayed === 'failed' && record.errorCode !== 'target_missing') || displayed === 'unconfirmed'
+                return (
+                  <HistoryItem
+                    key={record.id}
+                    record={record}
+                    onRetry={index === 0 && canPublish && retryable ? () => retry(record.id) : undefined}
+                  />
+                )
+              })}
             </ul>
           )}
+        {activityHref && history.length > 0 && (
+          <Link href={activityHref as Route} className='PublishPanel__More'>
+            {t('publishPanel.allInActivity')}
+            <i className='pi pi-arrow-right' aria-hidden='true' />
+          </Link>
+        )}
       </section>
     </div>
   )

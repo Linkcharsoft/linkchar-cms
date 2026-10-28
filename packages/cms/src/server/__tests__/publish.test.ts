@@ -269,11 +269,23 @@ describe('retryPublish', () => {
     expect(db.tables.activity_log).toEqual([expect.objectContaining({ action: 'site.retry', details: { publishId: 5, retryOf: 4 } })])
   })
 
-  it('only retries the latest publish, and only when it failed', async () => {
+  it('only retries the latest publish, and only when it failed or was never confirmed', async () => {
     expect(await retryPublish(ctx, 3)).toEqual({ ok: false, error: 'errors.publish.stale' })
-    db.tables.publish_log.find(row => row.id === 4)!.build_status = 'building'
+    const latest = db.tables.publish_log.find(row => row.id === 4)!
+    latest.build_status = 'building'
+    expect(await retryPublish(ctx, 4)).toEqual({ ok: false, error: 'errors.publish.stale' })
+    latest.error_code = 'target_missing'
+    latest.build_status = 'failed'
     expect(await retryPublish(ctx, 4)).toEqual({ ok: false, error: 'errors.publish.stale' })
     expect(db.tables.publish_log).toHaveLength(2)
+
+    latest.build_status = 'building'
+    latest.error_code = null
+    latest.requested_at = at(31)
+    db.tables.publish_log.find(row => row.id === 3)!.requested_at = at(90)
+    ctx.publishTarget = target(async () => ({ ok: true, jobId: 'job-3' }))
+    expect(await retryPublish(ctx, 4)).toMatchObject({ ok: true, buildStatus: 'building' })
+    expect(db.tables.publish_log).toHaveLength(3)
   })
 
   it('refuses editors without permission', async () => {

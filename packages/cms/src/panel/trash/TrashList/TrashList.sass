@@ -1,6 +1,10 @@
 @use '../../theme/mixins' as cms
 
 .TrashList
+  display: flex
+  flex-direction: column
+  gap: 16px
+
   &__Table
     @include cms.table()
 
@@ -16,5 +20,6 @@
 
   &__Actions
     display: flex
+    align-items: center
     justify-content: flex-end
     gap: 8px

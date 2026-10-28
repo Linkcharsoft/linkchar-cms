@@ -41,10 +41,26 @@ beforeEach(() => {
 
 describe('listVersions', () => {
   it('lists the history newest first, with who made each version', async () => {
-    expect(await listVersions(ctx, 'home', PAGE)).toEqual([
-      { id: ID(11), reason: 'publish', createdAt: '2026-10-06T00:00:00Z', createdBy: null },
-      { id: ID(10), reason: 'checkpoint', createdAt: '2026-10-05T00:00:00Z', createdBy: 'Ana' }
-    ])
+    expect(await listVersions(ctx, 'home', PAGE)).toEqual({
+      items: [
+        { id: ID(11), reason: 'publish', createdAt: '2026-10-06T00:00:00Z', createdBy: null },
+        { id: ID(10), reason: 'checkpoint', createdAt: '2026-10-05T00:00:00Z', createdBy: 'Ana' }
+      ],
+      more: false
+    })
+  })
+
+  it('pages through a long history by date', async () => {
+    for (let n = 0; n < 60; n++) {
+      db.tables.document_versions.push({ id: ID(100 + n), document_id: PAGE, data: {}, reason: 'checkpoint', created_at: `2026-09-${String(1 + (n % 28)).padStart(2, '0')}T${String(n % 24).padStart(2, '0')}:00:00Z`, created_by: null })
+    }
+    const first = await listVersions(ctx, 'home', PAGE)
+    expect(first.items).toHaveLength(50)
+    expect(first.more).toBe(true)
+    const rest = await listVersions(ctx, 'home', PAGE, first.items[49].createdAt)
+    expect(rest.items).toHaveLength(12)
+    expect(rest.more).toBe(false)
+    expect(rest.items.every(item => item.createdAt < first.items[49].createdAt)).toBe(true)
   })
 })
 

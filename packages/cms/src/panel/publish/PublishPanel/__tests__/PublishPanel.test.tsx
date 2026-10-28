@@ -154,4 +154,21 @@ describe('PublishPanel', () => {
     expect(screen.queryByRole('button', { name: 'Reintentar' })).toBeNull()
     expect(screen.getByText('Reintento')).toBeTruthy()
   })
+
+  it('offers the retry for an unconfirmed build but not when no target is configured', () => {
+    const unconfirmed = { ...record, buildStatus: 'building' as const, requestedAt: new Date(Date.now() - 45 * 60_000).toISOString(), errorCode: null, errorDetail: null }
+    renderPanel(<PublishPanel changes={[]} history={[unconfirmed]} canPublish activityHref='/dashboard/actividad?accion=publishing' />)
+    expect(screen.getByRole('button', { name: 'Reintentar' })).toBeTruthy()
+    expect(screen.getByText('Sin confirmar')).toBeTruthy()
+    expect(screen.getByRole('link', { name: 'Ver todas en Actividad' }).getAttribute('href')).toBe('/dashboard/actividad?accion=publishing')
+    cleanup()
+
+    renderPanel(<PublishPanel changes={[]} history={[{ ...record, errorCode: 'target_missing' }]} canPublish />)
+    expect(screen.queryByRole('button', { name: 'Reintentar' })).toBeNull()
+    cleanup()
+
+    const building = { ...unconfirmed, requestedAt: new Date(Date.now() - 7 * 60_000).toISOString() }
+    renderPanel(<PublishPanel changes={[]} history={[building]} canPublish />)
+    expect(screen.getByText('Publicando · hace 7 min')).toBeTruthy()
+  })
 })

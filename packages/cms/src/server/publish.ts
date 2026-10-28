@@ -420,14 +420,17 @@ export const publishChanges = async (ctx: CmsContextType, selection: PublishSele
   return { ok: true, published: result.published, removed: result.removed, buildStatus }
 }
 
-// Only the latest publish, and only after its build failed: a newer one already rebuilt the site.
+// Only the latest publish, and only after its build failed or was never confirmed: a newer one already rebuilt the site.
+// Without a publish target, a retry would fail the same way, so it is refused.
 export const retryPublish = async (ctx: CmsContextType, publishId: number): Promise<PublishResultType> => {
   const { profile } = await requireRole(ctx, 'editor')
   if (!canPublish(profile)) return { ok: false, error: 'errors.publish.forbidden' }
 
-  const { data: failed } = await ctx.db.from('publish_log').select('id, build_status, documents_count, removed_count, items')
+  const { data: failed } = await ctx.db.from('publish_log').select('id, build_status, requested_at, error_code, documents_count, removed_count, items')
     .order('requested_at', { ascending: false }).limit(1).maybeSingle()
-  if (!failed || failed.id !== publishId || failed.build_status !== 'failed') return { ok: false, error: 'errors.publish.stale' }
+  const displayed = failed ? publishDisplayStatus(failed.build_status as BuildStatusType, failed.requested_at, ctx.now().getTime()) : null
+  const retryable = (displayed === 'failed' && failed?.error_code !== 'target_missing') || displayed === 'unconfirmed'
+  if (!failed || failed.id !== publishId || !retryable) return { ok: false, error: 'errors.publish.stale' }
 
   const { data: retry, error } = await ctx.admin().from('publish_log').insert({
     requested_by: profile.id,
