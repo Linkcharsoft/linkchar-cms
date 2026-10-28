@@ -10,10 +10,12 @@ import SortableItem from '../../editor/SortableItem/SortableItem'
 import SortableList from '../../editor/SortableList/SortableList'
 import MediaPicker from '../../media/MediaPicker/MediaPicker'
 import { useMediaText } from '../../media/mediaText'
+import { useConfirm } from '../../primitives/ConfirmAction/ConfirmAction'
 import CustomButton from '../../primitives/CustomButton/CustomButton'
 import InputError from '../../primitives/InputError/InputError'
+import { useNotify } from '../../providers/notify'
 import { EntryContext } from '../entryContext'
-import { useFieldError, useFieldLabel, useMediaVariant, useText } from '../fieldUtils'
+import { errorId, useFieldError, useFieldLabel, useMediaVariant, useText } from '../fieldUtils'
 import { LocaleBadge } from '../LocaleNote/LocaleNote'
 import MissingAlt from '../MissingAlt/MissingAlt'
 import { useMediaRegistry } from '../referencesContext'
@@ -32,6 +34,8 @@ const GalleryInput = ({ name, field }: Props) => {
   const text = useText()
   const label = useFieldLabel()
   const mediaText = useMediaText()
+  const confirm = useConfirm()
+  const notify = useNotify()
   const variant = useMediaVariant(name)
   const [{ value }, , { setValue, setTouched }] = useField<string[]>(variant.path)
   const error = useFieldError(variant.path)
@@ -49,11 +53,27 @@ const GalleryInput = ({ name, field }: Props) => {
       variant.restore()
       return
     }
-    setValue(next)
+    setValue(next, true)
     setTouched(true, false)
   }
 
   const titleOf = (id: string) => (known[id] && (mediaText(known[id].alt) || known[id].filename)) || t('gallery.removed')
+
+  const askRemove = (id: string) => confirm({
+    header: t('gallery.removeHeader'),
+    message: t('gallery.removeMessage', { title: titleOf(id) }),
+    acceptLabel: t('gallery.remove'),
+    tone: 'danger',
+    accept: () => commit(ids.filter(entry => entry !== id))
+  })
+
+  // What the picker handed over past `max` is left out, and the editor is told.
+  const addPicked = (picked: string[]) => {
+    const added = picked.filter(id => !ids.includes(id))
+    const room = field.max === undefined ? added.length : Math.max(field.max - ids.length, 0)
+    if (added.length > room) notify({ severity: 'warn', summary: t('gallery.overMax', { count: room }) })
+    return [...ids, ...added.slice(0, room)]
+  }
   const thumbnail = (id: string) => (known[id] ? (
     <span className='GalleryInput__Thumb'>
       <Image src={known[id].url} alt='' fill sizes='64px' className='GalleryInput__Image' />
@@ -94,7 +114,7 @@ const GalleryInput = ({ name, field }: Props) => {
               id={id}
               title={titleOf(id)}
               thumbnail={thumbnail(id)}
-              onRemove={() => commit(ids.filter(entry => entry !== id))}
+              onRemove={() => askRemove(id)}
             />
           ))}
         </SortableList>
@@ -121,7 +141,7 @@ const GalleryInput = ({ name, field }: Props) => {
           </CustomButton>
         )}
       </div>
-      <InputError message={error} />
+      <InputError id={errorId(name)} message={error} />
 
       {isPicking && (
         <MediaPicker
@@ -132,8 +152,7 @@ const GalleryInput = ({ name, field }: Props) => {
           onHide={() => setIsPicking(false)}
           onPick={picked => {
             remember(...picked)
-            const added = picked.map(item => item.id).filter(id => !ids.includes(id))
-            const next = [...ids, ...added].slice(0, field.max ?? Infinity)
+            const next = addPicked(picked.map(item => item.id))
             if (inherited) variant.override(next)
             else commit(next)
             setIsPicking(false)

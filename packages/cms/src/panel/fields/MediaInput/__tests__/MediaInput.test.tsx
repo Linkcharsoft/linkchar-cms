@@ -1,11 +1,21 @@
 import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react'
 import { useFormikContext } from 'formik'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { gallery, image } from '../../../../core/fields'
 import { renderField } from '../../../__tests__/render'
 import GalleryInput from '../../GalleryInput/GalleryInput'
 import MediaInput from '../MediaInput'
 import type { MediaItemType } from '../../../../core/media'
+
+// Removing asks first; here the question is accepted right away and remembered.
+const confirmed = vi.hoisted(() => vi.fn())
+vi.mock('primereact/confirmdialog', () => ({
+  confirmDialog: (options: { header: string, accept: () => void }) => {
+    confirmed(options.header)
+    options.accept()
+  },
+  ConfirmDialog: () => null
+}))
 
 afterEach(cleanup)
 
@@ -76,6 +86,7 @@ describe('GalleryInput per language', () => {
     expect(stored().photos).toEqual({ es: [A.id, B.id], en: [A.id, B.id] })
 
     fireEvent.click(screen.getByRole('button', { name: 'Borrar Front' }))
+    expect(confirmed).toHaveBeenCalledWith('Quitar imagen')
     await waitFor(() => expect(stored().photos.en).toEqual([B.id]))
     fireEvent.click(screen.getByRole('button', { name: 'Borrar Courtyard' }))
     await waitFor(() => expect(stored().photos).toEqual({ es: [A.id, B.id] }))
