@@ -1,10 +1,11 @@
 .RichTextEditor
   overflow: hidden
   border-radius: 8px
-  @apply bg-cms-surface border border-cms-border focus-within:border-cms-primary
+  @apply bg-cms-surface border border-cms-border-strong transition-colors duration-200
+  @apply focus-within:border-cms-primary focus-within:ring-2 focus-within:ring-cms-primary-ring
 
   &--Invalid
-    @apply border-cms-danger-600
+    @apply border-cms-danger-600 focus-within:border-cms-danger-600 focus-within:ring-cms-danger-200
 
   &--Loading
     padding: 16px
@@ -12,9 +13,6 @@
     @apply cms-text-regular-14 text-cms-ink-600
 
   &__Toolbar
-    position: sticky
-    top: 0
-    z-index: 1
     display: flex
     flex-wrap: wrap
     align-items: center
@@ -27,6 +25,10 @@
 
     &--Active
       @apply bg-cms-primary-100 text-cms-ink-900
+
+    // PrimeIcons has no redo: the undo arrow, mirrored.
+    &--Redo .pi
+      transform: scaleX(-1)
 
   &__Glyph
     &--Bold
@@ -47,13 +49,13 @@
     margin: 0 4px
     @apply bg-cms-border-strong
 
+  &--Inline &__Content
+    min-height: 0
+
   &__Content
     min-height: 200px
     padding: 16px
     outline: none
-
-  &--Inline &__Content
-    min-height: 0
 
     > * + *
       margin-top: 12px

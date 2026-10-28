@@ -90,6 +90,30 @@ test.describe('page editor', () => {
     expect(await page.locator('form[data-tour=form] + .PreviewPane').count()).toBe(1)
   })
 
+  test('a list keeps an item error after adding another and collapses from its legend', async ({ page }) => {
+    await signIn(page, QA.super.email)
+    await page.goto('/dashboard/sitio/settings')
+    await page.waitForLoadState('networkidle')
+    await page.getByRole('tab', { name: 'Redes' }).click()
+
+    const list = page.locator('.ListInput')
+    const before = await list.locator('.SortableItem').count()
+    await list.getByRole('button', { name: 'Agregar' }).click()
+    const link = page.locator(`#cms-networks-${before}-link`)
+    await link.fill('abc')
+    await link.blur()
+    await expect(list.getByText('Ingresá una URL que empiece con https://')).toBeVisible()
+
+    await list.getByRole('button', { name: 'Agregar' }).click()
+    await expect(list.locator('.SortableItem')).toHaveCount(before + 2)
+    await expect(list.getByText('Ingresá una URL que empiece con https://')).toBeVisible()
+
+    await list.getByRole('button', { name: 'Colapsar todo' }).click()
+    await expect(list.locator('.SortableItem__Body')).toHaveCount(0)
+    await list.getByRole('button', { name: 'Expandir todo' }).click()
+    await expect(list.locator('.SortableItem__Body')).toHaveCount(before + 2)
+  })
+
   test('opens a section from its link and marks the outline', async ({ page }) => {
     await signIn(page, QA.super.email)
     await page.goto('/dashboard/paginas/home#services')

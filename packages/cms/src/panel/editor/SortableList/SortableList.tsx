@@ -13,10 +13,12 @@ interface Props {
   onMove: (from: number, to: number) => void
   // Items are collapsed while dragging: tall open items make collision detection pick the wrong slot.
   onDragStart?: () => void
+  // After a drop or a cancel.
+  onDragEnd?: () => void
   children: ReactNode
 }
 
-const SortableList = ({ ids, labelOf, onMove, onDragStart, children }: Props) => {
+const SortableList = ({ ids, labelOf, onMove, onDragStart, onDragEnd, children }: Props) => {
   const { t } = useT()
   // dnd-kit numbers its aria ids with a global counter that differs between server and client.
   const id = useId()
@@ -42,9 +44,10 @@ const SortableList = ({ ids, labelOf, onMove, onDragStart, children }: Props) =>
       measuring={{ droppable: { strategy: MeasuringStrategy.Always } }}
       onDragStart={onDragStart}
       accessibility={{ announcements, screenReaderInstructions: { draggable: t('fields.sortable.instructions') } }}
+      onDragCancel={onDragEnd}
       onDragEnd={({ active, over }) => {
-        if (!over || active.id === over.id) return
-        onMove(ids.indexOf(String(active.id)), ids.indexOf(String(over.id)))
+        if (over && active.id !== over.id) onMove(ids.indexOf(String(active.id)), ids.indexOf(String(over.id)))
+        onDragEnd?.()
       }}
     >
       <SortableContext items={ids} strategy={verticalListSortingStrategy}>

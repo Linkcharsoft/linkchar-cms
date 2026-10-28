@@ -184,8 +184,15 @@ const editor = {
     },
     list: {
       add: 'Add',
+      addItem: 'Add {item}',
       count: '{count} of {max}',
+      countMin: '{count}, at least {min}',
+      countRange: '{count} of {max}, at least {min}',
       item: '{label} {number}',
+      full: 'There are already {max}: remove one to add another',
+      atMin: 'There must be at least {min}',
+      expandAll: 'Expand all',
+      collapseAll: 'Collapse all',
       removeHeader: 'Delete item',
       removeMessage: 'Delete "{title}"?',
       remove: 'Delete'
@@ -195,7 +202,8 @@ const editor = {
       removeHeader: 'Delete block',
       removeMessage: 'Delete the block "{title}"?',
       empty: 'No content yet',
-      fallback: 'Block'
+      fallback: 'Block',
+      unknown: 'Block "{type}", no longer in the schema: it can only be deleted'
     },
     sortable: {
       move: 'Move {title}',

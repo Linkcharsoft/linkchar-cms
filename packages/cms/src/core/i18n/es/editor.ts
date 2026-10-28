@@ -181,8 +181,15 @@ const editor = {
     },
     list: {
       add: 'Agregar',
+      addItem: 'Agregar {item}',
       count: '{count} de {max}',
+      countMin: '{count}, mínimo {min}',
+      countRange: '{count} de {max}, mínimo {min}',
       item: '{label} {number}',
+      full: 'Ya hay {max}: quitá uno para agregar otro',
+      atMin: 'Tiene que haber al menos {min}',
+      expandAll: 'Expandir todo',
+      collapseAll: 'Colapsar todo',
       removeHeader: 'Borrar elemento',
       removeMessage: '¿Borrar "{title}"?',
       remove: 'Borrar'
@@ -192,7 +199,8 @@ const editor = {
       removeHeader: 'Borrar bloque',
       removeMessage: '¿Borrar el bloque "{title}"?',
       empty: 'Sin contenido todavía',
-      fallback: 'Bloque'
+      fallback: 'Bloque',
+      unknown: 'Bloque "{type}", que ya no existe en el esquema: solo se puede borrar'
     },
     sortable: {
       move: 'Mover {title}',

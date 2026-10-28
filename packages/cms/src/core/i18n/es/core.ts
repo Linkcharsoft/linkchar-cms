@@ -33,7 +33,7 @@ const core = {
     linkAnchor: 'Las anclas empiezan con #',
     variant: 'Variante inválida',
     time: 'Usá el formato HH:MM',
-    timeOrder: 'El cierre tiene que ser posterior a la apertura',
+    timeOrder: 'El cierre no puede ser a la misma hora que la apertura',
     file: 'Archivo inválido',
     maxImages: 'Podés elegir hasta {max} imágenes',
     minImages: 'Elegí al menos {min} imágenes',

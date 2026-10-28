@@ -82,9 +82,19 @@ describe('validateContent', () => {
     expect(errors).toMatchObject({ items: 'Podés cargar hasta 2', 'items.1.name.es': 'Este campo es obligatorio' })
   })
 
+  it('accepts hours past midnight and ignores the hours of a closed day', async () => {
+    const hours = buildDefaults(config, fields).hours
+    hours.days[0] = { day: 'mon', closed: false, from: '20:00', to: '02:00' }
+    hours.days[1] = { day: 'tue', closed: true, from: '25:00', to: '09:00' }
+
+    const { errors } = await validateContent(config, fields, { ...valid(), hours }, { mode: 'draft' })
+
+    expect(errors).toBeNull()
+  })
+
   it('rejects unknown block types and bad opening hours', async () => {
     const hours = buildDefaults(config, fields).hours
-    hours.days[0] = { day: 'mon', closed: false, from: '18:00', to: '09:00' }
+    hours.days[0] = { day: 'mon', closed: false, from: '18:00', to: '18:00' }
 
     const { errors } = await validateContent(config, fields, {
       ...valid(),
@@ -93,7 +103,7 @@ describe('validateContent', () => {
     }, { mode: 'draft' })
 
     expect(errors).toMatchObject({
-      'hours.days.0.to': 'El cierre tiene que ser posterior a la apertura',
+      'hours.days.0.to': 'El cierre no puede ser a la misma hora que la apertura',
       'content.0': 'Tipo de bloque desconocido'
     })
   })

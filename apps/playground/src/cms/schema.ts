@@ -87,10 +87,11 @@ export const schema = defineSchema({
     }, { anchor: 'inicio', icon: 'pi-home' }),
     services: section('Servicios', {
       title: text({ label: 'Título', default: { es: 'Qué hacemos', en: 'What we do' } }),
-      items: list({ label: 'Servicios', max: 6, itemLabel: 'name', default: [{ name: { es: 'Arquitectura', en: 'Architecture' } }, { name: { es: 'Interiores', en: 'Interiors' } }] }, {
+      items: list({ label: 'Servicios', min: 1, max: 6, itemLabel: 'name', singularLabel: { es: 'servicio', en: 'service' }, default: [{ name: { es: 'Arquitectura', en: 'Architecture' } }, { name: { es: 'Interiores', en: 'Interiors' } }] }, {
         name: text({ label: 'Nombre', required: true }),
         description: textarea({ label: 'Descripción', rows: 3 }),
-        icon: select({ label: 'Ícono', options: [{ label: 'Casa', value: 'pi-home' }, { label: 'Edificio', value: 'pi-building' }, { label: 'Lápiz', value: 'pi-pencil' }] })
+        icon: select({ label: 'Ícono', options: [{ label: 'Casa', value: 'pi-home' }, { label: 'Edificio', value: 'pi-building' }, { label: 'Lápiz', value: 'pi-pencil' }] }),
+        image: image({ label: 'Imagen', folder: 'sitio' })
       })
     }, { anchor: 'servicios', icon: 'pi-th-large' }),
     projects: section('Proyectos destacados', {

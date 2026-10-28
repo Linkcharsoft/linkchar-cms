@@ -50,6 +50,8 @@ One line per decision that still shapes the package. Each is settled; reopening 
 - Never copy props into state during render in panel components: a poll that sets equal values leaves stale updates React replays over fresh props (`PublishStatus`, 0.3.x).
 - The header counts only the changes the next publish takes; the editor announces each save (`cms:saved`) and the header refreshes, instead of `router.refresh()` per autosave.
 - Guided tours have neutral ids (`welcome`, `pages`, `document`…), never start while a field has the focus (they wait for the blur), resolve each anchor when its step shows (never cached: buttons re-mount), and point at small elements, never at a wrapper taller than the viewport.
+- List and block items start open up to three, or when the item has an image field (`open` fixes it); Formik's `touched` is kept per item, never on the array, so the errors inside survive adding or reordering. The rich text toolbar is not sticky: it would sit under the editor's sticky bar.
+- Opening hours may close past midnight (20:00 to 02:00); only the same opening and closing time is an error, and a closed day's hours are kept but not validated.
 - The duplicate check hashes the original file (SHA-256), not the processed blob: the canvas WebP differs per browser.
 - Untouched drafts are purged on reading a collection list, only when revision 1, equal timestamps, data equal to the schema defaults and no usage.
 
