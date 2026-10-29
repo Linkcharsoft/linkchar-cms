@@ -1,5 +1,6 @@
 import { execFileSync, execSync } from 'node:child_process'
-import { copyFile, mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { createHash } from 'node:crypto'
+import { copyFile, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -42,6 +43,13 @@ beforeAll(async () => {
   const background = { r: Math.floor(Math.random() * 256), g: Math.floor(Math.random() * 256), b: Math.floor(Math.random() * 256) }
   await writeFile(join(root, 'cover.png'), await sharp({ create: { width: 3000, height: 1500, channels: 3, background } }).png().toBuffer())
   for (const clip of ['clip.mp4', 'slow.mp4']) await copyFile(fileURLToPath(new URL(`../../core/__tests__/fixtures/${clip}`, import.meta.url)), join(root, clip))
+  // The clip is the same bytes every run: a row an interrupted run left would be found instead of uploaded.
+  const hash = createHash('sha256').update(await readFile(join(root, 'clip.mp4'))).digest('hex')
+  const { data: leftovers } = await admin.from('media').select('id, path').eq('hash', hash)
+  if (leftovers?.length) {
+    await admin.from('media').delete().in('id', leftovers.map(row => row.id))
+    await admin.storage.from('media').remove(leftovers.map(row => row.path))
+  }
   session = await createImportSession({
     config: cmsConfig,
     supabase,
@@ -200,6 +208,37 @@ describe('an import session', () => {
   })
 })
 
+describe('a dry run', () => {
+  it('reports what it would change, create and upload, and writes nothing', async () => {
+    const slug = `dry-${stamp}`
+    const { id } = await session.upsert('posts', { data: { title: { es: 'Seco', en: 'Dry' }, slug: { es: slug, en: slug }, body: { es: paragraph('Uno'), en: paragraph('One') } } })
+    documents.push(id)
+    await writeFile(join(root, 'dry.png'), await sharp({ create: { width: 40, height: 20, channels: 3, background: { r: 1, g: 2, b: 3 } } }).png().toBuffer())
+
+    const dry = await createImportSession({ config: cmsConfig, supabase, email: 'qa-super@local.test', password: 'QaLocal12345', root, dryRun: true, logger: console })
+    try {
+      const same = await dry.upsert('posts', { data: { title: { es: 'Seco', en: 'Dry' }, slug: { es: slug, en: slug }, body: { es: paragraph('Uno'), en: paragraph('One') } } })
+      expect(same).toMatchObject({ id, created: false, matchedBy: 'slug', fields: [] })
+      const changed = await dry.upsert('posts', { data: { title: { es: 'Seco 2', en: 'Dry' }, slug: { es: slug, en: slug }, body: { es: paragraph('Dos'), en: paragraph('One') } } })
+      expect(changed).toMatchObject({ id, created: false, fields: ['title.es', 'body.es'] })
+      const fresh = await dry.upsert('posts', { data: { title: { es: 'Nuevo', en: 'New' }, slug: { es: `${slug}-new`, en: `${slug}-new` }, body: { es: paragraph('Uno'), en: paragraph('One') } } })
+      expect(fresh.created).toBe(true)
+      expect(fresh.id).toMatch(/^dry-run-posts-/)
+      const file = await dry.media({ file: 'dry.png', folder: 'blog', alt: { es: 'Seco' } })
+      expect(file.id).toMatch(/^dry-run-media-/)
+      expect(file).toMatchObject({ mime: 'image/webp', width: 40, height: 20 })
+      expect(await dry.publish()).toMatchObject({ published: 0 })
+      expect(await dry.summary()).toMatchObject({ dryRun: true, updated: 2, unchanged: 1, media: 1, changed: [{ id, title: 'Seco 2', fields: ['title.es', 'body.es'] }], created: [{ entry: 'posts', lookup: `slug ${slug}-new` }] })
+    } finally {
+      await dry.signOut()
+    }
+    const { data } = await admin.from('documents').select('data').eq('id', id).single()
+    expect((data!.data as { title: { es: string } }).title.es).toBe('Seco')
+    expect((await admin.from('documents').select('id').eq('slug', `${slug}-new`)).data).toEqual([])
+    expect((await admin.from('media').select('id').eq('filename', 'dry.png')).data).toEqual([])
+  })
+})
+
 describe('linkchar-cms import', () => {
   it('runs a project script with a signed-in session and leaves publishing to --no-publish', async () => {
     const script = join(root, 'import-content.ts')
@@ -210,7 +249,7 @@ describe('linkchar-cms import', () => {
       '}'
     ].join('\n'))
 
-    const output = execFileSync(process.execPath, [fileURLToPath(new URL('../../../cli/linkchar-cms.js', import.meta.url)), 'import', script, '--email', 'qa-super@local.test', '--no-publish', '--password-stdin'], {
+    const cli = (...flags: string[]) => execFileSync(process.execPath, [fileURLToPath(new URL('../../../cli/linkchar-cms.js', import.meta.url)), 'import', script, '--email', 'qa-super@local.test', '--no-publish', '--password-stdin', ...flags], {
       cwd: fileURLToPath(new URL('../../../../../apps/playground', import.meta.url)),
       encoding: 'utf8',
       input: 'QaLocal12345\n',
@@ -222,7 +261,15 @@ describe('linkchar-cms import', () => {
       }
     })
 
-    const [, id, published] = output.match(/IMPORTED (\S+) (\d+)/) ?? []
+    const plan = cli('--dry-run')
+    expect(plan).toContain(`Plan for ${supabase.url}: 0 documents change, 1 created, 0 unchanged, 0 files uploaded.`)
+    expect(plan).toContain(`  + posts (slug cli-${stamp})`)
+    expect(plan).toMatch(/IMPORTED dry-run-posts-\d+ 0/)
+    expect((await admin.from('documents').select('id').eq('slug', `cli-${stamp}`)).data).toEqual([])
+    expect(() => cli()).toThrow('pass --yes')
+
+    const output = cli('--yes')
+    const [, id, published] = output.match(/IMPORTED (?!dry-run)(\S+) (\d+)/) ?? []
     documents.push(id)
     expect(published).toBe('0')
     expect(output).toContain('nothing published (--no-publish)')

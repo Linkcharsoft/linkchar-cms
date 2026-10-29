@@ -7,6 +7,7 @@ import { withDefaults, withItemKeys } from '../core/defaults'
 import { documentTitle, getEntry } from '../core/entries'
 import { consoleLogger } from '../core/logger'
 import { buildMediaPath, isImageMime, isVideoMime, MAX_IMAGE_DIMENSION, MAX_VIDEO_BYTES, MEDIA_BUCKET } from '../core/media'
+import { sameContent } from '../core/merge'
 import { MP4_HEAD_BYTES, readMp4Head } from '../core/mp4'
 import { validateContent } from '../core/validation'
 import { addDocument, setDocumentVisibility } from './collections'
@@ -44,6 +45,8 @@ export interface ImportSessionOptionsType {
   publish?: boolean
   // false: upsert() only finds documents; one it cannot find throws instead of being created.
   create?: boolean
+  // true: nothing is written or uploaded; upsert() and media() report what they would do and the summary lists the changes.
+  dryRun?: boolean
   // Where relative file paths start.
   root?: string
   logger?: CmsLoggerType
@@ -77,6 +80,15 @@ export interface ImportUpsertResultType {
   matchedBy: ImportMatchType | null
   // Keys the server changed, e.g. a slug another document had.
   adjusted: string[]
+  // What this upsert changes in a found document (`title.es`, `gallery`); empty when the stored content already matches.
+  fields: string[]
+}
+
+export interface ImportChangeType {
+  entry: string
+  id: string
+  title: string
+  fields: string[]
 }
 
 export interface ImportCreatedType {
@@ -103,6 +115,13 @@ export interface ImportSummaryType {
   adopted: number
   // Hidden documents of the collections the script wrote that it never touched and nobody published: drafts the panel left.
   untouched: ImportUntouchedType[]
+  // Found documents whose stored content differs from the script's, with the fields that change (or changed).
+  changed: ImportChangeType[]
+  // Found documents the script left as they were.
+  unchanged: number
+  // Files that were (or would be) uploaded; a file already in the library by its bytes is not one.
+  media: number
+  dryRun: boolean
 }
 
 export interface ImportTransformInputType {
@@ -208,8 +227,23 @@ export const importSlug = (config: CmsConfigType, entryId: string, data: DataRec
 
 const detached = (url: string, key: string): CmsClientType => createClient<Database>(url, key, { auth: { persistSession: false, autoRefreshToken: false } })
 
+const isPlainObject = (value: unknown): value is DataRecord => typeof value === 'object' && value !== null && !Array.isArray(value)
+
+// The top-level fields whose stored value differs (jsonb comes back with its keys sorted, so never by text), one level
+// down for maps: a localized text reads `title.es`.
+export const changedFields = (before: DataRecord, after: DataRecord): string[] =>
+  [...new Set([...Object.keys(before), ...Object.keys(after)])].flatMap(key => {
+    const was = before[key]
+    const now = after[key]
+    if (sameContent(was, now)) return []
+    if (isPlainObject(was) && isPlainObject(now)) {
+      return [...new Set([...Object.keys(was), ...Object.keys(now)])].filter(sub => !sameContent(was[sub], now[sub])).map(sub => `${key}.${sub}`)
+    }
+    return [key]
+  })
+
 export const createImportSession = async (options: ImportSessionOptionsType) => {
-  const { config, supabase, email, password, otp, publishTarget = null, root = process.cwd(), logger = consoleLogger } = options
+  const { config, supabase, email, password, otp, publishTarget = null, root = process.cwd(), logger = consoleLogger, dryRun = false } = options
   const { translate } = translatorFor(config, 'en')
   const failed = (what: string, key: MessageKeyType) => new CmsImportError(`${what}: ${translate(key)} (${key})`)
 
@@ -242,8 +276,13 @@ export const createImportSession = async (options: ImportSessionOptionsType) => 
   const creations: ImportCreatedType[] = []
   const collections = new Set<string>()
   const matched: Record<ImportMatchType, number> = { id: 0, key: 0, slug: 0 }
+  const changes: ImportChangeType[] = []
   let updated = 0
+  let unchanged = 0
   let adopted = 0
+  let uploads = 0
+  let planned = 0
+  const placeholder = (what: string) => `dry-run-${what}-${++planned}`
   const problems = (errors: Record<string, string>) => Object.entries(errors).map(([path, message]) => `${path} ${message}`)
 
   // The same file twice (same bytes) gives back the first upload, so an import can run again.
@@ -260,6 +299,14 @@ export const createImportSession = async (options: ImportSessionOptionsType) => 
     const processed = isImageMime(mime)
       ? await processImage(original, mime)
       : { data: original, mime, width: video?.width ?? null, height: video?.height ?? null, blurDataUrl: null }
+    uploads++
+    if (dryRun) {
+      return {
+        id: placeholder('media'), path: '', url: '', filename: basename(path), folder, alt, caption, mime: processed.mime, size: processed.data.byteLength,
+        width: processed.width, height: processed.height, focalX: null, focalY: null, blurDataUrl: null, duration: video?.duration ?? null,
+        posterId: poster ?? null, posterUrl: null, createdAt: new Date().toISOString(), deletedAt: null
+      }
+    }
     const storagePath = buildMediaPath(folder, processed.mime)
     const { error } = await db.storage.from(MEDIA_BUCKET).upload(storagePath, processed.data, { contentType: processed.mime, cacheControl: '31536000', upsert: false })
     if (error) throw new CmsImportError(`${file} could not be uploaded: ${error.message}`)
@@ -338,6 +385,25 @@ export const createImportSession = async (options: ImportSessionOptionsType) => 
       if (errors) throw invalid(errors)
     }
     const existing = !found && entry.kind === 'collection' ? await countDocuments(entryId) : 0
+    const title = () => (entry.kind === 'collection' ? documentTitle(entry, { ...withDefaults(config, entry.fields, found?.data ?? {}), ...patch }, textContext(config)) : entryId)
+    // Compared as the save would store it (normalized rich text, item keys), against what is stored now.
+    const stored = found ? withDefaults(config, entry.fields, found.data) as DataRecord : null
+    const normalized = stored ? (await validateContent(config, entry.fields, { ...stored, ...patch }, { mode: 'draft' })).value : null
+    const fields = stored ? changedFields(stored, (normalized ?? { ...stored, ...patch }) as DataRecord) : Object.keys(patch)
+    if (found) {
+      if (fields.length > 0) changes.push({ entry: entryId, id: found.id, title: title(), fields })
+      else unchanged++
+    }
+    if (dryRun) {
+      if (found && matchedBy) matched[matchedBy]++
+      if (found) updated++
+      if (found && entry.kind === 'collection' && match?.key && !found.key) adopted++
+      if (!found) creations.push({ entry: entryId, id: placeholder(entryId), lookup, existing })
+      if (entry.kind === 'collection') collections.add(entryId)
+      if (found) touched.add(found.id)
+      const id = found?.id ?? creations.at(-1)!.id
+      return { id, created: !found, matchedBy: found ? matchedBy : null, adjusted: [], fields }
+    }
     const added = !found && entry.kind === 'collection' ? await addDocument(ctx, entryId) : null
     if (added && !added.ok) throw failed(entryId, added.error)
     const fresh = added?.ok ? added : null
@@ -361,11 +427,11 @@ export const createImportSession = async (options: ImportSessionOptionsType) => 
     if (found && matchedBy) matched[matchedBy]++
     if (found) updated++
     else creations.push({ entry: entryId, id: saved.id, lookup, existing })
-    return { id: saved.id, created: !found, matchedBy: found ? matchedBy : null, adjusted: saved.adjusted ?? [] }
+    return { id: saved.id, created: !found, matchedBy: found ? matchedBy : null, adjusted: saved.adjusted ?? [], fields }
   }
 
   // Rewrites every document of an entry (a field whose kind changed), validated and saved like an upsert.
-  const transform = async ({ entry: entryId, map, dryRun = false }: ImportTransformInputType): Promise<ImportTransformReportType> => {
+  const transform = async ({ entry: entryId, map, dryRun: dryTransform = false }: ImportTransformInputType): Promise<ImportTransformReportType> => {
     const entry = getEntry(config, entryId)
     if (!entry) throw new CmsImportError(`"${entryId}" is not an entry of the schema`)
     const query = db.from('documents').select('id, slug, data').eq('type', entryId).is('deleted_at', null)
@@ -387,7 +453,7 @@ export const createImportSession = async (options: ImportSessionOptionsType) => 
         report.invalid.push({ id: row.id, title: title(row.data), problems: problems(errors) })
         continue
       }
-      if (!dryRun) {
+      if (!dryRun && !dryTransform) {
         const saved = await saveDocument(ctx, { entryId, id: row.id, patch, base: current })
         if (saved.status === 'invalid') {
           report.invalid.push({ id: row.id, title: title(row.data), problems: problems(saved.errors) })
@@ -418,14 +484,16 @@ export const createImportSession = async (options: ImportSessionOptionsType) => 
     return items
   }
 
-  const summary = async (): Promise<ImportSummaryType> => ({ created: [...creations], updated, matched: { ...matched }, adopted, untouched: await untouchedHidden() })
+  const summary = async (): Promise<ImportSummaryType> => ({
+    created: [...creations], updated, matched: { ...matched }, adopted, untouched: await untouchedHidden(), changed: [...changes], unchanged, media: uploads, dryRun
+  })
 
   // One publish (and one build) for everything this import touched that has no missing content.
   const publish = async (): Promise<ImportPublishReportType> => {
     const pending = (await getPendingChanges(ctx)).filter(change => touched.has(change.id) && change.action === 'publish')
     const ready = pending.filter(change => change.problems.length === 0)
     const skipped = pending.filter(change => change.problems.length > 0).map(({ id, title, problems }) => ({ id, title, problems }))
-    if (ready.length === 0 || options.publish === false) return { published: 0, skipped, buildStatus: null }
+    if (ready.length === 0 || options.publish === false || dryRun) return { published: 0, skipped, buildStatus: null }
 
     const result = await publishChanges(ctx, { publish: ready.map(({ id, revision }) => ({ id, revision })), remove: [] })
     if (!result.ok) throw failed('publish', result.error)
