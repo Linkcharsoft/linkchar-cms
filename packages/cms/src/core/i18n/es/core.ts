@@ -45,6 +45,7 @@ const core = {
     minBlocks: { one: 'Cargá al menos {count} bloque', other: 'Cargá al menos {count} bloques' },
     translationMissing: 'Falta en {language}',
     altOf: 'Texto alternativo de {field}',
+    posterOf: 'Portada del video de {field}',
     altMissing: 'Falta el texto alternativo en {language}',
     slugTaken: 'Ya hay otro contenido con esta URL',
     slugLive: 'En el sitio, "{title}" todavía usa esta URL. Publicá los dos juntos, o cambiá esta antes de publicar.'
@@ -97,6 +98,7 @@ const core = {
       invalidDimensions: 'Dimensiones inválidas.',
       invalidPreview: 'Vista previa inválida.',
       invalidFocalPoint: 'Punto focal inválido.',
+      invalidPoster: 'La portada tiene que ser una imagen de Media.',
       registerFailed: 'No se pudo guardar el archivo en la librería.',
       gone: 'El archivo ya no existe.',
       updateFailed: 'No se pudieron guardar los cambios.'

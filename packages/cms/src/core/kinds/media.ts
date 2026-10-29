@@ -12,16 +12,18 @@ interface MediaOptions<V> extends BaseOptions<V> {
 export interface ImageField extends MediaOptions<string | null> { kind: 'image', focalPoint?: boolean }
 export interface GalleryField extends MediaOptions<string[]> { kind: 'gallery', min?: number, max?: number }
 export interface FileField extends MediaOptions<string | null> { kind: 'file' }
+export interface VideoFileField extends MediaOptions<string | null> { kind: 'videoFile' }
 
 declare module './registry' {
   interface FieldTypes<F> {
     image: { field: ImageField, value: string | null, localize: 'inherit' }
     gallery: { field: GalleryField, value: string[], localize: 'inherit' }
     file: { field: FileField, value: string | null, localize: 'inherit' }
+    videoFile: { field: VideoFileField, value: string | null, localize: 'inherit' }
   }
 }
 
-const singleMedia = <K extends 'image' | 'file'>(kind: K) => defineField<K>({
+const singleMedia = <K extends 'image' | 'file' | 'videoFile'>(kind: K) => defineField<K>({
   kind,
   localize: 'inherit',
   defaultValue: () => null,
@@ -34,6 +36,8 @@ const singleMedia = <K extends 'image' | 'file'>(kind: K) => defineField<K>({
 
 export const image = singleMedia('image')
 export const file = singleMedia('file')
+// A video from Media (mp4 or webm with its poster); `video()` takes a YouTube or Vimeo link instead.
+export const videoFile = singleMedia('videoFile')
 
 export const gallery = defineField({
   kind: 'gallery',
