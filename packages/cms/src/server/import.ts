@@ -9,6 +9,7 @@ import { consoleLogger } from '../core/logger'
 import { buildMediaPath, isImageMime, MAX_IMAGE_DIMENSION, MEDIA_BUCKET } from '../core/media'
 import { validateContent } from '../core/validation'
 import { addDocument, setDocumentVisibility } from './collections'
+import { UNIQUE_VIOLATION } from './context'
 import { saveDocument } from './editing'
 import { findMediaByHash, registerMedia } from './media'
 import { getPendingChanges, publishChanges } from './publish'
@@ -40,6 +41,8 @@ export interface ImportSessionOptionsType {
   publishTarget?: PublishTargetType | null
   // false: publish() reports what it would publish and publishes nothing.
   publish?: boolean
+  // false: upsert() only finds documents; one it cannot find throws instead of being created.
+  create?: boolean
   // Where relative file paths start.
   root?: string
   logger?: CmsLoggerType
@@ -57,22 +60,34 @@ export interface ImportMediaInputType {
 export interface ImportUpsertInputType {
   // The content as stored, localized maps included: { title: { es, en }, cover: { es: mediaId } }.
   data: DataRecord
-  // A collection document is found by its id, or by its slug in the default locale (the one in `data` by default).
-  match?: { id?: string, slug?: string }
+  // A collection document is found by its id, by a `key` of the script's own (kept when editors change the slug)
+  // or by its slug in the default locale (the one in `data` by default).
+  match?: { id?: string, key?: string, slug?: string }
 }
+
+export type ImportMatchType = 'id' | 'key' | 'slug'
 
 export interface ImportUpsertResultType {
   id: string
   created: boolean
+  // How the existing document was found; null when it was created.
+  matchedBy: ImportMatchType | null
   // Keys the server changed, e.g. a slug another document had.
   adjusted: string[]
 }
 
-export interface ImportPublishReportType {
-  published: number
-  // Documents of this import still missing content: they stay out until someone fills it in.
-  skipped: { id: string, title: string, problems: string[] }[]
-  buildStatus: BuildStatusType | null
+export interface ImportCreatedType {
+  entry: string
+  id: string
+  // What was looked for and not found: "slug givxo" or "key givxo".
+  lookup: string
+  // Documents the collection had before this one.
+  existing: number
+}
+
+export interface ImportSummaryType {
+  created: ImportCreatedType[]
+  updated: number
 }
 
 const MIME_TYPES: Record<string, string> = {
@@ -172,6 +187,9 @@ export const createImportSession = async (options: ImportSessionOptionsType) => 
   }
 
   const touched = new Set<string>()
+  const creations: ImportCreatedType[] = []
+  let updated = 0
+  const problems = (errors: Record<string, string>) => Object.entries(errors).map(([path, message]) => `${path} ${message}`)
 
   // The same file twice (same bytes) gives back the first upload, so an import can run again.
   const media = async ({ file, folder, alt = {}, caption = {} }: ImportMediaInputType): Promise<MediaItemType> => {
@@ -205,14 +223,38 @@ export const createImportSession = async (options: ImportSessionOptionsType) => 
     return result.item
   }
 
-  const findDocument = async (entryId: string, match: ImportUpsertInputType['match'], data: DataRecord) => {
-    const query = db.from('documents').select('id, data').eq('type', entryId).is('deleted_at', null)
+  type FoundType = { id: string, data: unknown, key: string | null }
+
+  const findDocument = async (entryId: string, match: ImportUpsertInputType['match'], data: DataRecord): Promise<{ found: FoundType | null, matchedBy: ImportMatchType | null, lookup: string }> => {
+    const query = () => db.from('documents').select('id, data, key').eq('type', entryId).is('deleted_at', null)
     const entry = getEntry(config, entryId)!
-    if (entry.kind !== 'collection') return (await query.eq('key', entryId).maybeSingle()).data
-    if (match?.id) return (await query.eq('id', match.id).maybeSingle()).data
+    if (entry.kind !== 'collection') {
+      const found = (await query().eq('key', entryId).maybeSingle()).data
+      return { found, matchedBy: found ? 'key' : null, lookup: entryId }
+    }
+    if (match?.id) {
+      const found = (await query().eq('id', match.id).maybeSingle()).data
+      return { found, matchedBy: found ? 'id' : null, lookup: `id ${match.id}` }
+    }
+    if (match?.key) {
+      const found = (await query().eq('key', match.key).maybeSingle()).data
+      if (found) return { found, matchedBy: 'key', lookup: `key ${match.key}` }
+    }
     const slug = match?.slug ?? importSlug(config, entryId, data)
-    if (!slug) throw new CmsImportError(`${entryId}: pass match.slug or match.id, or a slug in the data, to find the document again`)
-    return (await query.eq('slug', slug).maybeSingle()).data
+    if (!slug) throw new CmsImportError(`${entryId}: pass match.key, match.slug or match.id, or a slug in the data, to find the document again`)
+    const found = (await query().eq('slug', slug).maybeSingle()).data
+    return { found, matchedBy: found ? 'slug' : null, lookup: match?.key ? `key ${match.key}` : `slug ${slug}` }
+  }
+
+  const countDocuments = async (entryId: string) =>
+    (await db.from('documents').select('id', { count: 'exact', head: true }).eq('type', entryId).is('deleted_at', null)).count ?? 0
+
+  // The script's key stays on the document, so the next run finds it however editors rename it.
+  const adoptKey = async (entryId: string, id: string, key: string) => {
+    const { error } = await db.from('documents').update({ key }).eq('id', id)
+    if (!error) return
+    if (error.code === UNIQUE_VIOLATION) throw new CmsImportError(`${entryId}: key ${key} already belongs to another document`)
+    throw failed(entryId, 'errors.documents.saveFailed')
   }
 
   // Creates or replaces a document with `data`; collections add new documents at the end, visible.
@@ -220,15 +262,19 @@ export const createImportSession = async (options: ImportSessionOptionsType) => 
     const entry = getEntry(config, entryId)
     if (!entry) throw new CmsImportError(`"${entryId}" is not an entry of the schema`)
 
-    const found = await findDocument(entryId, match, data)
+    const { found, matchedBy, lookup } = await findDocument(entryId, match, data)
     const patch = withItemKeys(entry.fields, data, found?.data)
-    const invalid = (errors: Record<string, string>) => new CmsImportError(`${entryId}: ${Object.entries(errors).map(([path, message]) => `${path} ${message}`).join('; ')}`)
+    const invalid = (errors: Record<string, string>) => new CmsImportError(`${entryId}: ${problems(errors).join('; ')}`)
 
+    if (!found && entry.kind === 'collection' && options.create === false) {
+      throw new CmsImportError(`${entryId}: no document with ${lookup}, and the session creates none (create: false, --no-create)`)
+    }
     // Checked before the document exists: a failed save would leave an empty draft the next run can't find.
     if (!found && entry.kind === 'collection') {
       const { errors } = await validateContent(config, entry.fields, { ...withDefaults(config, entry.fields, {}), ...patch }, { mode: 'draft' })
       if (errors) throw invalid(errors)
     }
+    const existing = !found && entry.kind === 'collection' ? await countDocuments(entryId) : 0
     const added = !found && entry.kind === 'collection' ? await addDocument(ctx, entryId) : null
     if (added && !added.ok) throw failed(entryId, added.error)
     const fresh = added?.ok ? added : null
@@ -243,9 +289,14 @@ export const createImportSession = async (options: ImportSessionOptionsType) => 
       const shown = await setDocumentVisibility(ctx, entryId, saved.id, true)
       if (!shown.ok) throw failed(entryId, shown.error)
     }
+    if (entry.kind === 'collection' && match?.key && !found?.key) await adoptKey(entryId, saved.id, match.key)
     touched.add(saved.id)
-    return { id: saved.id, created: !found, adjusted: saved.adjusted ?? [] }
+    if (found) updated++
+    else creations.push({ entry: entryId, id: saved.id, lookup, existing })
+    return { id: saved.id, created: !found, matchedBy: found ? matchedBy : null, adjusted: saved.adjusted ?? [] }
   }
+
+  const summary = (): ImportSummaryType => ({ created: [...creations], updated })
 
   // One publish (and one build) for everything this import touched that has no missing content.
   const publish = async (): Promise<ImportPublishReportType> => {
@@ -259,7 +310,7 @@ export const createImportSession = async (options: ImportSessionOptionsType) => 
     return { published: result.published, skipped, buildStatus: result.buildStatus }
   }
 
-  return { ctx, media, upsert, publish, signOut: () => db.auth.signOut() }
+  return { ctx, media, upsert, publish, summary, signOut: () => db.auth.signOut() }
 }
 
 export type ImportSessionType = Awaited<ReturnType<typeof createImportSession>>

@@ -5,6 +5,7 @@ import { tsconfigAliases } from './routes.js'
 
 /**
  * @typedef {{ email?: string, password?: string, otp?: string }} ImportFlagsType
+ * @typedef {import('../src/server/import').ImportSummaryType} ImportSummaryType
  * @typedef {{
  *   email: string, password: string, otp?: string,
  *   supabase: { url: string, publishableKey: string, secretKey: string },
@@ -41,10 +42,30 @@ export const importSettings = (env, { email, password, otp }) => {
 }
 
 /**
- * Loads the project's config and script with jiti (they import the package's TypeScript) and runs the script with a session.
- * @param {{ script: string, configFile: string, root: string, settings: ImportSettingsType, publish: boolean }} options
+ * The lines printed after a run: what it updated and what it created where documents already existed.
+ * @param {ImportSummaryType} summary
+ * @returns {string[]}
  */
-export const runImport = async ({ script, configFile, root, settings, publish }) => {
+export const summaryLines = ({ created, updated }) => {
+  const lines = [`${updated} updated, ${created.length} created.`]
+  const entries = [...new Set(created.filter(item => item.existing > 0).map(item => item.entry))]
+  for (const entry of entries) {
+    const items = created.filter(item => item.entry === entry)
+    const names = items.map(item => {
+      const [by, ...value] = item.lookup.split(' ')
+      return `${value.join(' ')} (${by} not found)`
+    })
+    lines.push(`! ${entry} already had ${items[0].existing} documents; created ${names.join(', ')}. Pass match: { key } so the import finds a document after its slug changes, or --no-create to refuse.`)
+  }
+  return lines
+}
+
+/**
+ * Loads the project's config and script with jiti (they import the package's TypeScript) and runs the script with a session.
+ * @param {{ script: string, configFile: string, root: string, settings: ImportSettingsType, publish: boolean, create?: boolean }} options
+ * @returns {Promise<{ build: ImportSettingsType['build']['kind'], summary: ImportSummaryType }>}
+ */
+export const runImport = async ({ script, configFile, root, settings, publish, create = true }) => {
   if (!existsSync(script)) throw new CliError(`There is no import script at ${script}.`)
   if (!existsSync(configFile)) throw new CliError(`There is no CMS config at ${configFile}: pass --config.`)
 
@@ -70,6 +91,7 @@ export const runImport = async ({ script, configFile, root, settings, publish })
     otp: settings.otp,
     publishTarget,
     publish,
+    create,
     root
   })
   try {
@@ -77,5 +99,5 @@ export const runImport = async ({ script, configFile, root, settings, publish })
   } finally {
     await session.signOut()
   }
-  return build.kind
+  return { build: build.kind, summary: session.summary() }
 }

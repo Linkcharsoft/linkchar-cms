@@ -100,6 +100,43 @@ describe('an import session', () => {
     expect(row?.visible).toBe(true)
   })
 
+  it('finds a document again by match.key after an editor changed its slug, instead of creating a second one', async () => {
+    const key = `imp-key-${stamp}`
+    const seed = { data: { title: { es: `Con key ${stamp}` }, slug: { es: `imp-${stamp}-k` } }, match: { key } }
+    const first = await session.upsert('posts', seed)
+    documents.push(first.id)
+    expect(first).toMatchObject({ created: true, matchedBy: null })
+    expect((await admin.from('documents').select('key').eq('id', first.id).single()).data?.key).toBe(key)
+
+    await admin.from('documents').update({ slug: `imp-${stamp}-renamed`, data: { ...seed.data, slug: { es: `imp-${stamp}-renamed` } } }).eq('id', first.id)
+    const again = await session.upsert('posts', seed)
+    expect(again).toMatchObject({ id: first.id, created: false, matchedBy: 'key' })
+    expect((await admin.from('documents').select('id', { count: 'exact', head: true }).eq('type', 'posts').in('slug', [`imp-${stamp}-k`, `imp-${stamp}-renamed`])).count).toBe(1)
+  })
+
+  it('adopts match.key on a document it found by slug', async () => {
+    const slug = `imp-${stamp}-adopt`
+    const { id } = await session.upsert('posts', { data: { title: { es: `Adopta ${stamp}` }, slug: { es: slug } } })
+    documents.push(id)
+    const adopted = await session.upsert('posts', { data: { title: { es: `Adopta ${stamp}` }, slug: { es: slug } }, match: { key: `imp-adopt-${stamp}` } })
+    expect(adopted).toMatchObject({ id, created: false, matchedBy: 'slug' })
+    expect((await admin.from('documents').select('key').eq('id', id).single()).data?.key).toBe(`imp-adopt-${stamp}`)
+  })
+
+  it('reports what it created in collections that already had documents, and refuses to create with create: false', async () => {
+    const { created, updated } = session.summary()
+    expect(updated).toBeGreaterThan(0)
+    expect(created).toContainEqual(expect.objectContaining({ entry: 'posts', lookup: `key ${`imp-key-${stamp}`}`, existing: expect.any(Number) }))
+
+    const strict = await createImportSession({ config: cmsConfig, supabase, email: 'qa-super@local.test', password: 'QaLocal12345', create: false, root, logger: console })
+    try {
+      await expect(strict.upsert('posts', { data: { title: { es: 'Nuevo' }, slug: { es: `imp-${stamp}-missing` } } })).rejects.toThrow(`posts: no document with slug imp-${stamp}-missing`)
+      expect((await strict.upsert('posts', { data: { title: { es: `Adopta ${stamp}` }, slug: { es: `imp-${stamp}-adopt` } } })).created).toBe(false)
+    } finally {
+      await strict.signOut()
+    }
+  })
+
   it('refuses entries the schema does not have and documents it cannot find again', async () => {
     await expect(session.upsert('nope', { data: {} })).rejects.toThrow('"nope" is not an entry')
     await expect(session.upsert('posts', { data: { title: { es: 'Sin slug' } } })).rejects.toThrow('match.slug')
@@ -156,6 +193,9 @@ describe('linkchar-cms import', () => {
     documents.push(id)
     expect(published).toBe('0')
     expect(output).toContain('nothing published (--no-publish)')
+    expect(output).toContain('1 created')
+    expect(output).toContain('posts already had')
+    expect(output).toContain(`cli-${stamp} (slug not found)`)
     const { data } = await admin.from('documents').select('slug, visible').eq('id', id).single()
     expect(data).toEqual({ slug: `cli-${stamp}`, visible: true })
   }, 120_000)
