@@ -29,6 +29,18 @@ export interface SiteFileType {
   size: number
 }
 
+// A video from Media: Storage serves the file itself, so the site renders it with <Video> and its poster.
+export interface SiteVideoType {
+  id: string
+  src: string
+  mime: string
+  size: number
+  width: number | null
+  height: number | null
+  duration: number | null
+  poster: SiteImageType | null
+}
+
 export interface SiteLinkType {
   // '' when the link points to something that is not on the site (unpublished, removed or empty).
   href: string
@@ -52,10 +64,11 @@ type SiteLeafType<F> =
   F extends { kind: 'image' } ? SiteImageType | null
     : F extends { kind: 'gallery' } ? SiteImageType[]
       : F extends { kind: 'file' } ? SiteFileType | null
-        : F extends { kind: 'link' } ? SiteLinkType
-          : F extends { kind: 'button' } ? SiteButtonType<VariantOf<F>>
-            : F extends { kind: 'richText' } ? SiteRichTextType | null
-              : FieldValue<F>
+        : F extends { kind: 'videoFile' } ? SiteVideoType | null
+          : F extends { kind: 'link' } ? SiteLinkType
+            : F extends { kind: 'button' } ? SiteButtonType<VariantOf<F>>
+              : F extends { kind: 'richText' } ? SiteRichTextType | null
+                : FieldValue<F>
 
 export type SiteListItemType<F extends FieldsRecord> = Simplify<{ _key: string } & SiteValuesOf<F>>
 

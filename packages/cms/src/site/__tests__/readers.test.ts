@@ -1,17 +1,18 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { defineCmsConfig } from '../../core/config'
 import { collection, page } from '../../core/define'
-import { image, section, seo, slug, text, textarea } from '../../core/fields'
+import { image, section, seo, slug, text, textarea, videoFile } from '../../core/fields'
 import { createFakeDb, fakeClient } from '../../server/__tests__/fakeSupabase'
 import { createSiteReaders } from '../readers'
 import { documentJsonLd, documentMetadata } from '../seo'
 import type { FakeDbType } from '../../server/__tests__/fakeSupabase'
 import type { SiteSourceType } from '../readers'
+import type { SiteVideoType } from '../types'
 
 const ID = (n: number) => `6f1c3b2a-5555-4c1d-9e0f-${String(n).padStart(12, '0')}`
 
 const schema = {
-  home: page('Inicio', { hero: section('Portada', { title: text({ label: 'Título' }), cover: image({ label: 'Imagen' }) }) },
+  home: page('Inicio', { hero: section('Portada', { title: text({ label: 'Título' }), cover: image({ label: 'Imagen' }), clip: videoFile({ label: 'Video' }) }) },
     { path: '/', sitemap: { priority: 1, changeFrequency: 'weekly' } }),
   posts: collection('Blog', {
     title: text({ label: 'Título' }),
@@ -51,6 +52,19 @@ beforeEach(() => {
 })
 
 describe('site readers', () => {
+  it('loads the poster of a video although the content points only at the video', async () => {
+    db.tables.media.push(
+      { id: ID(8), path: 'sitio/clip.mp4', filename: 'clip.mp4', folder: 'sitio', alt: {}, caption: {}, mime: 'video/mp4', size: 5000, width: 1280, height: 720,
+        focal_x: null, focal_y: null, blur_data_url: null, duration: 4, poster_id: ID(9), created_at: '', deleted_at: null },
+      { id: ID(9), path: 'sitio/poster.webp', filename: 'poster.webp', folder: 'sitio', alt: { es: 'Portada' }, caption: {}, mime: 'image/webp', size: 10, width: 1280, height: 720,
+        focal_x: null, focal_y: null, blur_data_url: null, duration: null, poster_id: null, created_at: '', deleted_at: null }
+    )
+    db.tables.published_documents[0].data = { hero: { title: { es: 'Hola' }, clip: { es: ID(8) } } }
+    const home = await readers().getEntryContent('home')
+    const hero = home.content.hero as unknown as { clip: SiteVideoType | null }
+    expect(hero.clip).toMatchObject({ src: 'https://db.test/storage/v1/object/public/media/sitio/clip.mp4', duration: 4, poster: { src: 'https://db.test/storage/v1/object/public/media/sitio/poster.webp', alt: 'Portada' } })
+  })
+
   it('reads a published page in one locale, with its media and its URLs', async () => {
     const home = await readers().getEntryContent('home', { locale: 'en' })
     expect(home).toMatchObject({ id: ID(1), locale: 'en', path: '/en', urls: { es: '/', en: '/en' }, draft: false })

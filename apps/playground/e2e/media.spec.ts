@@ -1,17 +1,19 @@
 import { join } from 'node:path'
 import { expect, test } from '@playwright/test'
 import { admin, QA } from './support/db'
-import { signIn, watchConsole } from './support/panel'
+import { signIn, toast, watchConsole } from './support/panel'
 
 const ALT = 'E2E Fachada del estudio al atardecer'
 
 test.describe.configure({ mode: 'serial' })
 
+// Videos first: the poster of a live video can't be deleted.
 test.afterAll(async () => {
-  const { data } = await admin.from('media').select('id, path').like('alt->>es', 'E2E%')
+  const { data } = await admin.from('media').select('id, path, mime').or('alt->>es.like.E2E%,filename.like.clip%')
   if (!data?.length) return
-  await admin.storage.from('media').remove(data.map(row => row.path))
-  await admin.from('media').delete().in('id', data.map(row => row.id))
+  const rows = [...data].sort((a, b) => Number(b.mime.startsWith('video/')) - Number(a.mime.startsWith('video/')))
+  for (const row of rows) await admin.from('media').delete().eq('id', row.id)
+  await admin.storage.from('media').remove(rows.map(row => row.path))
 })
 
 test('uploads an image with its alt text and finds it in the library', async ({ page }) => {
@@ -65,4 +67,45 @@ test('shows the selection and the pick button in the dialog footer while choosin
   await expect(footer.getByRole('button', { name: 'Usar archivo' })).toBeEnabled()
   await page.keyboard.press('Escape')
   await expect(dialog).toBeHidden()
+})
+
+test('uploads a video that can stream, turns away one that cannot, and captures its poster', async ({ page }) => {
+  await signIn(page, QA.super.email)
+  await page.goto('/dashboard/media')
+  await page.waitForLoadState('networkidle')
+
+  await page.locator('[data-tour=media-upload]').click()
+  const input = page.getByLabel('Elegir archivos para subir')
+  await input.setInputFiles(join(__dirname, 'fixtures', 'slow.mp4'))
+  await expect(page.getByText(/slow\.mp4: El video no está preparado para reproducirse mientras se descarga/)).toBeVisible()
+  await expect(page.getByRole('button', { name: /Subir/ })).toHaveCount(0)
+
+  await input.setInputFiles(join(__dirname, 'fixtures', 'clip.webm'))
+  const upload = page.getByRole('button', { name: 'Subir archivo' })
+  await expect(upload).toBeEnabled()
+  await upload.click()
+
+  const tile = page.locator('.MediaGrid').getByRole('button', { name: /clip\.webm/ }).first()
+  await expect(tile).toBeVisible({ timeout: 20_000 })
+  await expect(tile.locator('.MediaGrid__Duration')).toHaveText('0:01')
+  const { data: stored } = await admin.from('media').select('mime, width, height, duration, poster_id').eq('filename', 'clip.webm')
+  expect(stored?.[0]).toMatchObject({ mime: 'video/webm', width: 64, height: 64, poster_id: null })
+  expect(stored?.[0]?.duration).toBeGreaterThan(0)
+
+  await tile.click()
+  const dialog = page.locator('[data-pc-name=dialog]')
+  await expect(dialog.getByText('Falta la portada')).toBeVisible()
+  await expect(dialog.getByText(/reproducciones completas/)).toBeVisible()
+  await page.waitForFunction(() => ((document.querySelector('video.MediaDetails__Video') as HTMLVideoElement | null)?.readyState ?? 0) >= 2)
+  await dialog.getByRole('button', { name: 'Capturar fotograma' }).click()
+  await toast(page, 'Fotograma guardado como portada')
+  await expect(dialog.getByText('Falta la portada')).toHaveCount(0)
+  await dialog.getByRole('button', { name: 'Guardar' }).click()
+  await toast(page, 'Cambios guardados')
+
+  const { data: saved } = await admin.from('media').select('poster_id').eq('filename', 'clip.webm')
+  expect(saved?.[0]?.poster_id).toBeTruthy()
+  const { data: poster } = await admin.from('media').select('mime, alt, width').eq('id', saved![0].poster_id!)
+  expect(poster?.[0]).toMatchObject({ mime: 'image/webp', alt: { es: 'Portada de clip.webm' }, width: 64 })
+  await expect(page.locator('.MediaGrid').getByRole('button', { name: /clip\.webm/ }).first().locator('img')).toBeVisible()
 })

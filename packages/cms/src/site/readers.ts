@@ -11,6 +11,7 @@ import type { CmsConfigType, CollectionIdType, EntryIdType } from '../core/confi
 import type { SchemaEntry } from '../core/define'
 import type { MediaItemType } from '../core/media'
 import type { CmsClientType } from '../server/context'
+import type { MediaRowType } from '../server/media'
 import type { MetadataRoute } from 'next'
 
 export interface SiteSourceType {
@@ -69,6 +70,15 @@ export const createSiteReaders = ({ config, supabaseUrl, source, published }: Si
     return entry
   }
 
+  // Posters are files of files: one more query for those the content doesn't point to itself.
+  const withPosters = async (db: CmsClientType, media: MediaRowType[]) => {
+    const known = new Set(media.map(row => row.id))
+    const posterIds = [...new Set(media.flatMap(row => (row.poster_id && !known.has(row.poster_id) ? [row.poster_id] : [])))]
+    if (posterIds.length === 0) return media
+    const { data } = await db.from('media').select('*').in('id', posterIds).is('deleted_at', null)
+    return [...media, ...(data ?? [])]
+  }
+
   // The files and link targets of every row, loaded in two queries.
   const loadRefs = async ({ db, draft }: SiteSourceType, rows: RowType[]): Promise<SiteRefsType> => {
     const found = rows.map(row => {
@@ -78,7 +88,7 @@ export const createSiteReaders = ({ config, supabaseUrl, source, published }: Si
     const mediaIds = [...new Set(found.flatMap(refs => refs.media))]
     const documentIds = [...new Set(found.flatMap(refs => refs.relations))]
     const [media, documents] = await Promise.all([
-      mediaIds.length > 0 ? db.from('media').select('*').in('id', mediaIds).is('deleted_at', null).then(({ data }) => data ?? []) : [],
+      mediaIds.length > 0 ? db.from('media').select('*').in('id', mediaIds).is('deleted_at', null).then(({ data }) => withPosters(db, data ?? [])) : [],
       documentIds.length === 0
         ? []
         : draft

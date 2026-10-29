@@ -3,7 +3,7 @@ import type { CatalogType } from '../types'
 
 const media = {
   media: {
-    subtitle: 'Images and PDFs that can be used anywhere on the site.',
+    subtitle: 'Images, PDFs and videos that can be used anywhere on the site.',
     untitled: 'Untitled',
     texts: {
       alt: 'Alt text',
@@ -29,9 +29,10 @@ const media = {
       altMissingIn: 'No alt text in {languages}',
       altMissingShort: 'No alt: {locales}',
       types: {
-        any: 'Images and PDF',
+        any: 'All files',
         image: 'Images',
-        document: 'PDF'
+        document: 'PDF',
+        video: 'Videos'
       },
       trashNote: 'Files in the trash are deleted automatically after 30 days.',
       trashEmpty: 'The trash is empty.',
@@ -48,7 +49,7 @@ const media = {
     uploader: {
       dropHere: 'Drag files here or',
       choose: 'Choose files',
-      hint: 'Images up to {imageMax} MB (optimized automatically) or PDF up to {max} MB.',
+      hint: 'Images up to {imageMax} MB (optimized automatically), PDF up to {max} MB or MP4/WebM videos up to {videoMax} MB.',
       inputLabel: 'Choose files to upload',
       remove: 'Remove {name}',
       missingAlt: 'To upload, fill in the alt text of every image.',
@@ -59,9 +60,13 @@ const media = {
       submit: { one: 'Upload file', other: 'Upload {count} files' },
       rejected: '{name}: {reason}',
       errors: {
-        invalidType: 'Format not allowed. Use JPG, PNG, WebP, AVIF, GIF or PDF.',
+        invalidType: 'Format not allowed. Use JPG, PNG, WebP, AVIF, GIF, PDF, MP4 or WebM.',
         onlyImages: 'Only images can be uploaded here.',
         onlyDocuments: 'Only PDFs can be uploaded here.',
+        onlyVideos: 'Only videos (MP4 or WebM) can be uploaded here.',
+        videoTooLarge: 'The video is over {max} MB. Export it at 720p with H.264 (CRF 28) or trim it.',
+        notFastStart: 'The video is not ready to play while it downloads. Export it with "Optimize for web" or with ffmpeg: -movflags +faststart.',
+        unreadableVideo: 'We could not read the video. Try exporting it as MP4 (H.264).',
         tooLarge: 'The file is larger than {max} MB.',
         tooLargeCompressed: 'The file is larger than {max} MB even when compressed.',
         unreadable: 'We couldn\'t read the image. Try exporting it as JPG or PNG.',
@@ -73,6 +78,20 @@ const media = {
     },
     details: {
       fallbackTitle: 'File',
+      poster: 'Poster',
+      posterHelp: 'The image shown before the video plays. Without a poster, the video is not published.',
+      posterMissing: 'No poster yet',
+      choosePoster: 'Choose poster',
+      changePoster: 'Change poster',
+      capturePoster: 'Capture frame',
+      removePoster: 'Remove poster',
+      posterCaptured: 'Frame saved as the poster',
+      posterCaptureFailed: 'We could not capture the frame.',
+      posterAlt: 'Poster of {name}',
+      posterOf: 'Poster of the video "{name}"',
+      duration: '{duration} long',
+      egress: '{plays} full plays ≈ {gigabytes} GB of egress',
+      egressHelp: 'Supabase serves the whole video on every play; the Free plan includes 10 GB a month.',
       save: 'Save',
       saved: 'Changes saved',
       restore: 'Restore',
@@ -122,6 +141,15 @@ const media = {
       restore: 'Back to the original',
       noOriginal: 'No PDF in {language}.'
     },
+    videoFile: {
+      choose: 'Choose video',
+      chooseFor: 'Choose a video for {label}',
+      changeOf: 'Change the video of {label}',
+      override: 'Use another video for {language}',
+      overrideOf: 'Use another video for {language} in {label}',
+      restore: 'Back to the original',
+      noOriginal: 'No video in {language}.'
+    },
     change: 'Change',
     edit: 'Edit',
     editAltAndFocal: 'Alt text and focal point',
@@ -129,6 +157,7 @@ const media = {
     sameAs: 'Same as in {language}',
     onlyFor: 'Only for {language}',
     altText: 'Alt text: {alt}',
+    posterMissing: 'No poster yet: edit the video to choose one.',
     altMissing: 'The alt text in {language} is missing.',
     altsMissing: 'Alt text in {language} missing for:',
     completeAlt: 'Fill in',

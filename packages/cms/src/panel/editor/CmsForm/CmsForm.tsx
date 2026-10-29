@@ -8,6 +8,7 @@ import { classNames } from 'primereact/utils'
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { documentTitle, getEntry } from '../../../core/entries'
 import { languageName } from '../../../core/i18n/translator'
+import { isVideoMime } from '../../../core/media'
 import { changedKeys, pickKeys, rebase, sameContent } from '../../../core/merge'
 import { countByLocale, missingContent } from '../../../core/missing'
 import { pageSections } from '../../../core/pages'
@@ -199,7 +200,10 @@ const CmsForm = ({
 
   useEffect(() => {
     let cancelled = false
-    missingContent(config, fields, formik.values, { mediaAlt: id => media[id]?.alt }).then(found => {
+    missingContent(config, fields, formik.values, {
+      mediaAlt: id => media[id]?.alt,
+      mediaPoster: id => (media[id] ? isVideoMime(media[id].mime) && !media[id].posterId : undefined)
+    }).then(found => {
       if (!cancelled) setMissing(found)
     })
     return () => {
@@ -305,7 +309,7 @@ const CmsForm = ({
 
   const multilingual = config.locales.length > 1
   const missingLabel = (item: MissingContentType) => {
-    const name = item.kind === 'alt' ? t('validation.altOf', { field: label(item.field) }) : label(item.field)
+    const name = item.kind === 'alt' ? t('validation.altOf', { field: label(item.field) }) : item.kind === 'poster' ? t('validation.posterOf', { field: label(item.field) }) : label(item.field)
     return multilingual && item.locale && item.locale !== locale ? `${name} (${languageName(item.locale, config.panelLocale)})` : name
   }
   const known = missing ?? []

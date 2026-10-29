@@ -1,5 +1,5 @@
 import { execFileSync, execSync } from 'node:child_process'
-import { mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { copyFile, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -41,6 +41,7 @@ beforeAll(async () => {
   // A color of its own, so a file left by an earlier run is not the same bytes.
   const background = { r: Math.floor(Math.random() * 256), g: Math.floor(Math.random() * 256), b: Math.floor(Math.random() * 256) }
   await writeFile(join(root, 'cover.png'), await sharp({ create: { width: 3000, height: 1500, channels: 3, background } }).png().toBuffer())
+  for (const clip of ['clip.mp4', 'slow.mp4']) await copyFile(fileURLToPath(new URL(`../../core/__tests__/fixtures/${clip}`, import.meta.url)), join(root, clip))
   session = await createImportSession({
     config: cmsConfig,
     supabase,
@@ -66,6 +67,15 @@ describe('an import session', () => {
     expect(cover).toMatchObject({ mime: 'image/webp', width: 2560, height: 1280, alt: { es: 'Fachada', en: 'Facade' } })
     expect(cover.blurDataUrl).toMatch(/^data:image\/webp;base64,/)
     expect((await session.media({ file: 'cover.png', folder: 'blog', alt: { es: 'Otra' } })).id).toBe(cover.id)
+  })
+
+  it('uploads a faststart video as it is, with its duration and poster, and turns away one that cannot stream', async () => {
+    const poster = await session.media({ file: 'cover.png', folder: 'blog', alt: { es: 'Fachada' } })
+    const clip = await session.media({ file: 'clip.mp4', folder: 'blog', poster: poster.id })
+    media.push({ id: clip.id, path: clip.path })
+    expect(clip).toMatchObject({ mime: 'video/mp4', width: 64, height: 64, duration: 1, posterId: poster.id, blurDataUrl: null })
+    expect(clip.posterUrl).toContain(poster.path)
+    await expect(session.media({ file: 'slow.mp4', folder: 'blog' })).rejects.toThrow('-movflags +faststart')
   })
 
   it('creates a visible document, finds it again by its slug and publishes it with its URLs', async () => {

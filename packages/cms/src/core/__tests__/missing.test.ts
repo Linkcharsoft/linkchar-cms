@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { defineCmsConfig } from '../config'
 import { buildDefaults } from '../defaults'
-import { button, email, gallery, image, list, section, text } from '../fields'
+import { button, email, gallery, image, list, section, text, videoFile } from '../fields'
 import { missingAltLocales } from '../media'
 import { countByLocale, countBySectionAndLocale, missingContent, splitLocale } from '../missing'
 
@@ -17,7 +17,8 @@ const fields = {
   }),
   contact: section('Contacto', { email: email({ label: 'Email', required: true }) }),
   items: list({ label: 'Servicios' }, { name: text({ label: 'Nombre' }) }),
-  photos: gallery({ label: 'Fotos' })
+  photos: gallery({ label: 'Fotos' }),
+  clip: videoFile({ label: 'Video' })
 }
 
 describe('splitLocale', () => {
@@ -53,6 +54,14 @@ describe('missingContent', () => {
       { path: 'hero.cover', field: 'hero.cover', locale: 'en', kind: 'alt' }
     ]))
     expect(missing).toHaveLength(4)
+  })
+
+  it('asks for the poster of a video that has none, once, shared by every language', async () => {
+    const values = { ...data(), clip: { es: ID.b, en: ID.a } }
+    const missing = await missingContent(config, fields, values, { mediaPoster: id => id === ID.b })
+    expect(missing.filter(item => item.kind === 'poster')).toEqual([{ path: 'clip', field: 'clip', locale: null, kind: 'poster' }])
+    expect((await missingContent(config, fields, values, { mediaPoster: () => false })).some(item => item.kind === 'poster')).toBe(false)
+    expect((await missingContent(config, fields, values)).some(item => item.kind === 'poster')).toBe(false)
   })
 
   it('leaves alt texts out without a lookup', async () => {

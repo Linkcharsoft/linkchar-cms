@@ -53,6 +53,7 @@ const BUILTIN_INPUTS: Partial<Record<string, InputType>> = {
   richText: RichTextInput,
   image: MediaInput,
   file: MediaInput,
+  videoFile: MediaInput,
   gallery: GalleryInput,
   group: GroupInput,
   list: ListInput,

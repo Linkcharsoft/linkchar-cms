@@ -14,7 +14,7 @@ import { logActivity } from './activity'
 import { requireRole } from './auth'
 import { authorNames } from './authors'
 import { getDocumentUsageRows, getRelationLabels, titleOf } from './documents'
-import { incompleteIds, mediaAltOf, missingItems } from './incomplete'
+import { incompleteIds, mediaChecksOf, missingItems } from './incomplete'
 import { describeUsage } from './media'
 import type { CmsContextType } from './context'
 import type { MissingItemType } from './incomplete'
@@ -104,12 +104,12 @@ export const getPendingChanges = async (ctx: CmsContextType): Promise<PendingCha
   const paths = panelPaths(ctx.config)
   const texts = textContext(ctx.config)
   const changedPages = rows.filter(row => row.id && row.status === 'changed' && row.type && getEntry(ctx.config, row.type)?.kind === 'page').map(row => row.id!)
-  const [names, published, mediaAlt] = await Promise.all([
+  const [names, published, media] = await Promise.all([
     authorNames(ctx, rows.map(row => row.updated_by)),
     changedPages.length > 0
       ? ctx.db.from('published_documents').select('id, data').in('id', changedPages).then(({ data: live }) => live ?? [])
       : [],
-    mediaAltOf(ctx, rows.filter(row => row.status !== 'unpublishing'))
+    mediaChecksOf(ctx, rows.filter(row => row.status !== 'unpublishing'))
   ])
 
   const changes = await Promise.all(rows.map(async (row): Promise<PendingChangeType | null> => {
@@ -122,7 +122,7 @@ export const getPendingChanges = async (ctx: CmsContextType): Promise<PendingCha
     // Published before URLs were kept per locale: the default locale's comes from the single slug.
     const defaultLive = live[ctx.config.defaultLocale] ?? entryPath(ctx.config, described.entry, { slug: row.published_slug })
     if (defaultLive && row.status !== 'new') live[ctx.config.defaultLocale] = defaultLive
-    const missing = action === 'publish' ? await missingItems(ctx, described.entry.fields, row.data, mediaAlt, item => paths.field(described.entry.kind, row.type!, described.id, item))
+    const missing = action === 'publish' ? await missingItems(ctx, described.entry.fields, row.data, media, item => paths.field(described.entry.kind, row.type!, described.id, item))
       : []
     return {
       id: described.id,

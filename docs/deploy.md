@@ -106,7 +106,7 @@ Projects on `linkchar-frontend-workflows` pass the package token and the Supabas
 
 ## Free plan
 
-Supabase's Free plan includes 500 MB of database, 1 GB of storage, 5 GB of egress plus 5 GB of cached egress per month, and files up to 50 MB (the `media` bucket stops at 10 MB). Images reach visitors through Next's image optimizer, which caches each size, so Media costs little egress; videos would not, which is why they stay out of it.
+Supabase's Free plan includes 500 MB of database, 1 GB of storage, 5 GB of egress plus 5 GB of cached egress per month, and files up to 50 MB (the `media` bucket takes 10 MB for images and PDFs and 25 MB for videos). Images reach visitors through Next's image optimizer, which caches each size, so Media costs little egress. A video is served whole on every play: a 12 MB clip played a thousand times is 12 GB, more than the month. Keep Media videos short and small (the panel says what a thousand plays cost), and leave a site's own hero loop in `public/`, where Amplify's CDN serves it.
 
 **A free project pauses after a week with too little database activity**; Supabase's own guide asks for a few requests to the database each day. While it is paused, the site's static pages keep serving from Amplify, but the panel can't sign in, publishing fails, every build fails (`withCms` reads the redirects and the pages read the content) while Amplify keeps the last good deploy, and images the optimizer hasn't cached yet stop loading. The weekly build is not enough: it is one request a week, and it fails once the project is paused. A production client goes on Pro, which never pauses. A free project gets a daily query, e.g. from the project's GitHub Actions:
 

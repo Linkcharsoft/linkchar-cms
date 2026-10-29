@@ -29,6 +29,33 @@
     text-decoration: none
     @apply cms-text-medium-16 bg-cms-primary-50 text-cms-danger-700
 
+  &__Video
+    width: 100%
+    max-height: 420px
+    border-radius: 12px
+    background: #000
+
+  &__Poster
+    display: flex
+    flex-direction: column
+    gap: 8px
+
+  &__PosterThumb
+    position: relative
+    width: 160px
+    aspect-ratio: 16 / 9
+    overflow: hidden
+    border-radius: 8px
+    @include cms.checkerboard
+
+  &__PosterImage
+    object-fit: cover
+
+  &__PosterActions
+    display: flex
+    flex-wrap: wrap
+    gap: 8px
+
   &__Meta
     @apply cms-text-regular-14 text-cms-ink-600
 

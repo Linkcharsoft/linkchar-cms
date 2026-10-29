@@ -13,7 +13,7 @@ vi.mock('../uploadToStorage', () => ({ default: upload, UploadError: class exten
 const existing: MediaItemType = {
   id: '6f1c3b2a-7777-4c1d-9e0f-000000000001', path: 'blog/2026/x.webp', url: 'https://db.test/x.webp', filename: 'fachada.webp', folder: 'blog',
   alt: { es: 'Fachada de ladrillo' }, caption: {}, mime: 'image/webp', size: 100, width: 10, height: 10, focalX: null, focalY: null,
-  blurDataUrl: null, createdAt: '2026-10-01T00:00:00Z', deletedAt: null
+  blurDataUrl: null, duration: null, posterId: null, posterUrl: null, createdAt: '2026-10-01T00:00:00Z', deletedAt: null
 }
 
 const registered = (name: string): MediaItemType => ({ ...existing, id: `6f1c3b2a-7777-4c1d-9e0f-00000000000${name.length}`, filename: name, mime: 'application/pdf' })
@@ -82,7 +82,7 @@ describe('MediaUploader', () => {
 
   it('tells the real limit apart for photos and PDFs', () => {
     renderPanel(<MediaUploader onUploaded={vi.fn()} />, { actions: { findMediaByHash: async () => null } as never })
-    expect(screen.getByText('Imágenes hasta 50 MB (se optimizan automáticamente) o PDF hasta 10 MB.')).toBeTruthy()
+    expect(screen.getByText('Imágenes hasta 50 MB (se optimizan automáticamente), PDF hasta 10 MB o videos MP4/WebM hasta 25 MB.')).toBeTruthy()
     pick(sized(new File(['x'], 'grande.png', { type: 'image/png' }), 51 * 1024 * 1024), sized(pdf('grande.pdf'), 11 * 1024 * 1024))
     expect(screen.getByText('grande.png: El archivo supera los 50 MB.')).toBeTruthy()
     expect(screen.getByText('grande.pdf: El archivo supera los 10 MB.')).toBeTruthy()

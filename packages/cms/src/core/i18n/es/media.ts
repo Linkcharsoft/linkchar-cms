@@ -1,6 +1,6 @@
 const media = {
   media: {
-    subtitle: 'Imágenes y PDFs que se pueden usar en todo el sitio.',
+    subtitle: 'Imágenes, PDFs y videos que se pueden usar en todo el sitio.',
     untitled: 'Sin nombre',
     texts: {
       alt: 'Texto alternativo',
@@ -26,9 +26,10 @@ const media = {
       altMissingIn: 'Sin texto alternativo en {languages}',
       altMissingShort: 'Sin alt: {locales}',
       types: {
-        any: 'Imágenes y PDF',
+        any: 'Todos los archivos',
         image: 'Imágenes',
-        document: 'PDF'
+        document: 'PDF',
+        video: 'Videos'
       },
       trashNote: 'Los archivos de la papelera se borran solos a los 30 días.',
       trashEmpty: 'La papelera está vacía.',
@@ -45,7 +46,7 @@ const media = {
     uploader: {
       dropHere: 'Arrastrá archivos acá o',
       choose: 'Elegir archivos',
-      hint: 'Imágenes hasta {imageMax} MB (se optimizan automáticamente) o PDF hasta {max} MB.',
+      hint: 'Imágenes hasta {imageMax} MB (se optimizan automáticamente), PDF hasta {max} MB o videos MP4/WebM hasta {videoMax} MB.',
       inputLabel: 'Elegir archivos para subir',
       remove: 'Quitar {name}',
       missingAlt: 'Para subir, completá el texto alternativo de cada imagen.',
@@ -56,9 +57,13 @@ const media = {
       submit: { one: 'Subir archivo', other: 'Subir {count} archivos' },
       rejected: '{name}: {reason}',
       errors: {
-        invalidType: 'Formato no permitido. Usá JPG, PNG, WebP, AVIF, GIF o PDF.',
+        invalidType: 'Formato no permitido. Usá JPG, PNG, WebP, AVIF, GIF, PDF, MP4 o WebM.',
         onlyImages: 'Acá solo se pueden subir imágenes.',
         onlyDocuments: 'Acá solo se pueden subir PDFs.',
+        onlyVideos: 'Acá solo se pueden subir videos (MP4 o WebM).',
+        videoTooLarge: 'El video supera los {max} MB. Exportalo en 720p con H.264 (CRF 28) o recortalo.',
+        notFastStart: 'El video no está preparado para reproducirse mientras se descarga. Exportalo con "Optimizar para web" o con ffmpeg: -movflags +faststart.',
+        unreadableVideo: 'No pudimos leer el video. Probá exportarlo como MP4 (H.264).',
         tooLarge: 'El archivo supera los {max} MB.',
         tooLargeCompressed: 'El archivo supera los {max} MB incluso comprimido.',
         unreadable: 'No pudimos leer la imagen. Probá exportarla como JPG o PNG.',
@@ -70,6 +75,20 @@ const media = {
     },
     details: {
       fallbackTitle: 'Archivo',
+      poster: 'Portada',
+      posterHelp: 'La imagen que se ve antes de reproducir. Sin portada, el video no se publica.',
+      posterMissing: 'Falta la portada',
+      choosePoster: 'Elegir portada',
+      changePoster: 'Cambiar portada',
+      capturePoster: 'Capturar fotograma',
+      removePoster: 'Quitar portada',
+      posterCaptured: 'Fotograma guardado como portada',
+      posterCaptureFailed: 'No pudimos capturar el fotograma.',
+      posterAlt: 'Portada de {name}',
+      posterOf: 'Portada del video "{name}"',
+      duration: 'dura {duration}',
+      egress: '{plays} reproducciones completas ≈ {gigabytes} GB de egreso',
+      egressHelp: 'Supabase sirve el video entero en cada reproducción; el plan Free incluye 10 GB por mes.',
       save: 'Guardar',
       saved: 'Cambios guardados',
       restore: 'Restaurar',
@@ -119,6 +138,15 @@ const media = {
       restore: 'Volver al original',
       noOriginal: 'Sin PDF en {language}.'
     },
+    videoFile: {
+      choose: 'Elegir video',
+      chooseFor: 'Elegir video para {label}',
+      changeOf: 'Cambiar video de {label}',
+      override: 'Usar otro video para {language}',
+      overrideOf: 'Usar otro video para {language} en {label}',
+      restore: 'Volver al original',
+      noOriginal: 'Sin video en {language}.'
+    },
     change: 'Cambiar',
     edit: 'Editar',
     editAltAndFocal: 'Texto alternativo y punto focal',
@@ -126,6 +154,7 @@ const media = {
     sameAs: 'Igual que en {language}',
     onlyFor: 'Solo para {language}',
     altText: 'Texto alternativo: {alt}',
+    posterMissing: 'Falta la portada: editá el video para elegirla.',
     altMissing: 'Falta el texto alternativo en {language}.',
     altsMissing: 'Falta el texto alternativo en {language} de:',
     completeAlt: 'Completar',

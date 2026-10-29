@@ -11,7 +11,7 @@ One line per decision that still shapes the package. Each is settled; reopening 
 - Slugs live in `slugs jsonb` per locale; the `slug` column stays as the default locale's mirror (documented in the migration and `editing.ts`) until 1.0.
 - The default locale has no URL prefix unless `prefixDefaultLocale`; `defaultLocale` is the language editors write first, and hreflang's x-default follows `site.xDefault` when the site's fallback differs.
 - Alt text belongs to the file, not to the use: there is no decorative image option; a decorative use renders `alt=''` in the site.
-- Media holds images and PDFs only; the project's own videos stay in `public/` or a CDN (no image optimizer in front of them, and Free plan egress).
+- Media holds images, PDFs and the videos editors rotate (`videoFile()`: mp4/webm up to 25 MB, faststart, with a poster that goes through the image optimizer). A site's own hero video stays in `public/` or a CDN: Storage serves a video whole on every view and the Free plan has 10 GB of egress a month.
 - Inline rich text is the same kind and stored shape (`richText({ inline })`): one paragraph, enforced on save, rendered without `<p>` by `<RichText inline>`.
 - Internal links are references (`type: 'entry'` with `entry`, `id`, `anchor`); a free path is `type: 'internal'`. Rich text images keep only `mediaId`.
 - Validation is the package's own: issue codes translated by the catalogs, no Yup. Error paths include the locale (`hero.title.es`), matching the stored shape.
