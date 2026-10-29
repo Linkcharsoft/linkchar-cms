@@ -55,12 +55,14 @@ export const readPasswordFromStdin = async stream => {
 }
 
 /**
- * The lines printed after a run: what it updated and what it created where documents already existed.
+ * The lines printed after a run: how it found what it updated, what it created where documents already existed, and the hidden drafts it left alone.
  * @param {ImportSummaryType} summary
  * @returns {string[]}
  */
-export const summaryLines = ({ created, updated }) => {
-  const lines = [`${updated} updated, ${created.length} created.`]
+export const summaryLines = ({ created, updated, matched = { id: 0, key: 0, slug: 0 }, adopted = 0, untouched = [] }) => {
+  const by = Object.entries(matched).filter(([, count]) => count > 0).map(([how, count]) => `${count} by ${how}`)
+  const how = [...by, ...(adopted > 0 ? [`${adopted} key${adopted === 1 ? '' : 's'} adopted`] : [])]
+  const lines = [`${updated} updated${how.length > 0 ? ` (${how.join(', ')})` : ''}, ${created.length} created.`]
   const entries = [...new Set(created.filter(item => item.existing > 0).map(item => item.entry))]
   for (const entry of entries) {
     const items = created.filter(item => item.entry === entry)
@@ -69,6 +71,11 @@ export const summaryLines = ({ created, updated }) => {
       return `${value.join(' ')} (${by} not found)`
     })
     lines.push(`! ${entry} already had ${items[0].existing} documents; created ${names.join(', ')}. Pass match: { key } so the import finds a document after its slug changes, or --no-create to refuse.`)
+  }
+  for (const entry of [...new Set(untouched.map(item => item.entry))]) {
+    const titles = untouched.filter(item => item.entry === entry).map(item => item.title || item.id)
+    const one = titles.length === 1
+    lines.push(`! ${entry} has ${titles.length} hidden ${one ? 'document' : 'documents'} the script did not touch and nobody published: ${titles.join(', ')}. Open the collection in the panel to keep or trash ${one ? 'it' : 'them'}.`)
   }
   return lines
 }
@@ -112,5 +119,5 @@ export const runImport = async ({ script, configFile, root, settings, publish, c
   } finally {
     await session.signOut()
   }
-  return { build: build.kind, summary: session.summary() }
+  return { build: build.kind, summary: await session.summary() }
 }
