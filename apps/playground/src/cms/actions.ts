@@ -43,6 +43,7 @@ export const resetTours = cms.actions.resetTours
 export const login = cms.actions.login
 export const requestPasswordReset = cms.actions.requestPasswordReset
 export const updatePassword = cms.actions.updatePassword
+export const confirmLink = cms.actions.confirmLink
 export const acceptInvite = cms.actions.acceptInvite
 export const completeSecondFactor = cms.actions.completeSecondFactor
 export const logout = cms.actions.logout

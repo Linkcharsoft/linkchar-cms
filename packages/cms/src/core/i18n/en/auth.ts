@@ -33,6 +33,18 @@ const auth = {
       subtitle: 'Use at least {min} characters, with letters and numbers.',
       submit: 'Save password'
     },
+    confirm: {
+      title: 'Confirm the link',
+      submit: 'Continue',
+      invite: {
+        title: 'Your invitation to the panel',
+        subtitle: 'Press the button to create your user. The link is used only then, so it is not spent if your mail opens it first.'
+      },
+      recovery: {
+        title: 'Change your password',
+        subtitle: 'Press the button to choose a new password. The link is used only then, so it is not spent if your mail opens it first.'
+      }
+    },
     invite: {
       title: 'Welcome',
       subtitle: 'To finish creating your user, tell us your name and choose a password.',

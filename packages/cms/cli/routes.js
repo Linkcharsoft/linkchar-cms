@@ -14,7 +14,7 @@ export const ACTION_NAMES = [
   'publishChanges', 'retryPublish', 'getPublishStatus',
   'inviteUser', 'updateUserAccess', 'setUserActive', 'resendInvite', 'deleteInvite', 'resetUserMfa',
   'updateProfile', 'updateAvatar', 'changePassword', 'recordMfaChange', 'markTourSeen', 'resetTours',
-  'login', 'requestPasswordReset', 'updatePassword', 'acceptInvite', 'completeSecondFactor', 'logout'
+  'login', 'requestPasswordReset', 'updatePassword', 'confirmLink', 'acceptInvite', 'completeSecondFactor', 'logout'
 ]
 
 /** @typedef {{ basePath: string, paths: Record<string, string>, panelLocale?: string, messages?: unknown, branding?: { name: string, icon?: string }, site?: { url: string | null } }} RoutesConfigType */
@@ -75,7 +75,7 @@ export const planRoutes = ({ basePath, paths }, configFile) => {
     [join(auth, paths.passwordReset, 'page.tsx'), view('password-reset', 'passwordResetRoute', 'page', ['metadata'])],
     [join(auth, paths.acceptInvite, 'page.tsx'), view('accept-invite', 'acceptInviteRoute', 'page', ['metadata'])],
     [join(auth, paths.mfaVerify, 'page.tsx'), view('mfa-verify', 'mfaVerifyRoute', 'page', ['metadata'])],
-    [join(base, 'auth', 'confirm', 'route.ts'), handler('GET', 'authConfirm')],
+    [join(auth, 'auth', 'confirm', 'page.tsx'), view('confirm-link', 'confirmLinkRoute', 'page', ['metadata'])],
     [join(base, 'auth', 'signout', 'route.ts'), handler('GET', 'signout')],
     [join(panel, 'layout.tsx'), view('panel', 'panelLayout', 'layout')],
     [join(panel, 'error.tsx'), errorBoundary],

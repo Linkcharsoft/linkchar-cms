@@ -124,6 +124,16 @@ export const panelPaths = (config: CmsConfigType): PanelPathsType => {
   return paths
 }
 
+export type EmailLinkType = 'invite' | 'recovery'
+
+export const isEmailLinkType = (value: unknown): value is EmailLinkType => value === 'invite' || value === 'recovery'
+
+// Where an email link lands once its token is verified: the invitation form or the new password form.
+export const emailLinkTarget = (config: CmsConfigType, type: EmailLinkType) => {
+  const paths = panelPaths(config)
+  return type === 'invite' ? paths.acceptInvite : paths.passwordReset
+}
+
 const ORIGIN = 'http://panel.invalid'
 
 // Where to go after signing in (`?next=`): a panel screen on this origin, never a guest screen or an open redirect.
