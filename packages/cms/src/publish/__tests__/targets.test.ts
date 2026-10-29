@@ -51,11 +51,11 @@ describe('amplify webhook', () => {
     expect(await target.readWebhook!(webhook(event({ jobId: '12', jobStatus: 'SUCCEED' }), 'Bearer s3cret'))).toEqual({ jobId: '12', status: 'succeeded' })
   })
 
-  it('refuses other secrets, and any request when no secret is set', async () => {
+  it('refuses other secrets, and has no webhook when no secret is set', async () => {
     expect(await target.readWebhook!(webhook(event({ jobId: '12', jobStatus: 'SUCCEED' }), 'Bearer nope'))).toBe('unauthorized')
     expect(await target.readWebhook!(webhook(event({ jobId: '12', jobStatus: 'SUCCEED' })))).toBe('unauthorized')
-    const open = amplify({ hookUrl: undefined, webhookSecret: '' })
-    expect(await open.readWebhook!(webhook(event({ jobId: '12', jobStatus: 'SUCCEED' }), 'Bearer '))).toBe('unauthorized')
+    expect(amplify({ hookUrl: undefined, webhookSecret: '' }).readWebhook).toBeUndefined()
+    expect(amplify({ hookUrl: 'https://hooks.example/build', webhookSecret: undefined }).readWebhook).toBeUndefined()
   })
 
   it('rejects bodies that are not build events', async () => {

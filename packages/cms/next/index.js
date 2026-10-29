@@ -94,6 +94,17 @@ export const findBrandIcon = (root = process.cwd()) => {
 }
 
 /**
+ * The stamp of this build, the same for `withCms` and `linkchar-cms build:report --ok`: CMS_BUILD_STAMP when set,
+ * else Amplify's app, branch and job, else null (a build nothing can confirm).
+ * @param {Record<string, string | undefined>} [env]
+ * @returns {string | null}
+ */
+export const buildStamp = (env = process.env) => {
+  if (env.CMS_BUILD_STAMP) return env.CMS_BUILD_STAMP
+  return env.AWS_JOB_ID ? [env.AWS_APP_ID, env.AWS_BRANCH, env.AWS_JOB_ID].filter(Boolean).join('.') : null
+}
+
+/**
  * @param {import('next').NextConfig} [nextConfig]
  * @param {import('./index').WithCmsOptionsType} [options]
  * @returns {import('next').NextConfig}
@@ -105,11 +116,12 @@ export const withCms = (nextConfig = {}, options = {}) => {
   const images = nextConfig.images ?? {}
   const icon = findBrandIcon()
   // Next keeps the site's reads in .next/cache/fetch-cache across builds; one stamp per build, inherited by its workers, keeps them fresh.
-  process.env.CMS_BUILD_STAMP ??= Date.now().toString(36)
+  process.env.CMS_BUILD_STAMP ??= buildStamp() ?? Date.now().toString(36)
 
   return {
     ...nextConfig,
-    env: { ...(icon ? { CMS_BRAND_ICON: `${nextConfig.basePath ?? ''}${icon.url}` } : {}), ...nextConfig.env },
+    // Inlined, so the built site can say which build it serves (GET /api/cms/build-status).
+    env: { ...(icon ? { CMS_BRAND_ICON: `${nextConfig.basePath ?? ''}${icon.url}` } : {}), CMS_BUILD_STAMP: process.env.CMS_BUILD_STAMP, ...nextConfig.env },
     transpilePackages: [...new Set([...(nextConfig.transpilePackages ?? []), '@linkcharsoft/cms'])],
     images: {
       ...images,

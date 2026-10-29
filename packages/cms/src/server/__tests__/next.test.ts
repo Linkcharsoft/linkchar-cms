@@ -104,9 +104,23 @@ describe('createCmsServer', () => {
     expect(insisting).toBeTruthy()
   })
 
-  it('has no webhook when the target reports in-process', async () => {
+  it('has no webhook when the target reports in-process, or when Amplify has no webhook secret', async () => {
     const cms = createCmsServer({ config, supabase, publishTarget: mockBuild() })
     expect((await cms.handlers.buildStatus(webhook('Bearer x'))).status).toBe(404)
+    const reporting = createCmsServer({ config, supabase, publishTarget: amplify({ hookUrl: 'https://hooks.example', webhookSecret: undefined }) })
+    expect((await reporting.handlers.buildStatus(webhook('Bearer x'))).status).toBe(404)
+  })
+
+  it('tells which build it serves, for the panel to confirm a deploy', async () => {
+    const cms = createCmsServer({ config, supabase })
+    process.env.CMS_BUILD_STAMP = 'd1.main.7'
+    try {
+      const response = await cms.handlers.buildStamp()
+      expect(await response.json()).toEqual({ stamp: 'd1.main.7' })
+      expect(response.headers.get('cache-control')).toBe('no-store')
+    } finally {
+      delete process.env.CMS_BUILD_STAMP
+    }
   })
 
   it('sends signed-out users to sign in and signed-in ones past the guest screens', async () => {

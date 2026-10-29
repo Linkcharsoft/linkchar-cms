@@ -79,8 +79,9 @@ const QUERIES = {
 
 const PROCESS_STAMP = Date.now().toString(36)
 
-// Part of the fetch cache key of every read, so a static build never serves the reads of the previous one.
-const buildStamp = () => process.env.CMS_BUILD_STAMP ?? PROCESS_STAMP
+// Part of the fetch cache key of every read, so a static build never serves the reads of the previous one; withCms
+// inlines it, so the built site answers GET /api/cms/build-status with the stamp of the build it serves.
+const currentBuildStamp = () => process.env.CMS_BUILD_STAMP ?? PROCESS_STAMP
 
 export const createCmsServer = ({ config, supabase, publishTarget = null, logger = consoleLogger }: CmsServerOptionsType) => {
   const credentials = () => {
@@ -90,7 +91,7 @@ export const createCmsServer = ({ config, supabase, publishTarget = null, logger
   }
 
   const detached = (key: string): CmsClientType =>
-    createClient<Database>(credentials().url, key, { auth: { persistSession: false, autoRefreshToken: false }, global: { headers: { 'x-cms-build': buildStamp() } } })
+    createClient<Database>(credentials().url, key, { auth: { persistSession: false, autoRefreshToken: false }, global: { headers: { 'x-cms-build': currentBuildStamp() } } })
 
   const admin = () => {
     const { secretKey } = credentials()
@@ -150,7 +151,10 @@ export const createCmsServer = ({ config, supabase, publishTarget = null, logger
       }
     }])) as BoundAllType<T>
 
-  // Fed by the build status webhook (an EventBridge rule for Amplify); there is no user session.
+  // The stamp of the build this runtime serves: the panel and publish:ping confirm a built publish against it.
+  const buildStamp = async () => Response.json({ stamp: currentBuildStamp() }, { headers: { 'cache-control': 'no-store' } })
+
+  // Fed by a build status webhook (an EventBridge rule for Amplify, optional); there is no user session.
   const buildStatus = async (request: Request) => {
     if (!publishTarget?.readWebhook) return new Response('Not found', { status: 404 })
     const event = await publishTarget.readWebhook(request)
@@ -241,6 +245,7 @@ export const createCmsServer = ({ config, supabase, publishTarget = null, logger
     actions: bind(ACTIONS),
     queries: bind(QUERIES),
     handlers: {
+      buildStamp,
       buildStatus,
       authConfirm: handler(confirmEmailLink),
       signout: handler(signOutTo),

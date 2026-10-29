@@ -36,11 +36,15 @@ const view = (module, factory, kind, extra = []) => /** @param {(target: string)
 ].join('\n')
 
 /** @param {string} method @param {string} handler */
-const handler = (method, handler) => /** @param {(target: string) => string} importOf */ importOf => [
+/** @param {Record<string, string>} methods HTTP method → cms.handlers name */
+const handlers = methods => /** @param {(target: string) => string} importOf */ importOf => [
   `import { cms } from '${importOf('cms/server')}'`,
   '',
-  `export const ${method} = cms.handlers.${handler}`
+  ...Object.entries(methods).map(([method, handler]) => `export const ${method} = cms.handlers.${handler}`)
 ].join('\n')
+
+/** @param {string} method @param {string} handler */
+const handler = (method, handler) => handlers({ [method]: handler })
 
 const loading = () => 'export { default } from \'@linkcharsoft/cms/panel/routes/loading\''
 
@@ -99,7 +103,7 @@ export const planRoutes = ({ basePath, paths }, configFile) => {
     [join(admin, 'loading.tsx'), loading],
     [join(admin, paths.users, 'page.tsx'), view('users', 'usersRoute', 'page', ['metadata'])],
     [join(admin, paths.activity, 'page.tsx'), view('activity', 'activityRoute', 'page', ['metadata'])],
-    [join('app', 'api', 'cms', 'build-status', 'route.ts'), handler('POST', 'buildStatus')],
+    [join('app', 'api', 'cms', 'build-status', 'route.ts'), handlers({ GET: 'buildStamp', POST: 'buildStatus' })],
     [join('app', 'api', 'cms', 'draft', 'route.ts'), handler('GET', 'draft')],
     [join('app', 'api', 'cms', 'disable-draft', 'route.ts'), handler('GET', 'disableDraft')],
     [join('cms', 'actions.ts'), () => ['\'use server\'', 'import { cms } from \'./server\'', '', ...ACTION_NAMES.map(name => `export const ${name} = cms.actions.${name}`)].join('\n')]

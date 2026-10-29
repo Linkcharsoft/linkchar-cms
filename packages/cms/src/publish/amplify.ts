@@ -5,7 +5,8 @@ import type { BuildEventStatusType, BuildEventType } from '../core/publish'
 export interface AmplifyOptionsType {
   // Amplify's incoming webhook for the production branch; each call queues one build.
   hookUrl: string | undefined
-  // Shared with the EventBridge API destination, sent as `Authorization: Bearer <secret>`.
+  // Optional: an EventBridge API destination reports the build with `Authorization: Bearer <secret>`; without it
+  // the build reports itself (linkchar-cms build:report) and the webhook route answers 404.
   webhookSecret: string | undefined
   timeoutMs?: number
 }
@@ -32,8 +33,8 @@ export const parseAmplifyEvent = (body: unknown): BuildEventType | null => {
 
 const digest = (value: string) => createHash('sha256').update(value).digest()
 
-const isAuthorized = (secret: string | undefined, header: string | null) =>
-  !!secret && !!header && timingSafeEqual(digest(header), digest(`Bearer ${secret}`))
+const isAuthorized = (secret: string, header: string | null) =>
+  !!header && timingSafeEqual(digest(header), digest(`Bearer ${secret}`))
 
 export const amplify = ({ hookUrl, webhookSecret, timeoutMs = 10_000 }: AmplifyOptionsType): PublishTargetType => ({
   name: 'amplify',
@@ -51,8 +52,12 @@ export const amplify = ({ hookUrl, webhookSecret, timeoutMs = 10_000 }: AmplifyO
     }
   },
 
-  readWebhook: async request => {
-    if (!isAuthorized(webhookSecret, request.headers.get('authorization'))) return 'unauthorized'
-    return parseAmplifyEvent(await request.json().catch(() => null)) ?? 'invalid'
-  }
+  ...(webhookSecret
+    ? {
+      readWebhook: async (request: Request) => {
+        if (!isAuthorized(webhookSecret, request.headers.get('authorization'))) return 'unauthorized'
+        return parseAmplifyEvent(await request.json().catch(() => null)) ?? 'invalid'
+      }
+    }
+    : {})
 })
