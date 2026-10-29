@@ -11,12 +11,14 @@ const status = {
     building: 'Publicando',
     buildingStarted: 'Publicando · recién empezó',
     buildingFor: 'Publicando · hace {minutes} min',
+    deploying: 'Publicando · desplegando',
     success: 'Listo',
     failed: 'Error',
     unconfirmed: 'Sin confirmar'
   },
   publishStatusHelp: {
     building: 'El sitio se está actualizando. Suele tardar unos 5 minutos.',
+    deploying: 'El sitio ya se construyó y se está desplegando. Falta menos de un minuto.',
     success: 'El sitio ya muestra estos cambios.',
     failed: 'No se pudo actualizar el sitio, que sigue mostrando la versión anterior. Reintentá desde Publicar; si vuelve a fallar, avisá a soporte.',
     unconfirmed: 'No recibimos la confirmación de que el sitio se actualizó. Revisá el sitio: si no ves los cambios, avisá a soporte.'

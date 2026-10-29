@@ -3,7 +3,7 @@ import { withDefaults } from '../core/defaults'
 import { entryIds, getEntry } from '../core/entries'
 import { changedSections } from '../core/pages'
 import { panelPaths } from '../core/paths'
-import { BUILD_CONFIRMATION_TIMEOUT_MS, isSimulatedJob, MOCK_JOB_PREFIX, publishDisplayStatus } from '../core/publish'
+import { amplifyConsoleUrl, BUILD_CONFIRMATION_TIMEOUT_MS, isSimulatedJob, MOCK_JOB_PREFIX, publishDisplayStatus } from '../core/publish'
 import { unfreedConflicts } from '../core/publishSelection'
 import { documentReferences } from '../core/references'
 import { referenceWarnings, relationIssue, relationName } from '../core/relations'
@@ -63,7 +63,11 @@ export interface PublishRecordType {
   published: number
   removed: number
   buildStatus: BuildStatusType
+  // When the build reported its end (build:report --ok); the deploy is waited for from here.
+  builtAt: string | null
   finishedAt: string | null
+  // The deployment in the Amplify console, when the build reported where it ran.
+  consoleUrl: string | null
   errorCode: BuildErrorCodeType | null
   errorDetail: string | null
   // The failed publish this one builds again; a retry publishes nothing new.
@@ -252,10 +256,45 @@ export const getPendingCount = async (ctx: CmsContextType) => {
 
 type LogItemType = { id: string, type: string, action: 'publish' | 'unpublish' }
 
+type BuiltRowType = { id: number, build_status: string, build_stamp: string | null, built_at: string | null, requested_at: string }
+
+const SITE_STAMP_TIMEOUT_MS = 5000
+
+// The stamp of the build the site is serving (GET /api/cms/build-status); null when the site can't say.
+const siteStamp = async (ctx: CmsContextType) => {
+  const url = ctx.config.site.url
+  if (!url) return null
+  try {
+    const response = await (ctx.fetch ?? fetch)(`${url.replace(/\/$/, '')}/api/cms/build-status`, { cache: 'no-store', signal: AbortSignal.timeout(SITE_STAMP_TIMEOUT_MS) })
+    if (!response.ok) return null
+    const body = await response.json().catch(() => null) as { stamp?: unknown } | null
+    return typeof body?.stamp === 'string' ? body.stamp : null
+  } catch {
+    return null
+  }
+}
+
+const timingOf = (row: BuiltRowType) => ({ buildStatus: row.build_status as BuildStatusType, requestedAt: row.requested_at, builtAt: row.built_at })
+
+// A built publish is confirmed when the site serves the stamp its build reported: the deploy finished.
+export const confirmBuiltPublishes = async (ctx: CmsContextType, rows: BuiltRowType[]) => {
+  const now = ctx.now().getTime()
+  const deploying = rows.filter(row => row.build_status === 'built' && row.build_stamp && publishDisplayStatus(timingOf(row), now) === 'deploying')
+  if (deploying.length === 0) return
+  const stamp = await siteStamp(ctx)
+  if (!stamp) return
+  for (const row of deploying.filter(row => row.build_stamp === stamp)) {
+    const finished = ctx.now().toISOString()
+    await setBuildStatus(ctx, row.id, { build_status: 'success', finished_at: finished }, 'built')
+    Object.assign(row, { build_status: 'success', finished_at: finished })
+  }
+}
+
 export const getPublishHistory = async (ctx: CmsContextType, limit = 10): Promise<PublishRecordType[]> => {
   const { data } = await ctx.db.from('publish_log').select('*').order('requested_at', { ascending: false }).limit(limit)
 
   const rows = data ?? []
+  await confirmBuiltPublishes(ctx, rows)
   const itemsOf = (items: unknown) => (Array.isArray(items) ? items : []) as LogItemType[]
   const ids = [...new Set(rows.flatMap(row => itemsOf(row.items)).map(item => item.id))]
 
@@ -272,7 +311,9 @@ export const getPublishHistory = async (ctx: CmsContextType, limit = 10): Promis
     published: row.documents_count,
     removed: row.removed_count,
     buildStatus: row.build_status as BuildStatusType,
+    builtAt: row.built_at,
     finishedAt: row.finished_at,
+    consoleUrl: amplifyConsoleUrl({ region: row.region, appId: row.app_id, branch: row.branch, jobId: row.job_id }),
     errorCode: row.error_code as BuildErrorCodeType | null,
     errorDetail: row.error_detail,
     retryOf: row.retry_of,
@@ -288,24 +329,27 @@ export const getLatestPublish = async (ctx: CmsContextType) => (await getPublish
 export const getPublishCircuit = async (ctx: CmsContextType): Promise<PublishCircuitType> => {
   const { data: any } = await ctx.db.from('publish_log').select('id').limit(1)
   if (!any?.length) return 'unused'
+  const { data: built } = await ctx.db.from('publish_log').select('id, build_status, build_stamp, built_at, requested_at').eq('build_status', 'built')
+  await confirmBuiltPublishes(ctx, built ?? [])
   const { data: confirmed } = await ctx.db.from('publish_log').select('id')
     .eq('build_status', 'success').not('job_id', 'is', null).not('job_id', 'like', `${MOCK_JOB_PREFIX}%`).limit(1)
   return confirmed?.length ? 'confirmed' : 'unconfirmed'
 }
 
-// A second publish while the site is still building would queue another build of the same content.
+// A second publish while the site is still building or deploying would queue another build of the same content.
 const isBuilding = async (ctx: CmsContextType) => {
   const latest = await getLatestPublish(ctx)
-  return !!latest && publishDisplayStatus(latest.buildStatus, latest.requestedAt, ctx.now().getTime()) === 'building'
+  const displayed = latest ? publishDisplayStatus(latest, ctx.now().getTime()) : null
+  return displayed === 'building' || displayed === 'deploying'
 }
 
 type BuildValuesType = { build_status: BuildStatusType, job_id?: string, error_code?: BuildErrorCodeType | null, error_detail?: string | null, finished_at?: string }
 
 // publish_log is written with the service role: the build webhook has no user session.
-const setBuildStatus = async (ctx: CmsContextType, publishId: number, values: BuildValuesType, onlyIfPending = false) => {
+const setBuildStatus = async (ctx: CmsContextType, publishId: number, values: BuildValuesType, onlyWhile?: BuildStatusType) => {
   let request = ctx.admin().from('publish_log').update(values).eq('id', publishId)
-  // The "started" event can beat the hook response; it must not be overwritten.
-  if (onlyIfPending) request = request.eq('build_status', 'pending')
+  // The "started" event can beat the hook response, and a deploy confirmation a webhook: neither is overwritten.
+  if (onlyWhile) request = request.eq('build_status', onlyWhile)
   const { error } = await request
   if (error) ctx.logger.error('[publish] status update failed:', error.code ?? error.message)
 }
@@ -354,7 +398,7 @@ export const triggerBuild = async (ctx: CmsContextType, publishId: number): Prom
   const result = await ctx.publishTarget.trigger({ report: event => applyBuildEvent(ctx, event), logger: ctx.logger })
   if (!result.ok) return fail(result.code, result.detail)
 
-  await setBuildStatus(ctx, publishId, { build_status: 'building', ...(result.jobId ? { job_id: result.jobId } : {}) }, true)
+  await setBuildStatus(ctx, publishId, { build_status: 'building', ...(result.jobId ? { job_id: result.jobId } : {}) }, 'pending')
   return 'building'
 }
 
@@ -438,9 +482,9 @@ export const retryPublish = async (ctx: CmsContextType, publishId: number): Prom
   const { profile } = await requireRole(ctx, 'editor')
   if (!canPublish(profile)) return { ok: false, error: 'errors.publish.forbidden' }
 
-  const { data: failed } = await ctx.db.from('publish_log').select('id, build_status, requested_at, error_code, documents_count, removed_count, items')
+  const { data: failed } = await ctx.db.from('publish_log').select('id, build_status, requested_at, built_at, error_code, documents_count, removed_count, items')
     .order('requested_at', { ascending: false }).limit(1).maybeSingle()
-  const displayed = failed ? publishDisplayStatus(failed.build_status as BuildStatusType, failed.requested_at, ctx.now().getTime()) : null
+  const displayed = failed ? publishDisplayStatus({ buildStatus: failed.build_status as BuildStatusType, requestedAt: failed.requested_at, builtAt: failed.built_at }, ctx.now().getTime()) : null
   const retryable = (displayed === 'failed' && failed?.error_code !== 'target_missing') || displayed === 'unconfirmed'
   if (!failed || failed.id !== publishId || !retryable) return { ok: false, error: 'errors.publish.stale' }
 

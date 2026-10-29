@@ -1,6 +1,6 @@
 # Deploying a project with @linkcharsoft/cms
 
-> The Supabase half was measured on a hosted trial project (2026-10-22). The Amplify half (build hook, EventBridge, SSR runtime variables) has not run end to end yet: the first real deploy completes it and replaces this note.
+> The Supabase half was measured on a hosted trial project (2026-10-22). On Amplify, the build hook and the SSR runtime variables ran on linkchar-page (2026-10-29); the build report (`linkchar-cms build:report`, 0.15.0) replaced the EventBridge rule, whose API destination needs an IAM role a developer usually can't create.
 
 A project runs on two services: **Supabase** (database, auth, storage) and **Amplify** (the Next.js site, which also serves the panel). Each client has its own Supabase account and project.
 
@@ -64,21 +64,27 @@ A project runs on two services: **Supabase** (database, auth, storage) and **Amp
 ## 2. Amplify app
 
 1. Connect the repository and the production branch.
-2. Environment variables: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SECRET_KEY`, `NEXT_PUBLIC_SITE_URL`, `CMS_BUILD_HOOK_URL`, `CMS_BUILD_WEBHOOK_SECRET`, and `GITHUB_PACKAGES_TOKEN` (a token with `read:packages` on Linkcharsoft) for the install.
-3. Amplify gives the environment variables to the build but not to the SSR runtime: `amplify.yml` copies the ones the server reads at runtime into `.env.production` (`SUPABASE_SECRET_KEY`, `CMS_BUILD_HOOK_URL`, `CMS_BUILD_WEBHOOK_SECRET`; the `NEXT_PUBLIC_*` ones are inlined at build), and writes the package token before installing:
+2. Environment variables: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SECRET_KEY`, `NEXT_PUBLIC_SITE_URL`, `CMS_BUILD_HOOK_URL` (the branch's incoming webhook), and `GITHUB_PACKAGES_TOKEN` (a token with `read:packages` on Linkcharsoft) for the install.
+3. Amplify gives the environment variables to the build but not to the SSR runtime: `amplify.yml` copies the ones the server reads at runtime into `.env.production` (`SUPABASE_SECRET_KEY`, `CMS_BUILD_HOOK_URL`; the `NEXT_PUBLIC_*` ones are inlined at build), writes the package token before installing, and reports the build to the panel:
 
    ```yaml
-   preBuild:
-     commands:
-       - echo "//npm.pkg.github.com/:_authToken=${GITHUB_PACKAGES_TOKEN}" >> ~/.npmrc
-       - pnpm install --frozen-lockfile
-       - env | grep -E "^(SUPABASE_SECRET_KEY|CMS_BUILD_HOOK_URL|CMS_BUILD_WEBHOOK_SECRET)=" >> .env.production || true
-       - rm -rf .next/cache/fetch-cache
+   frontend:
+     phases:
+       preBuild:
+         commands:
+           - echo "//npm.pkg.github.com/:_authToken=${GITHUB_PACKAGES_TOKEN}" >> ~/.npmrc
+           - pnpm install --frozen-lockfile
+           - env | grep -E "^(SUPABASE_SECRET_KEY|CMS_BUILD_HOOK_URL)=" >> .env.production || true
+           - rm -rf .next/cache/fetch-cache
+           - pnpm exec linkchar-cms build:report --start
+       build:
+         commands:
+           - pnpm run build && pnpm exec linkchar-cms build:report --ok || (pnpm exec linkchar-cms build:report --failed; exit 1)
    ```
 
-   Amplify restores `.next/cache` before each build and Next keeps the site's reads there (`fetch-cache`, for a year). The package stamps every build, so a build never serves the content of the previous one, but the folder grows with every build: the last `preBuild` line drops it, and `doctor` warns while `amplify.yml` keeps `.next/cache` without that line.
+   Amplify restores `.next/cache` before each build and Next keeps the site's reads there (`fetch-cache`, for a year). The package stamps every build, so a build never serves the content of the previous one, but the folder grows with every build: the `rm -rf` line drops it, and `doctor` warns while `amplify.yml` keeps `.next/cache` without that line. `build:report` is how the panel learns which build took a publish and when it ended; `doctor` fails while the two lines are missing.
 
-4. The build hook and the EventBridge rule that reports each build to the panel: [Amplify setup](../packages/cms/README.md#amplify-setup).
+4. The build hook, the report and the confirmation of the deploy: [Amplify setup](../packages/cms/README.md#amplify-setup). `pnpm exec linkchar-cms publish:ping --env-file .env.remote` proves the whole circuit once.
 
 ## 3. CI
 
@@ -102,7 +108,7 @@ Projects on `linkchar-frontend-workflows` pass the package token and the Supabas
 - Sign in at `https://acme.com/<basePath>` with the superadmin.
 - Invite a user from Usuarios: the email arrives and its link opens the invitation screen on the site's domain.
 - Edit a page and open the preview: the draft shows, and "Salir" leaves Draft Mode.
-- Publish: the build starts, and its end (success or failure) shows in Publicar without reloading.
+- Publish: the build starts, Publicar shows "Publicando · desplegando" when it ends and "Listo" once the site serves the new build, without reloading.
 
 ## Free plan
 

@@ -20,6 +20,9 @@ export declare const readRedirects: (supabaseUrl: string, publishableKey: string
 
 export declare const findBrandIcon: (root?: string) => { url: string, file: string } | null
 
+// The stamp of this build: CMS_BUILD_STAMP, else Amplify's app, branch and job, else null.
+export declare const buildStamp: (env?: Record<string, string | undefined>) => string | null
+
 // The package compiled with the project, Supabase images allowed, the redirects of past publishes and the product icon.
 export declare const withCms: (nextConfig?: NextConfig, options?: WithCmsOptionsType) => NextConfig
 

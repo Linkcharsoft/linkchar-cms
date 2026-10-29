@@ -2,7 +2,7 @@ import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { amplifyCacheCheck, appliedMigrationsCheck, authChecks, configPorts, environmentChecks, excludesPackageFromQuarantine, parseExcludedRanges, portChecks, postcssCheck, publishCircuitCheck, tablesCheck } from '../doctor.js'
+import { AMPLIFY_BUILD_LINE, AMPLIFY_START_LINE, amplifyCacheCheck, amplifyReportCheck, appliedMigrationsCheck, authChecks, configPorts, environmentChecks, excludesPackageFromQuarantine, parseExcludedRanges, portChecks, postcssCheck, publishCircuitCheck, tablesCheck } from '../doctor.js'
 import { migrationVersions, PACKAGE_SUPABASE } from '../migrations.js'
 
 const NETSH = `
@@ -117,7 +117,7 @@ describe('environmentChecks', () => {
 
   it('warns while amplify.yml keeps the fetch cache of the previous build', async () => {
     const keeps = 'frontend:\n  cache:\n    paths:\n      - node_modules/**/*\n      - .next/cache/**/*\n'
-    const drops = 'frontend:\n  phases:\n    preBuild:\n      commands:\n        - rm -rf .next/cache/fetch-cache\n  cache:\n    paths:\n      - .next/cache/**/*\n'
+    const drops = `frontend:\n  phases:\n    preBuild:\n      commands:\n        - rm -rf .next/cache/fetch-cache\n        - ${AMPLIFY_START_LINE}\n    build:\n      commands:\n        - ${AMPLIFY_BUILD_LINE}\n  cache:\n    paths:\n      - .next/cache/**/*\n`
     expect(amplifyCacheCheck(keeps)).toMatchObject({ level: 'warn', text: expect.stringContaining('rm -rf .next/cache/fetch-cache') })
     expect(amplifyCacheCheck(drops)).toBeNull()
     expect(amplifyCacheCheck('frontend:\n  cache:\n    paths:\n      - node_modules/**/*\n')).toBeNull()
@@ -125,11 +125,24 @@ describe('environmentChecks', () => {
     expect((await levels({}, { 'amplify.yml': drops })).filter(check => check.level !== 'ok')).toEqual([])
   })
 
+  it('fails while amplify.yml does not report the build to the panel', async () => {
+    const reporting = `preBuild:\n  commands:\n    - ${AMPLIFY_START_LINE}\nbuild:\n  commands:\n    - ${AMPLIFY_BUILD_LINE}\n`
+    expect(amplifyReportCheck(reporting)).toMatchObject({ level: 'ok' })
+    expect(amplifyReportCheck(`build:\n  commands:\n    - ${AMPLIFY_BUILD_LINE}\n`)).toMatchObject({ level: 'fail', text: expect.stringContaining('build:report --start in preBuild)') })
+    expect(amplifyReportCheck(`preBuild:\n  commands:\n    - ${AMPLIFY_START_LINE}\nbuild:\n  commands:\n    - pnpm run build && pnpm exec linkchar-cms build:report --ok\n`))
+      .toMatchObject({ level: 'fail', text: expect.stringContaining('--ok and --failed around the build)') })
+    const silent = amplifyReportCheck('frontend:\n  phases:\n    build:\n      commands:\n        - pnpm run build\n')
+    expect(silent.text).toContain(`"${AMPLIFY_START_LINE}"`)
+    expect(silent.text).toContain(`"${AMPLIFY_BUILD_LINE}"`)
+    expect((await levels({}, { 'amplify.yml': 'frontend:\n  phases:\n    build:\n      commands:\n        - pnpm run build\n' })).filter(check => check.level === 'fail').map(check => check.text))
+      .toEqual([expect.stringContaining('amplify.yml does not report the build')])
+  })
+
   it('warns while no real build confirmed a publish, on a hosted project only', async () => {
     const hosted = { ...env, NEXT_PUBLIC_SUPABASE_URL: 'https://abc.supabase.co' }
     const texts = async (publishes: { any: boolean, confirmed: boolean }, overrides = { env: hosted }) => (await levels({ ...overrides, fetch: answer([{ id: 'u1' }], {}, publishes) })).filter(check => check.level !== 'ok').map(check => check.text)
     expect(await texts({ any: false, confirmed: false })).toEqual([])
-    expect(await texts({ any: true, confirmed: false })).toEqual([expect.stringContaining('linkchar-cms publish:ping')])
+    expect(await texts({ any: true, confirmed: false })).toEqual([expect.stringMatching(/linkchar-cms build:report.*linkchar-cms publish:ping/)])
     expect(await texts({ any: true, confirmed: true })).toEqual([])
     expect((await levels({ env: hosted, fetch: answer([{ id: 'u1' }], {}, { any: true, confirmed: true }) })).map(check => check.text)).toContain('The site confirmed a publish')
     const local = (await levels({ fetch: answer([{ id: 'u1' }], {}, { any: true, confirmed: false }) })).map(check => check.text)

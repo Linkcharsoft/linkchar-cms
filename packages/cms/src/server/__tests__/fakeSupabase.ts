@@ -66,7 +66,7 @@ const DEFAULTS: Record<string, (db: FakeDbType) => Row> = {
   publish_log: db => ({
     id: Math.max(0, ...db.tables.publish_log.map(row => row.id as number)) + 1, requested_by: null, requested_at: new Date().toISOString(),
     documents_count: 0, removed_count: 0, items: [], build_status: 'pending', job_id: null, finished_at: null, error_code: null,
-    error_detail: null, retry_of: null
+    error_detail: null, retry_of: null, build_stamp: null, built_at: null, app_id: null, branch: null, region: null, commit: null
   })
 }
 

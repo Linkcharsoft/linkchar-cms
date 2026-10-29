@@ -314,7 +314,12 @@ export type Database = {
       };
       publish_log: {
         Row: {
+          app_id: string | null;
+          branch: string | null;
+          build_stamp: string | null;
           build_status: string;
+          built_at: string | null;
+          commit: string | null;
           documents_count: number;
           error_code: string | null;
           error_detail: string | null;
@@ -322,6 +327,7 @@ export type Database = {
           id: number;
           items: NonNullable<Json>;
           job_id: string | null;
+          region: string | null;
           removed_count: number;
           requested_at: string;
           requested_by: string | null;
@@ -329,7 +335,12 @@ export type Database = {
         };
         ComputedFields: never;
         Insert: {
+          app_id?: string | null;
+          branch?: string | null;
+          build_stamp?: string | null;
           build_status?: string;
+          built_at?: string | null;
+          commit?: string | null;
           documents_count?: number;
           error_code?: string | null;
           error_detail?: string | null;
@@ -337,13 +348,19 @@ export type Database = {
           id?: never;
           items?: NonNullable<Json>;
           job_id?: string | null;
+          region?: string | null;
           removed_count?: number;
           requested_at?: string;
           requested_by?: string | null;
           retry_of?: number | null;
         };
         Update: {
+          app_id?: string | null;
+          branch?: string | null;
+          build_stamp?: string | null;
           build_status?: string;
+          built_at?: string | null;
+          commit?: string | null;
           documents_count?: number;
           error_code?: string | null;
           error_detail?: string | null;
@@ -351,6 +368,7 @@ export type Database = {
           id?: never;
           items?: NonNullable<Json>;
           job_id?: string | null;
+          region?: string | null;
           removed_count?: number;
           requested_at?: string;
           requested_by?: string | null;

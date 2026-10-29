@@ -38,6 +38,7 @@ describe('syncRoutes', () => {
     expect(login).toContain('import { cms } from \'../../../../../cms/server\'')
     expect(login).toContain('export const metadata = route.metadata')
     expect(await read('app/(cms)/dashboard/auth/signout/route.ts')).toContain('export const GET = cms.handlers.signout')
+    expect(await read('app/api/cms/build-status/route.ts')).toContain('export const GET = cms.handlers.buildStamp\nexport const POST = cms.handlers.buildStatus')
     expect(await read('app/(cms)/dashboard/(auth)/auth/confirm/page.tsx')).toContain('@linkcharsoft/cms/panel/routes/confirm-link')
     expect(existsSync(join(sourceDir, 'app/(cms)/dashboard/auth/confirm'))).toBe(false)
     expect(await read('cms/actions.ts')).toMatch(/^\/\/ Generated[^\n]*\n'use server'\n/)

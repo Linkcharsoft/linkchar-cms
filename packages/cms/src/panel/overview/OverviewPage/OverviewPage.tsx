@@ -111,7 +111,7 @@ const OverviewPage = ({ drafts, pendingCount, latest, pages, alerts, forbidden =
                 {latest
                   ? t('overview.latest', {
                     date: formatDate(latest.requestedAt, 'shortDateTime'),
-                    status: t(`publishStatus.${publishDisplayStatus(latest.buildStatus, latest.requestedAt)}`)
+                    status: t(`publishStatus.${publishDisplayStatus(latest)}`)
                   })
                   : t('overview.neverPublished')}
               </span>

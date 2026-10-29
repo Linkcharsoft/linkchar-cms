@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { findBrandIcon, readRedirects, withCms } from '../index.js'
+import { buildStamp, findBrandIcon, readRedirects, withCms } from '../index.js'
 
 describe('withCms', () => {
   it('compiles the package with the project and allows the Supabase images', () => {
@@ -18,16 +18,37 @@ describe('withCms', () => {
     expect(config.images).not.toHaveProperty('dangerouslyAllowLocalIP')
   })
 
-  it('sets one build stamp for the build and keeps the one its workers inherit', () => {
+  it('sets one build stamp for the build, keeps the one its workers inherit and inlines it for the site', () => {
     delete process.env.CMS_BUILD_STAMP
     try {
-      withCms({}, { supabaseUrl: 'https://abc.supabase.co', publishableKey: 'key', redirects: false })
+      const config = withCms({}, { supabaseUrl: 'https://abc.supabase.co', publishableKey: 'key', redirects: false })
       const stamp = process.env.CMS_BUILD_STAMP
       expect(stamp).toMatch(/^[0-9a-z]+$/)
+      expect(config.env).toEqual({ CMS_BUILD_STAMP: stamp })
       withCms({}, { supabaseUrl: 'https://abc.supabase.co', publishableKey: 'key', redirects: false })
       expect(process.env.CMS_BUILD_STAMP).toBe(stamp)
     } finally {
       delete process.env.CMS_BUILD_STAMP
+    }
+  })
+
+  it('takes the stamp from the Amplify job, so build:report --ok can name the same build', () => {
+    expect(buildStamp({ AWS_APP_ID: 'd1abc', AWS_BRANCH: 'main', AWS_JOB_ID: '7' })).toBe('d1abc.main.7')
+    expect(buildStamp({ AWS_JOB_ID: '7' })).toBe('7')
+    expect(buildStamp({ CMS_BUILD_STAMP: 'given', AWS_JOB_ID: '7' })).toBe('given')
+    expect(buildStamp({})).toBeNull()
+    delete process.env.CMS_BUILD_STAMP
+    process.env.AWS_JOB_ID = '7'
+    process.env.AWS_APP_ID = 'd1abc'
+    process.env.AWS_BRANCH = 'main'
+    try {
+      withCms({}, { redirects: false })
+      expect(process.env.CMS_BUILD_STAMP).toBe('d1abc.main.7')
+    } finally {
+      delete process.env.CMS_BUILD_STAMP
+      delete process.env.AWS_JOB_ID
+      delete process.env.AWS_APP_ID
+      delete process.env.AWS_BRANCH
     }
   })
 
@@ -139,8 +160,8 @@ describe('findBrandIcon', () => {
     add('app/icon.svg')
     const cwd = vi.spyOn(process, 'cwd').mockReturnValue(root)
     try {
-      expect(withCms({ basePath: '/web' }, { redirects: false }).env).toEqual({ CMS_BRAND_ICON: '/web/icon.svg' })
-      expect(withCms({ env: { CMS_BRAND_ICON: '/own.png' } }, { redirects: false }).env).toEqual({ CMS_BRAND_ICON: '/own.png' })
+      expect(withCms({ basePath: '/web' }, { redirects: false }).env).toEqual({ CMS_BRAND_ICON: '/web/icon.svg', CMS_BUILD_STAMP: expect.any(String) })
+      expect(withCms({ env: { CMS_BRAND_ICON: '/own.png' } }, { redirects: false }).env).toEqual({ CMS_BRAND_ICON: '/own.png', CMS_BUILD_STAMP: expect.any(String) })
     } finally {
       cwd.mockRestore()
     }

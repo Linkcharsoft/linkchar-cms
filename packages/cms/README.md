@@ -2,7 +2,7 @@
 
 Linkchar's CMS for Next.js projects: a content schema in code, Supabase storage, an editor panel and site readers. The package ships TypeScript source; the project compiles it.
 
-> The package ships the core, the server layer (Supabase queries and actions, with a `logger` the project provides), publishing (Amplify and a local mock), the migrations, the editor panel with its theme and catalogs (`es`, `en`) and its per-language editing, the site readers (`cms.site`, `@linkcharsoft/cms/site`), `withCms` (`@linkcharsoft/cms/next`) and the `linkchar-cms` CLI (`init`, `routes`, `migrations sync`, `templates`, `admin`, `doctor`, `import`, `publish:ping`). The changes of each version are in [CHANGELOG.md](./CHANGELOG.md), which ships with the package.
+> The package ships the core, the server layer (Supabase queries and actions, with a `logger` the project provides), publishing (Amplify and a local mock), the migrations, the editor panel with its theme and catalogs (`es`, `en`) and its per-language editing, the site readers (`cms.site`, `@linkcharsoft/cms/site`), `withCms` (`@linkcharsoft/cms/next`) and the `linkchar-cms` CLI (`init`, `routes`, `migrations sync`, `templates`, `admin`, `doctor`, `import`, `publish:ping`, `build:report`). The changes of each version are in [CHANGELOG.md](./CHANGELOG.md), which ships with the package.
 
 Sections: [Install](#install) · [Start a project](#start-a-project) · [Configure](#configure) · [Schema texts](#schema-texts) · [Localized content](#localized-content) · [URLs per locale](#urls-per-locale) · [Links](#links) · [Database](#database) · [Supabase](#supabase) · [Server](#server) · [Site](#site) · [Next config](#next-config) · [Field kinds](#field-kinds) · [Panel](#panel) · [Brand](#brand) · [Panel texts](#panel-texts) · [Extensions](#extensions) · [Amplify setup](#amplify-setup) · [Import content](#import-content) · [Upgrade](#upgrade) · [Development](#development)
 
@@ -304,7 +304,7 @@ The server actions, the build status webhook and the panel routes are generated 
 - The server functions also take the context directly (`saveDocument(ctx, input)`), which is how the tests run them.
 - `logger` is where the server reports the failures it swallows (best-effort writes, the build hook, activity rows): `{ error(message, detail?) }`, the console by default. It reaches every server function as `ctx.logger` and the publish targets as part of their trigger context.
 
-Publishing calls the `PublishTarget`. With Amplify, the build hook queues a build and the EventBridge rule reports its status with `Authorization: Bearer <CMS_BUILD_WEBHOOK_SECRET>` (see [Amplify setup](#amplify-setup)). A status event for an unknown job goes to the oldest open publish of the last 30 minutes. A failed build stores `publish_log.error_code` (`target_missing`, `hook_refused`, `hook_unreachable`, `build_failed`, `build_cancelled`), which the panel translates (`errors.build.*`) and offers to retry. The mock build reports `started` and then the result in-process: `mockBuild({ result: 'failed' | 'cancelled', seconds })` reproduces the failures locally; its publishes read "Simulada" in the history (`job_id` starts with `mock-`).
+Publishing calls the `PublishTarget`. With Amplify, the build hook queues a build and the build reports itself from `amplify.yml` with `linkchar-cms build:report` (see [Amplify setup](#amplify-setup)): `--start` takes the oldest open publish of the last 30 minutes and records the job, `--ok` leaves it `built` with the stamp `withCms` gave the build, `--failed` closes it. The panel marks a `built` publish `success` when the site serves that stamp (`GET /api/cms/build-status`), checked whenever the publish log is read (the publish page, the header's poll, `getPublishCircuit()`); a `built` publish the site does not serve within 30 minutes reads "sin confirmar". An EventBridge rule reporting with `Authorization: Bearer <CMS_BUILD_WEBHOOK_SECRET>` still works where it exists (`POST /api/cms/build-status`; 404 without the secret), and its event for an unknown job goes to the oldest open publish of the last 30 minutes. A failed build stores `publish_log.error_code` (`target_missing`, `hook_refused`, `hook_unreachable`, `build_failed`, `build_cancelled`), which the panel translates (`errors.build.*`) and offers to retry. The mock build reports `started` and then the result in-process: `mockBuild({ result: 'failed' | 'cancelled', seconds })` reproduces the failures locally; its publishes read "Simulada" in the history (`job_id` starts with `mock-`). `publishDisplayStatus(record)` and `headerPublishStatus(record)` in the core take the record (`buildStatus`, `requestedAt`, `builtAt`) and know `deploying`; `PublishRecordType` carries `builtAt` and `consoleUrl` (the deployment in the Amplify console, shown to whoever publishes).
 
 ## Site
 
@@ -551,7 +551,7 @@ pnpm exec linkchar-cms routes --check  # CI: exit 1 when a file is missing or st
 A route the package stops generating is deleted, and Next's `.next/types` keeps a validator for it until `next typegen` or `next build` runs: run one of them before the next type-check. On Windows, `pnpm exec` goes through cmd.exe: a path with parentheses (`src/app/(cms)/…`) must be quoted when it is an argument.
 
 - `src/app/(cms)/<basePath>/…`: one file per screen (`export default route.Page`), the layouts, `loading.tsx` (a table skeleton for lists, fields for the editors), the panel's `error.tsx` and `not-found.tsx` (with a catch-all, so an unknown panel URL shows the panel's 404 instead of the site's), the page the invitation and recovery emails land on (`auth/confirm`, with the button that spends the token) and the sign-out handler.
-- `src/app/api/cms/{build-status,draft,disable-draft}/route.ts`: the build webhook and the preview's Draft Mode.
+- `src/app/api/cms/{build-status,draft,disable-draft}/route.ts`: the build stamp (GET) and the optional build webhook (POST), and the preview's Draft Mode.
 - `src/cms/actions.ts`: `'use server'`, re-exports every action the browser calls.
 - Created once and then owned by the project: `src/app/(cms)/layout.tsx` (the panel's root layout) and `src/cms/client.ts` (`createCmsClient`, where project inputs are registered).
 
@@ -619,24 +619,37 @@ const StatsPage = async () => {
 
 ## Amplify setup
 
-Publishing on Amplify is a build hook plus one EventBridge rule that reports the build's end to the project.
+Publishing on Amplify is a build hook plus two lines in `amplify.yml`: the build reports itself to the publish log with the credentials it already has, so no AWS resource beyond the hook is needed.
 
-1. **Environment variables** of the Amplify app: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SECRET_KEY`, `NEXT_PUBLIC_SITE_URL`, `CMS_BUILD_HOOK_URL` (the app's incoming webhook for the branch) and `CMS_BUILD_WEBHOOK_SECRET` (any long random string). `GITHUB_PACKAGES_TOKEN` for the install, written to `~/.npmrc` in the build's `preBuild`. Amplify passes them to the build, not to the SSR runtime: the `preBuild` also copies `SUPABASE_SECRET_KEY`, `CMS_BUILD_HOOK_URL` and `CMS_BUILD_WEBHOOK_SECRET` into `.env.production` (see [docs/deploy.md](https://github.com/Linkcharsoft/linkchar-cms/blob/main/docs/deploy.md)).
-2. **EventBridge rule** on the default bus with this pattern, so only this app and branch count:
+1. **Environment variables** of the Amplify app: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SECRET_KEY`, `NEXT_PUBLIC_SITE_URL` and `CMS_BUILD_HOOK_URL` (the app's incoming webhook for the branch: App settings → Build settings → Incoming webhooks). `GITHUB_PACKAGES_TOKEN` for the install, written to `~/.npmrc` in the build's `preBuild`. Amplify passes them to the build, not to the SSR runtime: the `preBuild` also copies `SUPABASE_SECRET_KEY` and `CMS_BUILD_HOOK_URL` into `.env.production` (see [docs/deploy.md](https://github.com/Linkcharsoft/linkchar-cms/blob/main/docs/deploy.md)).
+2. **`amplify.yml`**: `preBuild` ends with `build:report --start` and the build reports its end:
 
-   ```json
-   { "source": ["aws.amplify"], "detail-type": ["Amplify Deployment Status Change"], "detail": { "appId": ["<appId>"], "branchName": ["main"] } }
+   ```yaml
+   frontend:
+     phases:
+       preBuild:
+         commands:
+           - echo "//npm.pkg.github.com/:_authToken=${GITHUB_PACKAGES_TOKEN}" >> ~/.npmrc
+           - pnpm install --frozen-lockfile
+           - env | grep -E "^(SUPABASE_SECRET_KEY|CMS_BUILD_HOOK_URL)=" >> .env.production || true
+           - rm -rf .next/cache/fetch-cache
+           - pnpm exec linkchar-cms build:report --start
+       build:
+         commands:
+           - pnpm run build && pnpm exec linkchar-cms build:report --ok || (pnpm exec linkchar-cms build:report --failed; exit 1)
    ```
 
-3. **API destination** as the rule's target: endpoint `https://<site>/api/cms/build-status`, method `POST`, with a **Connection** of type API key, key `Authorization`, value `Bearer <CMS_BUILD_WEBHOOK_SECRET>`. No input transformer: the handler reads Amplify's own event (`jobId`, `jobStatus`).
-4. The handler maps `SUCCEED`, `FAILED` and `CANCELLED` to the publish log; an event for a job the panel didn't start matches the oldest open publish of the last 30 minutes. A publish without an answer after 30 minutes reads "sin confirmar" and can be retried.
-5. **Verify the circuit** once, with the hosted keys in an env file kept out of git:
+   `--start` takes the open publish (the one whose `job_id` the hook stored, else the oldest of the last 30 minutes without a job) and records Amplify's `AWS_JOB_ID`, `AWS_APP_ID`, `AWS_BRANCH`, `AWS_REGION` and `AWS_COMMIT_ID`, which the panel turns into a link to the deployment. `--ok` leaves it `built` with the build's stamp (`withCms` derives the same stamp from those variables, or takes `CMS_BUILD_STAMP`); `--failed` closes it as `build_failed`. A build nobody asked for (a push, a schedule) finds no open publish and does nothing; a build that can't reach Supabase says so and goes on: `build:report` never fails a build. `doctor` fails while `amplify.yml` lacks these lines.
+3. **Confirmation**: the built site answers `GET /api/cms/build-status` with `{ stamp }` (public; the stamp is not a secret). The panel asks `site.url` for it whenever it reads the publish log, and a `built` publish reads "Listo" once the stamp matches; until then, "Publicando · desplegando". A deploy that never serves the stamp (a failed deploy, a `site.url` that is not this app) leaves the publish "sin confirmar" after 30 minutes, retryable; so does a build that broke before `--start` (a failed install).
+4. **Verify the circuit** once, with the hosted keys in an env file kept out of git:
 
    ```bash
    pnpm exec linkchar-cms publish:ping --env-file .env.remote [--timeout 20]
    ```
 
-   It logs an empty publish, fires the build hook and waits for the site to report the build back, printing each status change; the exit code says whether the site confirmed it. A hook that answers but never reports means the EventBridge rule, the API destination or the webhook secret is wrong. It costs one Amplify build and takes the 30-minute publish lock like any publish. Until a real build has confirmed a publish, the publish page (for whoever can publish) and `doctor` warn that the circuit is unverified; publishes of the simulated build read "Simulada" in the history and never count.
+   It logs an empty publish, fires the build hook (shown without its token) and waits, printing each change, and confirms the stamp itself, so it needs no panel visit. Each cut has its own message: a hook that refuses points at `CMS_BUILD_HOOK_URL`; a build that never reports, at the `amplify.yml` lines or at the build's Supabase variables; a build that reported `--start` but never its end, at the `--ok`/`--failed` line or a build still running (with the deployment link); a `built` publish the site never serves, at the deploy or at `site.url` (`cms.config.ts`, else `NEXT_PUBLIC_SITE_URL`). It costs one Amplify build and takes the 30-minute publish lock like any publish. Until a real build has confirmed a publish, the publish page (for whoever can publish) and `doctor` warn that the circuit is unverified; publishes of the simulated build read "Simulada" in the history and never count.
+
+**EventBridge (optional).** A project that already reports builds through an EventBridge rule keeps working: with `CMS_BUILD_WEBHOOK_SECRET` set, `POST /api/cms/build-status` takes Amplify's "Amplify Deployment Status Change" events (`SUCCEED`, `FAILED`, `CANCELLED`) sent by an API destination with `Authorization: Bearer <secret>`; without the variable the route answers 404. Its API destination needs an IAM role a developer usually can't create, which is why it is no longer the default: once `build:report` is in `amplify.yml`, the rule, the API destination, the connection and the variable can go.
 
 A weekly scheduled build (Amplify's own, or a cron hitting the hook) keeps the site's static pages from drifting from drafts nobody published. It does not keep a free Supabase project awake: see [docs/deploy.md](https://github.com/Linkcharsoft/linkchar-cms/blob/main/docs/deploy.md#free-plan).
 

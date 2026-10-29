@@ -19,7 +19,8 @@ const at = (minutesAgo: number) => new Date(NOW - minutesAgo * MINUTE).toISOStri
 
 const logRow = (id: number, values: DataRecord = {}) => ({
   id, requested_by: null, requested_at: at(1), documents_count: 1, removed_count: 0, items: [], build_status: 'pending',
-  job_id: null, finished_at: null, error_code: null, error_detail: null, retry_of: null, ...values
+  job_id: null, finished_at: null, error_code: null, error_detail: null, retry_of: null, build_stamp: null, built_at: null, app_id: null,
+  branch: null, region: null, commit: null, ...values
 })
 
 const target = (trigger: PublishTargetType['trigger']): PublishTargetType => ({ name: 'test', trigger })
@@ -417,6 +418,52 @@ describe('getPublishHistory', () => {
   it('marks the publishes of the simulated build', async () => {
     db.tables.publish_log.push(logRow(1, { build_status: 'success', job_id: 'mock-1700000000' }), logRow(2, { build_status: 'success', job_id: '42' }))
     expect((await getPublishHistory(ctx)).map(record => [record.id, record.simulated])).toEqual([[1, true], [2, false]])
+  })
+
+  it('links the Amplify deployment the build reported', async () => {
+    db.tables.publish_log.push(logRow(1, { build_status: 'success', job_id: '7', app_id: 'd1abc', branch: 'main', region: 'us-east-1' }), logRow(2, { build_status: 'success', job_id: '8' }))
+    expect((await getPublishHistory(ctx)).map(record => record.consoleUrl))
+      .toEqual(['https://us-east-1.console.aws.amazon.com/amplify/apps/d1abc/branches/main/deployments/7', null])
+  })
+
+  describe('when a build reported its end', () => {
+    const site = (stamp: string | null, status = 200) => vi.fn(async () => (stamp ? Response.json({ stamp }, { status }) : new Response('', { status })))
+
+    beforeEach(() => {
+      db.tables.publish_log.push(logRow(1, { build_status: 'built', job_id: '7', build_stamp: 'd1.main.7', built_at: at(2) }))
+    })
+
+    it('confirms the publish once the site serves the stamp of its build', async () => {
+      const fetch = site('d1.main.7')
+      const [record] = await getPublishHistory({ ...ctx, fetch })
+      expect(fetch).toHaveBeenCalledWith('http://localhost:3100/api/cms/build-status', expect.objectContaining({ cache: 'no-store' }))
+      expect(record).toMatchObject({ buildStatus: 'success', builtAt: at(2), finishedAt: at(0) })
+      expect(db.tables.publish_log[0]).toMatchObject({ build_status: 'success', finished_at: at(0) })
+    })
+
+    it('keeps waiting while the site serves another build, says nothing, or cannot be reached', async () => {
+      for (const fetch of [site('d1.main.6'), site(null, 500), vi.fn(async () => { throw new Error('down') })]) {
+        expect((await getPublishHistory({ ...ctx, fetch }))[0].buildStatus).toBe('built')
+      }
+      expect(db.tables.publish_log[0].build_status).toBe('built')
+    })
+
+    it('stops asking the site after the deploy timeout, and never asks for a build without a stamp', async () => {
+      const fetch = site('d1.main.7')
+      expect((await getPublishHistory({ ...ctx, fetch, now: () => new Date(NOW + 31 * MINUTE) }))[0].buildStatus).toBe('built')
+      db.tables.publish_log[0].build_stamp = null
+      await getPublishHistory({ ...ctx, fetch })
+      expect(fetch).not.toHaveBeenCalled()
+    })
+
+    it('confirms from the circuit check too, and counts the result as a real build', async () => {
+      expect(await getPublishCircuit({ ...ctx, fetch: site('d1.main.7') })).toBe('confirmed')
+      expect(db.tables.publish_log[0].build_status).toBe('success')
+    })
+
+    it('blocks the next publish while the site deploys', async () => {
+      expect(await publishChanges({ ...ctx, fetch: site('d1.main.6') }, { publish: [], remove: [] })).toEqual({ ok: false, error: 'errors.publish.building' })
+    })
   })
 })
 

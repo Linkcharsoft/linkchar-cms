@@ -60,6 +60,8 @@ jobs:
         run: pnpm --filter playground exec supabase start -x studio,imgproxy,vector,logflare,edge-runtime,realtime,supavisor
       - run: pnpm --filter playground db:test
       - run: pnpm --filter @linkcharsoft/cms test:db
+      - name: build:report writes what amplify.yml expects, against the local Supabase
+        run: bash scripts/check-build-report.sh
 
   e2e:
     runs-on: ubuntu-latest

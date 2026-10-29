@@ -3,6 +3,7 @@ import { existsSync } from 'node:fs'
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { promisify } from 'node:util'
+import { consoleUrlOf } from './build.js'
 import { isLocalSupabaseUrl } from './local.js'
 import { migrationVersions, PACKAGE_SUPABASE } from './migrations.js'
 
@@ -91,6 +92,21 @@ export const amplifyCacheCheck = text => (/\.next\/cache/.test(text) && !/fetch-
   ? { level: 'warn', text: 'amplify.yml keeps .next/cache between builds, fetch-cache included: add "rm -rf .next/cache/fetch-cache" to preBuild, or the cache grows with every build' }
   : null)
 
+export const AMPLIFY_START_LINE = 'pnpm exec linkchar-cms build:report --start'
+export const AMPLIFY_BUILD_LINE = 'pnpm run build && pnpm exec linkchar-cms build:report --ok || (pnpm exec linkchar-cms build:report --failed; exit 1)'
+
+/**
+ * Whether the build reports itself to the panel: --start in preBuild, --ok and --failed around next build.
+ * @param {string} text the project's amplify.yml @returns {CheckType}
+ */
+export const amplifyReportCheck = text => {
+  const start = /linkchar-cms build:report --start/.test(text)
+  const end = /build:report --ok/.test(text) && /build:report --failed/.test(text)
+  if (start && end) return { level: 'ok', text: 'amplify.yml reports the build to the panel (linkchar-cms build:report)' }
+  const missing = [!start && '--start in preBuild', !end && '--ok and --failed around the build'].filter(Boolean).join(', ')
+  return { level: 'fail', text: `amplify.yml does not report the build to the panel (linkchar-cms build:report ${missing}): every publish stays "sin confirmar". End preBuild with "${AMPLIFY_START_LINE}" and run the build as "${AMPLIFY_BUILD_LINE}" (README → Amplify setup)` }
+}
+
 /**
  * Whether a real build ever reported a publish back; the simulated build's successes don't count.
  * @param {typeof fetch} get @param {string} url @param {Record<string, string>} headers @returns {Promise<CheckType | null>}
@@ -102,9 +118,11 @@ export const publishCircuitCheck = async (get, url, headers) => {
     return Array.isArray(body) ? body.length : 0
   }
   if (await count('limit=1') === 0) return null
-  return await count('build_status=eq.success&job_id=not.is.null&job_id=not.like.mock-*&limit=1') > 0
-    ? { level: 'ok', text: 'The site confirmed a publish' }
-    : { level: 'warn', text: 'No publish has been confirmed by the site yet: the successes in the log are simulated or unconfirmed. Check the circuit with linkchar-cms publish:ping' }
+  if (await count('build_status=eq.success&job_id=not.is.null&job_id=not.like.mock-*&limit=1') > 0) return { level: 'ok', text: 'The site confirmed a publish' }
+  const body = await (await get(`${url}/rest/v1/publish_log?select=id,build_status,job_id,app_id,branch,region&order=requested_at.desc&limit=1`, { headers })).json().catch(() => null)
+  const latest = Array.isArray(body) ? body[0] : null
+  const where = latest ? consoleUrlOf(latest) : null
+  return { level: 'warn', text: `No publish has been confirmed by the site yet: the successes in the log are simulated or unconfirmed. amplify.yml must run linkchar-cms build:report (checked below); verify the circuit with linkchar-cms publish:ping${where ? `. The latest build: ${where}` : ''}` }
 }
 
 /**
@@ -224,8 +242,12 @@ export const environmentChecks = async ({ root, supabaseDir, env, envFile = '.en
   const postcssConfig = POSTCSS_CONFIGS.map(name => join(root, name)).find(path => existsSync(path))
   if (postcssConfig) checks.push(postcssCheck(await readFile(postcssConfig, 'utf8')))
   const amplifyConfig = join(root, 'amplify.yml')
-  const amplifyCache = existsSync(amplifyConfig) ? amplifyCacheCheck(await readFile(amplifyConfig, 'utf8')) : null
-  if (amplifyCache) checks.push(amplifyCache)
+  if (existsSync(amplifyConfig)) {
+    const amplify = await readFile(amplifyConfig, 'utf8')
+    const amplifyCache = amplifyCacheCheck(amplify)
+    if (amplifyCache) checks.push(amplifyCache)
+    checks.push(amplifyReportCheck(amplify))
+  }
 
   const configToml = join(supabaseDir, 'config.toml')
   if (process.platform === 'win32' && existsSync(configToml)) {
