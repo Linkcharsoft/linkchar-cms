@@ -34,7 +34,7 @@ const USAGE = `Usage:
   init writes the files a project owns (cms.config.ts, src/cms, the panel and site layouts) where none exist,
   then runs templates, routes and migrations sync, and lists what is left to wire by hand.
   admin makes the first superadmin with SUPABASE_SECRET_KEY: created with --password, else invited by email.
-  doctor checks routes, the panel icon, migrations, templates, variables, Supabase, the package registry and the ports.
+  doctor checks routes, the panel icon, migrations (files and applied), templates, variables, Supabase, the publish circuit, the package registry and the ports.
   import runs the script's default export with a session signed in as --email (password in CMS_IMPORT_PASSWORD):
   cms.media(), cms.upsert() and cms.publish(); --no-publish makes cms.publish() report without publishing.`
 

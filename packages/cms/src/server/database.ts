@@ -510,6 +510,7 @@ export type Database = {
           name: string;
         }[];
       };
+      cms_migrations: { Args: Record<PropertyKey, never>; Returns: string[] };
       document_usage: {
         Args: { ids: string[] };
         Returns: {
