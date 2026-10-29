@@ -73,7 +73,10 @@ A project runs on two services: **Supabase** (database, auth, storage) and **Amp
        - echo "//npm.pkg.github.com/:_authToken=${GITHUB_PACKAGES_TOKEN}" >> ~/.npmrc
        - pnpm install --frozen-lockfile
        - env | grep -E "^(SUPABASE_SECRET_KEY|CMS_BUILD_HOOK_URL|CMS_BUILD_WEBHOOK_SECRET)=" >> .env.production || true
+       - rm -rf .next/cache/fetch-cache
    ```
+
+   Amplify restores `.next/cache` before each build and Next keeps the site's reads there (`fetch-cache`, for a year). The package stamps every build, so a build never serves the content of the previous one, but the folder grows with every build: the last `preBuild` line drops it, and `doctor` warns while `amplify.yml` keeps `.next/cache` without that line.
 
 4. The build hook and the EventBridge rule that reports each build to the panel: [Amplify setup](../packages/cms/README.md#amplify-setup).
 
