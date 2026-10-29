@@ -1,12 +1,9 @@
 import { panelPaths } from './paths'
 import { headerPublishStatus } from './publish'
 import type { CmsConfigType } from './config'
-import type { BuildStatusType } from './publish'
+import type { PublishTimingType } from './publish'
 
-export interface AlertPublishType {
-  buildStatus: BuildStatusType
-  requestedAt: string
-}
+export type AlertPublishType = PublishTimingType
 
 export interface AlertChangeType {
   title: string
@@ -47,8 +44,8 @@ export const overviewAlerts = (
   now = Date.now(),
   staleDrafts: AlertDraftType[] = []
 ): OverviewAlertType[] => {
-  const publish = latest ? headerPublishStatus(latest.buildStatus, latest.requestedAt, now) : null
-  const publishAlerts: OverviewAlertType[] = publish && publish.status !== 'building'
+  const publish = latest ? headerPublishStatus(latest, now) : null
+  const publishAlerts: OverviewAlertType[] = publish && (publish.status === 'failed' || publish.status === 'unconfirmed')
     ? [{ code: 'publish', status: publish.status, tone: publish.status === 'failed' ? 'error' : 'warning', href: panelPaths(config).publish }]
     : []
 

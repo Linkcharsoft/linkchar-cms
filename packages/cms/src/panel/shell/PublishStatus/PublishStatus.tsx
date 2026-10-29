@@ -12,6 +12,7 @@ import type { PendingCountsType, PublishRecordType } from '../../../server/publi
 
 export const PUBLISH_SEVERITIES: Record<PublishDisplayStatusType, 'info' | 'success' | 'warning' | 'danger'> = {
   building: 'info',
+  deploying: 'info',
   success: 'success',
   failed: 'danger',
   unconfirmed: 'warning'
@@ -41,7 +42,7 @@ const PublishStatus = ({ latest: initialLatest, counts: initialCounts }: Props) 
     ? polled.snapshot
     : { latest: initialLatest, counts: initialCounts }
 
-  const shown = latest ? headerPublishStatus(latest.buildStatus, latest.requestedAt) : null
+  const shown = latest ? headerPublishStatus(latest) : null
   const status = shown?.status ?? null
   const onlyIncomplete = counts.ready === 0 && counts.incomplete > 0
 

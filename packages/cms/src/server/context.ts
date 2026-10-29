@@ -26,6 +26,8 @@ export interface CmsContextType {
   revalidate: (path: string, type?: 'page' | 'layout') => void
   now: () => Date
   logger: CmsLoggerType
+  // Reaches the site (its build stamp); the global fetch unless a test replaces it.
+  fetch?: typeof fetch
 }
 
 // Thrown by the server layer to send the user elsewhere (sign-in, the new document); the Next binding redirects.

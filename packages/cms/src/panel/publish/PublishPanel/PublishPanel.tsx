@@ -133,11 +133,18 @@ const ConfirmList = ({ items, title }: { items: PendingChangeType[], title: stri
   )
 }
 
-const HistoryItem = ({ record, onRetry }: { record: PublishRecordType, onRetry?: () => Promise<void> }) => {
+interface HistoryItemProps {
+  record: PublishRecordType
+  // The Amplify console link is for whoever publishes: editors have nothing to do there.
+  showConsole: boolean
+  onRetry?: () => Promise<void>
+}
+
+const HistoryItem = ({ record, showConsole, onRetry }: HistoryItemProps) => {
   const { t } = useT()
   const [retrying, setRetrying] = useState(false)
   const formatDate = useFormatDate()
-  const displayed = publishDisplayStatus(record.buildStatus, record.requestedAt)
+  const displayed = publishDisplayStatus(record)
   const minutes = publishMinutes(record.requestedAt)
   const statusLabel = displayed !== 'building' ? t(`publishStatus.${displayed}`) : minutes < 1 ? t('publishStatus.buildingStarted') : t('publishStatus.buildingFor', { minutes })
 
@@ -175,6 +182,14 @@ const HistoryItem = ({ record, onRetry }: { record: PublishRecordType, onRetry?:
       )}
       {record.errorCode && <p className='PublishPanel__Note'>{t('publishPanel.errorReason', { reason: t(`errors.build.${record.errorCode}`) })}</p>}
       {record.errorDetail && <p className='PublishPanel__Note'>{t('publishPanel.errorDetail', { detail: record.errorDetail })}</p>}
+      {showConsole && record.consoleUrl && (
+        <p className='PublishPanel__Note'>
+          <a href={record.consoleUrl} target='_blank' rel='noreferrer' className='PublishPanel__SectionLink'>
+            {t('publishPanel.console')}
+            <i className='pi pi-external-link' aria-hidden='true' />
+          </a>
+        </p>
+      )}
       {onRetry && (
         <CustomButton
           type='button'
@@ -216,7 +231,8 @@ const PublishPanel = ({ changes, history, canPublish, circuit, highlight, activi
   const selected = new Set(changes.filter(change => takeable(change) && !excluded.has(change.id)).map(change => change.id))
   const selectedReady = ready.filter(change => selected.has(change.id))
   const selectedRemovals = removals.filter(change => selected.has(change.id))
-  const building = history[0] && publishDisplayStatus(history[0].buildStatus, history[0].requestedAt) === 'building'
+  const latestDisplayed = history[0] ? publishDisplayStatus(history[0]) : null
+  const building = latestDisplayed === 'building' || latestDisplayed === 'deploying'
   const buildingMinutes = history[0] ? publishMinutes(history[0].requestedAt) : 0
 
   useEffect(() => {
@@ -364,12 +380,13 @@ const PublishPanel = ({ changes, history, canPublish, circuit, highlight, activi
           : (
             <ul className='PublishPanel__List'>
               {history.map((record, index) => {
-                const displayed = publishDisplayStatus(record.buildStatus, record.requestedAt)
+                const displayed = publishDisplayStatus(record)
                 const retryable = (displayed === 'failed' && record.errorCode !== 'target_missing') || displayed === 'unconfirmed'
                 return (
                   <HistoryItem
                     key={record.id}
                     record={record}
+                    showConsole={canPublish}
                     onRetry={index === 0 && canPublish && retryable ? () => retry(record.id) : undefined}
                   />
                 )

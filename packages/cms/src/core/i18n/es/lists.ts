@@ -91,6 +91,7 @@ const lists = {
     retry: 'Reintentar',
     retryOf: 'Reintento',
     simulated: 'Simulada',
+    console: 'Ver el build en Amplify',
     circuitUnconfirmed: 'Ninguna publicación fue confirmada por el sitio todavía: las que figuran como listas no construyeron ningún sitio. Verificá el circuito con linkchar-cms publish:ping.',
     retrying: 'Reintentando la actualización del sitio',
     retryFailed: 'No se pudo reintentar',
