@@ -1,5 +1,58 @@
 # @linkcharsoft/cms
 
+## 0.13.0
+
+### Minor Changes
+
+- f26492b: The invitation and recovery emails land on a page with a button instead of a route handler that spent the token on arrival: mail scanners open links before people do, and the token was gone by the time they pressed it. The page explains what the link does, "Continuar" verifies the token (the new `confirmLink` action) and goes on to the invitation or new-password form; a spent or broken link is explained on the same page. `linkchar-cms routes` replaces `auth/confirm/route.ts` with `(auth)/auth/confirm/page.tsx` and adds the action; the handler `cms.handlers.authConfirm` keeps working for a project that has not regenerated its routes.
+  
+  To update a project: run `linkchar-cms routes` (and commit the generated files); the email templates do not change.
+- e28db2c: `doctor` checks the migrations a database has applied, not only the files of the project. A migration adds `cms_migrations()`, a function only the secret key may call that lists `supabase_migrations.schema_migrations`; `doctor` calls it through PostgREST, local or hosted (`--env-file`), compares the result with the migrations of the package and of the project's `supabase/migrations`, and fails naming the versions the database lacks with the command that applies them. A database without the function gets a warning that says which migration adds it.
+  
+  To update a project: `linkchar-cms migrations sync`, then `supabase migration up` locally and `supabase db push` on the hosted project.
+- 4023c41: An import finds a collection document after editors renamed its slug. `upsert(entry, { data, match: { key } })` stores the script's `key` with the document (in `documents.key`, the column singletons use) and looks it up by that key before the slug; a document found by slug adopts the key the script passes. The result gains `matchedBy` (`'id' | 'key' | 'slug'`, null when created). The CLI ends with what it updated and created, and warns about every document created in a collection that already had documents, naming what it looked for (`givxo (slug not found)`); `--no-create` (`create: false` in `createImportSession`) makes `upsert` throw instead of creating. Before, a seed whose slug an editor had shortened in the panel created a second, visible document and nothing said so.
+  
+  To update a project: add `match: { key: '…' }` to every `upsert` of a collection document in the import script (the next run adopts the keys), and check the run's closing lines for unexpected creations.
+- 0ae3546: `linkchar-cms import … --password-stdin` reads the password from the first line of stdin, so it stays out of the shell history and CI logs; `CMS_IMPORT_PASSWORD` and `--password` keep working.
+  
+  To update a project: nothing.
+- aeea2b2: `createImportSession().transform({ entry, map, dryRun })` rewrites every document of an entry through the same validation and save as an import (RLS, activity log, conflicts): `map(data, { id, slug })` returns the data to save or `null` to leave the document alone, and the report lists `changed`, `unchanged` and the `invalid` documents, which keep their stored data. It is the way to move stored values when a field changes kind (a `select` that becomes `color()`); the README has the recipe under "Changing a field's kind".
+  
+  To update a project: nothing.
+- 22380c2: `createImportSession().media()` takes mp4 and webm files: they go up as they are, within 25 MB, with their duration and size read from the file, and an mp4 that is not faststart is refused with the ffmpeg flag that fixes it. `poster` takes the id of an image already imported, so the video arrives ready to publish.
+  
+  To update a project: nothing.
+- 193eeb8: The publish history tells a simulated build apart, and whoever publishes learns when the site never confirmed a build. A publish reported by the mock build (its `job_id` starts with `mock-`) carries a "Simulada" tag and `PublishRecordType.simulated`. `cms.queries.getPublishCircuit()` reads the log as `unused`, `unconfirmed` (publishes exist, but no success came from a real build) or `confirmed`; the publish page shows a warning to users who can publish while it is `unconfirmed`, and `doctor` warns with the same meaning, both pointing at `linkchar-cms publish:ping`.
+  
+  To update a project: nothing.
+- 4130b81: `linkchar-cms publish:ping [--timeout 20] [--env-file .env.local]` verifies the publish circuit end to end without the AWS console: it logs an empty publish with the secret key, fires `CMS_BUILD_HOOK_URL` as "Publicar" does, and waits for the site's webhook to report the build back, printing each status change and exiting with 0 only when the site confirmed it. A hook that answers but never reports points at the EventBridge rule, the API destination or `CMS_BUILD_WEBHOOK_SECRET`; a refused hook points at the hook URL. It refuses while a publish is still building, costs one Amplify build and takes the 30-minute publish lock like any publish.
+  
+  To update a project: run it once against the hosted project (`--env-file .env.remote`) after the Amplify setup; nothing else.
+- 2842790: The simulated build runs only against a local Supabase. `publishTargetFromEnv(env)` from `@linkcharsoft/cms/publish` picks the project's publish target the way the import CLI already did: Amplify when `CMS_BUILD_HOOK_URL` is set, `mockBuild()` when `NEXT_PUBLIC_SUPABASE_URL` is `127.0.0.1` or `localhost`, and none otherwise, so a hosted project without a hook records `target_missing` instead of a "Publicado" nobody built. The server adds the same guard for a project that wires the targets itself: a local-only target (the mock) against a hosted project counts as no target and the logger says why once, unless it was made with `mockBuild({ allowRemote: true })`. The starter `server.ts` and the README use the helper; `@linkcharsoft/cms/publish` also exports `amplify`, `mockBuild`, `isLocalSupabaseUrl` and the target types.
+  
+  To update a project: in `src/cms/server.ts`, replace the `CMS_BUILD_HOOK_URL ? amplify(…) : mockBuild()` ternary with `publishTarget: publishTargetFromEnv(env)` (keep `mock: { result, seconds }` options if the project passed them).
+- c9b219b: A `select` shown as cards takes CSS grid lines in its mosaic previews: a cell's `column` and `row` accept what `grid-column` and `grid-row` take (`'1 / 4'`, `'2 / span 2'`) besides a line number with `columnSpan` and `rowSpan`. `defineCmsConfig` still rejects a cell outside its grid and now names a line it can't read. `gridLines` and `gridPlacement` are exported from the core for project inputs.
+  
+  To update a project: nothing.
+- d1f78ba: Videos join Media, within the Supabase Free plan. `videoFile({ label: 'Video', folder: 'proyectos' })` is a built-in field kind that stores a video of the library like `file` stores a PDF. The uploader takes mp4 and webm up to 25 MB (the bucket now allows the 50 MB the Free plan does per file; images and PDFs keep their 10 MB), reads their size and duration in the browser, and turns away an mp4 that is not faststart, with the ffmpeg flag that fixes it, because the browser would download the whole file before showing a frame. The library filters by "Videos" and shows each video by its poster with its duration; the details play the file, say what a thousand full plays cost in egress, and let the editor pick the poster from the images of Media or capture a frame, which becomes an image of the library in the video's folder. A video without a poster is missing content ("Portada del video de …"), so publishing waits for it, and the poster of a live video can't go to the trash (the panel names the video, the database refuses it too). The migration adds `duration` and `poster_id` to `media` and the video mime types to the bucket. On the site, a `videoFile` field resolves to a `SiteVideoType` with its `poster` as a `SiteImageType`, and `<Video video={clip} />` from `@linkcharsoft/cms/site` renders a `<video>` with `preload="metadata"`, `playsInline`, controls and the poster through the image optimizer; `autoplay` plays it muted and looping. `core` exports `videoFile`, `VideoFileField`, `VIDEO_MIME_TYPES`, `MAX_VIDEO_BYTES`, `isVideoMime`, `mediaTypeOf`, `formatDuration`, `egressGigabytes` and `readMp4Head`; `MediaItemType` gains `duration`, `posterId` and `posterUrl`, `MediaUsageType` a `kind` (`document` or `poster`), `updateMedia` takes `posterId` and `MissingItemType.kind` can be `poster`. Media is for the videos editors rotate; a site's own hero loop stays in `public/`, since Storage serves a video whole on every play.
+  
+  To update a project: `linkchar-cms migrations sync` and `supabase db push`; then use `videoFile()` where the schema needs it and render it with `<Video>`.
+
+### Patch Changes
+
+- 57efe8c: `withCms` and `doctor` also look for the product icon under `public/seo/` (after `public/`): `icon.svg`, `favicon.svg`, the largest favicon PNG, then `favicon.ico`.
+  
+  To update a project: nothing.
+- 74c567b: The page outline of the editor sits 16 px under the sticky editor bar instead of behind its bottom row, on desktop and in its tablet form, whatever the bar's height (a long title, wrapped actions): the editor measures the bar and the outline, the preview pane and the section anchors follow it.
+  
+  To update a project: nothing.
+- f4c6578: The panel applies PrimeReact's language before its first render in the browser, so a dropdown with a clear icon no longer logs a hydration mismatch ("Limpiar" on the server, "Clear" on the client) in development.
+  
+  To update a project: nothing.
+- 1df7453: A guide counts only the steps it shows: a step whose anchor is not on the screen (the sidebar on a phone, a section without tabs) no longer leaves a hole in "2 de 7" nor inflates the total.
+  
+  To update a project: nothing.
+
 ## 0.12.1
 
 ### Patch Changes
