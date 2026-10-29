@@ -9,6 +9,7 @@ import { authChecks, environmentChecks } from './doctor.js'
 import { importSettings, runImport } from './import.js'
 import { initProject, nextSteps, normalizeBasePath } from './init.js'
 import { CliError, isUpToDate, syncMigrations } from './migrations.js'
+import { amplifyTrigger, describePing, pingSettings, runPing } from './publish.js'
 import { checkProxy, loadConfig, syncRoutes } from './routes.js'
 import { syncTemplates, translatorOf } from './templates.js'
 
@@ -25,6 +26,7 @@ const USAGE = `Usage:
   linkchar-cms admin --email ana@acme.com [--password …] [--name "Ana"] [--env-file .env.local]
   linkchar-cms doctor [--config cms.config.ts] [--src src] [--dir supabase] [--env-file .env.local]
   linkchar-cms import <script.ts> --email ana@acme.com [--otp 123456] [--no-publish] [--config cms.config.ts] [--env-file .env.local]
+  linkchar-cms publish:ping [--timeout 20] [--env-file .env.local]
 
   --dir     The project's Supabase folder (default: ./supabase)
   --config  The project's CMS config (default: ./cms.config.ts)
@@ -36,7 +38,9 @@ const USAGE = `Usage:
   admin makes the first superadmin with SUPABASE_SECRET_KEY: created with --password, else invited by email.
   doctor checks routes, the panel icon, migrations (files and applied), templates, variables, Supabase, the publish circuit, the package registry and the ports.
   import runs the script's default export with a session signed in as --email (password in CMS_IMPORT_PASSWORD):
-  cms.media(), cms.upsert() and cms.publish(); --no-publish makes cms.publish() report without publishing.`
+  cms.media(), cms.upsert() and cms.publish(); --no-publish makes cms.publish() report without publishing.
+  publish:ping verifies the publish circuit end to end: it logs an empty publish, fires CMS_BUILD_HOOK_URL and waits
+  (--timeout minutes) for the site to report the build back. It costs one Amplify build and takes the 30-minute lock.`
 
 /** @type {Record<SyncChangeType['status'] | RouteChangeType['status'] | TemplateChangeType['status'], string>} */
 const SYMBOLS = { added: '+', updated: '~', removed: '-', differs: '!', stale: '!', same: '=', kept: '=' }
@@ -209,6 +213,17 @@ const importContent = async (script, { config, email, password, otp, publish, 'e
   return 0
 }
 
+/** @param {{ timeout: string, 'env-file': string }} options */
+const publishPing = async ({ timeout, 'env-file': envFile }) => {
+  const settings = pingSettings({ ...(await readEnvFile(resolve(envFile))), ...process.env })
+  const minutes = Number(timeout)
+  if (!Number.isFinite(minutes) || minutes <= 0) throw new CliError('--timeout takes the minutes to wait for the site, e.g. --timeout 20.')
+  console.log(`Verifying the publish circuit of ${settings.url} through ${settings.hookUrl} (up to ${minutes} min)…`)
+  const result = await runPing({ settings, trigger: await amplifyTrigger(settings), timeoutMs: minutes * 60_000 })
+  console.log(describePing(result))
+  return result.ok ? 0 : 1
+}
+
 const main = async () => {
   const { positionals, values } = parseArgs({
     allowPositionals: true,
@@ -224,6 +239,7 @@ const main = async () => {
       otp: { type: 'string' },
       publish: { type: 'boolean', default: true },
       'env-file': { type: 'string', default: '.env.local' },
+      timeout: { type: 'string', default: '20' },
       'base-path': { type: 'string', default: '/dashboard' },
       locales: { type: 'string', default: 'es' },
       'panel-locale': { type: 'string', default: 'es' },
@@ -237,6 +253,7 @@ const main = async () => {
   if (command === 'admin') return admin(values)
   if (command === 'doctor') return doctor(values)
   if (positionals[0] === 'import') return importContent(positionals[1], values)
+  if (command === 'publish:ping') return publishPing(values)
   if (command === 'migrations sync') return migrations(values)
   if (command === 'routes') return routes(values)
   if (command === 'templates') return templates(values)
