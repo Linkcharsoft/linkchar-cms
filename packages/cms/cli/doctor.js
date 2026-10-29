@@ -3,6 +3,7 @@ import { existsSync } from 'node:fs'
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { promisify } from 'node:util'
+import { isLocalSupabaseUrl } from './local.js'
 import { migrationVersions, PACKAGE_SUPABASE } from './migrations.js'
 
 /**
@@ -204,7 +205,7 @@ export const environmentChecks = async ({ root, supabaseDir, env, envFile = '.en
         checks.push((await admins.json()).length > 0
           ? { level: 'ok', text: 'There is a superadmin' }
           : { level: 'fail', text: 'No superadmin yet: linkchar-cms admin --email …' })
-        const circuit = await publishCircuitCheck(get, url, headers)
+        const circuit = isLocalSupabaseUrl(url) ? null : await publishCircuitCheck(get, url, headers)
         if (circuit) checks.push(circuit)
         const expected = [...new Set([...await migrationVersions(join(PACKAGE_SUPABASE, 'migrations')), ...await migrationVersions(join(supabaseDir, 'migrations'))])].sort()
         checks.push(await appliedMigrationsCheck(get, url, headers, expected))

@@ -1,5 +1,6 @@
 import { existsSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
+import { isLocalSupabaseUrl } from './local.js'
 import { CliError } from './migrations.js'
 import { tsconfigAliases } from './routes.js'
 
@@ -12,8 +13,6 @@ import { tsconfigAliases } from './routes.js'
  *   build: { kind: 'amplify', hookUrl: string, webhookSecret?: string } | { kind: 'mock' } | { kind: 'none' }
  * }} ImportSettingsType
  */
-
-const LOCAL = /^https?:\/\/(127\.0\.0\.1|localhost)(:\d+)?$/
 
 /**
  * Who imports and where, from the flags and the environment; the build follows the project's server.ts.
@@ -36,7 +35,7 @@ export const importSettings = (env, { email, password, otp }) => {
   // A hosted project without a hook gets no build: the publish log says so instead of a mock success.
   const build = env.CMS_BUILD_HOOK_URL
     ? /** @type {const} */ ({ kind: 'amplify', hookUrl: env.CMS_BUILD_HOOK_URL, webhookSecret: env.CMS_BUILD_WEBHOOK_SECRET })
-    : LOCAL.test(url) ? /** @type {const} */ ({ kind: 'mock' }) : /** @type {const} */ ({ kind: 'none' })
+    : isLocalSupabaseUrl(url) ? /** @type {const} */ ({ kind: 'mock' }) : /** @type {const} */ ({ kind: 'none' })
 
   return { email: user, password: secret, otp, supabase: { url, publishableKey, secretKey }, build }
 }

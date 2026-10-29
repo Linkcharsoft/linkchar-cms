@@ -125,12 +125,16 @@ describe('environmentChecks', () => {
     expect((await levels({}, { 'amplify.yml': drops })).filter(check => check.level !== 'ok')).toEqual([])
   })
 
-  it('warns while no real build confirmed a publish', async () => {
-    const texts = async (publishes: { any: boolean, confirmed: boolean }) => (await levels({ fetch: answer([{ id: 'u1' }], {}, publishes) })).filter(check => check.level !== 'ok').map(check => check.text)
+  it('warns while no real build confirmed a publish, on a hosted project only', async () => {
+    const hosted = { ...env, NEXT_PUBLIC_SUPABASE_URL: 'https://abc.supabase.co' }
+    const texts = async (publishes: { any: boolean, confirmed: boolean }, overrides = { env: hosted }) => (await levels({ ...overrides, fetch: answer([{ id: 'u1' }], {}, publishes) })).filter(check => check.level !== 'ok').map(check => check.text)
     expect(await texts({ any: false, confirmed: false })).toEqual([])
     expect(await texts({ any: true, confirmed: false })).toEqual([expect.stringContaining('linkchar-cms publish:ping')])
     expect(await texts({ any: true, confirmed: true })).toEqual([])
-    expect((await levels({ fetch: answer([{ id: 'u1' }], {}, { any: true, confirmed: true }) })).map(check => check.text)).toContain('The site confirmed a publish')
+    expect((await levels({ env: hosted, fetch: answer([{ id: 'u1' }], {}, { any: true, confirmed: true }) })).map(check => check.text)).toContain('The site confirmed a publish')
+    const local = (await levels({ fetch: answer([{ id: 'u1' }], {}, { any: true, confirmed: false }) })).map(check => check.text)
+    expect(local).not.toContainEqual(expect.stringContaining('publish:ping'))
+    expect(local).not.toContain('The site confirmed a publish')
     const urls: string[] = []
     const query = (async (url: string) => { urls.push(url); return Response.json([{ id: 7 }]) }) as unknown as typeof fetch
     await publishCircuitCheck(query, 'http://db', { apikey: 'sk' })
