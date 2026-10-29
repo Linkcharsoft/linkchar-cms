@@ -137,6 +137,20 @@ describe('an import session', () => {
     }
   })
 
+  it('transforms the documents of an entry through the same validation and save as an import', async () => {
+    const mine = (slug: string | null) => slug?.startsWith(`imp-${stamp}`) ?? false
+    const title = (data: Record<string, unknown>) => data.title as Record<string, string>
+    const dry = await session.transform({ entry: 'posts', dryRun: true, map: (data, { slug }) => (mine(slug) ? { ...data, title: { ...title(data), es: `${title(data).es} (dry)` } } : null) })
+    expect(dry.changed).toBeGreaterThanOrEqual(2)
+    expect((await admin.from('documents').select('data').eq('id', documents[0]).single()).data?.data).not.toMatchObject({ title: { es: expect.stringContaining('(dry)') } })
+
+    const report = await session.transform({ entry: 'posts', map: (data, { slug }) => (mine(slug) ? { ...data, title: { ...title(data), es: slug === `imp-${stamp}-adopt` ? 'x'.repeat(130) : `${title(data).es} (t)` } } : null) })
+    expect(report.changed).toBe(dry.changed - 1)
+    expect(report.unchanged).toBeGreaterThan(0)
+    expect(report.invalid).toEqual([expect.objectContaining({ title: `Adopta ${stamp}`, problems: [expect.stringContaining('title.es')] })])
+    expect((await admin.from('documents').select('data').eq('id', documents[0]).single()).data?.data).toMatchObject({ title: { es: `Casa nueva ${stamp} (t)` } })
+  })
+
   it('refuses entries the schema does not have and documents it cannot find again', async () => {
     await expect(session.upsert('nope', { data: {} })).rejects.toThrow('"nope" is not an entry')
     await expect(session.upsert('posts', { data: { title: { es: 'Sin slug' } } })).rejects.toThrow('match.slug')

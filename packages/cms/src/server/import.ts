@@ -2,9 +2,9 @@ import { createHash } from 'node:crypto'
 import { readFile } from 'node:fs/promises'
 import { basename, extname, resolve } from 'node:path'
 import { createClient } from '@supabase/supabase-js'
-import { translatorFor } from '../core/config'
+import { textContext, translatorFor } from '../core/config'
 import { withDefaults, withItemKeys } from '../core/defaults'
-import { getEntry } from '../core/entries'
+import { documentTitle, getEntry } from '../core/entries'
 import { consoleLogger } from '../core/logger'
 import { buildMediaPath, isImageMime, MAX_IMAGE_DIMENSION, MEDIA_BUCKET } from '../core/media'
 import { validateContent } from '../core/validation'
@@ -88,6 +88,28 @@ export interface ImportCreatedType {
 export interface ImportSummaryType {
   created: ImportCreatedType[]
   updated: number
+}
+
+export interface ImportTransformInputType {
+  entry: string
+  // The stored data of each document (defaults filled in) to the data to save; null keeps it as it is.
+  map: (data: DataRecord, document: { id: string, slug: string | null }) => DataRecord | null | undefined | Promise<DataRecord | null | undefined>
+  // true: nothing is saved; the report says what would change.
+  dryRun?: boolean
+}
+
+export interface ImportTransformReportType {
+  changed: number
+  unchanged: number
+  // Documents whose mapped data is invalid: left as they were.
+  invalid: { id: string, title: string, problems: string[] }[]
+}
+
+export interface ImportPublishReportType {
+  published: number
+  // Documents of this import still missing content: they stay out until someone fills it in.
+  skipped: { id: string, title: string, problems: string[] }[]
+  buildStatus: BuildStatusType | null
 }
 
 const MIME_TYPES: Record<string, string> = {
@@ -296,6 +318,44 @@ export const createImportSession = async (options: ImportSessionOptionsType) => 
     return { id: saved.id, created: !found, matchedBy: found ? matchedBy : null, adjusted: saved.adjusted ?? [] }
   }
 
+  // Rewrites every document of an entry (a field whose kind changed), validated and saved like an upsert.
+  const transform = async ({ entry: entryId, map, dryRun = false }: ImportTransformInputType): Promise<ImportTransformReportType> => {
+    const entry = getEntry(config, entryId)
+    if (!entry) throw new CmsImportError(`"${entryId}" is not an entry of the schema`)
+    const query = db.from('documents').select('id, slug, data').eq('type', entryId).is('deleted_at', null)
+    const { data: rows, error } = await (entry.kind === 'collection' ? query.order('sort_order') : query.eq('key', entryId))
+    if (error) throw new CmsImportError(`${entryId}: the documents could not be read: ${error.message}`)
+
+    const report: ImportTransformReportType = { changed: 0, unchanged: 0, invalid: [] }
+    const title = (data: unknown) => (entry.kind === 'collection' ? documentTitle(entry, data, textContext(config)) : entryId)
+    for (const row of rows ?? []) {
+      const current = withDefaults(config, entry.fields, row.data) as DataRecord
+      const next = await map(structuredClone(current), { id: row.id, slug: row.slug })
+      const patch = Object.fromEntries(Object.entries(next ?? {}).filter(([key, value]) => JSON.stringify(value) !== JSON.stringify(current[key])))
+      if (Object.keys(patch).length === 0) {
+        report.unchanged++
+        continue
+      }
+      const { errors } = await validateContent(config, entry.fields, { ...current, ...patch }, { mode: 'draft' })
+      if (errors) {
+        report.invalid.push({ id: row.id, title: title(row.data), problems: problems(errors) })
+        continue
+      }
+      if (!dryRun) {
+        const saved = await saveDocument(ctx, { entryId, id: row.id, patch, base: current })
+        if (saved.status === 'invalid') {
+          report.invalid.push({ id: row.id, title: title(row.data), problems: problems(saved.errors) })
+          continue
+        }
+        if (saved.status === 'conflict') throw new CmsImportError(`${entryId}: someone saved ${saved.keys.join(', ')} while transforming`)
+        if (saved.status === 'error') throw failed(entryId, saved.error)
+        touched.add(saved.id)
+      }
+      report.changed++
+    }
+    return report
+  }
+
   const summary = (): ImportSummaryType => ({ created: [...creations], updated })
 
   // One publish (and one build) for everything this import touched that has no missing content.
@@ -310,7 +370,7 @@ export const createImportSession = async (options: ImportSessionOptionsType) => 
     return { published: result.published, skipped, buildStatus: result.buildStatus }
   }
 
-  return { ctx, media, upsert, publish, summary, signOut: () => db.auth.signOut() }
+  return { ctx, media, upsert, transform, publish, summary, signOut: () => db.auth.signOut() }
 }
 
 export type ImportSessionType = Awaited<ReturnType<typeof createImportSession>>

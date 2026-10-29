@@ -36,7 +36,7 @@ const USAGE = `Usage:
   admin makes the first superadmin with SUPABASE_SECRET_KEY: created with --password, else invited by email.
   doctor checks routes, the panel icon, migrations, templates, variables, Supabase, the package registry and the ports.
   import runs the script's default export with a session signed in as --email (password in CMS_IMPORT_PASSWORD):
-  cms.media(), cms.upsert() and cms.publish(); --no-publish makes cms.publish() report without
+  cms.media(), cms.upsert(), cms.transform() and cms.publish(); --no-publish makes cms.publish() report without
   publishing, --no-create makes cms.upsert() fail instead of creating a document.`
 
 /** @type {Record<SyncChangeType['status'] | RouteChangeType['status'] | TemplateChangeType['status'], string>} */

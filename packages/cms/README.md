@@ -653,11 +653,33 @@ The run ends with what it updated and created; a document created in a collectio
 
 - `media({ file, folder, alt, caption })` processes an image like the panel's uploader (upright, without metadata, within 2560 px, WebP, blur preview) and needs `sharp` (`pnpm add -D sharp`); PDFs go as they are. The same bytes give back the file already in the library, so the script can run again.
 - `upsert(entry, { data, match })` writes `data` in its stored shape (localized maps, media ids) and returns `{ id, created, matchedBy, adjusted }`. A page or singleton is the one of its entry. A collection document is found again by `match: { key }`, a key of the script's own that is stored with the document and survives whatever editors do to the slug or the title (`matchedBy: 'key'`); without one, by its slug in the default locale (or `match: { id }`, `match: { slug }`). Give every collection document a `key` from the first import: a document found by slug adopts the `key` the script passes, and one created with a `key` keeps it. The script's `data` replaces the stored one, slug included, so a slug an editor shortened goes back to the seed's unless the seed follows. When nothing matches, a new document goes visible at the end of the list, so the script's order is the order of an orderable collection; with `--no-create` (`create: false` in `createImportSession`) it throws instead, which is the safe mode for a seed that only updates. List and block items need no `_key`: one missing takes the key of the stored item in the same place (a new one the first time), so running the import again leaves the content as it was. A `_key` the script sets is kept; it must be unique within its list. A new collection document is validated before it is created, so invalid data throws and leaves nothing behind; if the save fails after that (the network, the database), the empty draft it leaves goes when someone opens that collection in the panel a day later.
+- `transform({ entry, map, dryRun })` rewrites every document of an entry: `map(data, { id, slug })` gets the stored data with defaults filled in and returns the data to save, or `null` to leave that document alone; each result is validated and saved like an upsert (RLS, activity, conflicts), and `{ changed, unchanged, invalid }` lists the documents whose mapped data is invalid, which stay as they were. `dryRun: true` saves nothing. See [Changing a field's kind](#changing-a-fields-kind).
 - `summary()` is what the CLI prints at the end: `{ created: [{ entry, id, lookup, existing }], updated }`.
 - `publish()` publishes what the import touched, in one publish and one build, and lists in `skipped` the documents still missing content, which stay out as in Publicar. `--no-publish` makes it report without publishing.
 - The environment (or `--env-file`, `.env.local` by default) needs `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` and `SUPABASE_SECRET_KEY` (it only updates the publish log). `CMS_BUILD_HOOK_URL` triggers the Amplify build, a local Supabase runs the mock one, and a hosted project without a hook gets no build: retry it from Publicar. A user with two-step verification passes the current code with `--otp`.
 - The script runs outside Next, loaded with jiti and the `tsconfig` paths: it can't import `server-only` modules (`src/cms/server.ts`) or files only Next understands (static images, CSS).
 - `createImportSession(options)` from `@linkcharsoft/cms/import` is the same session for a runner of the project's own.
+
+### Changing a field's kind
+
+Stored values do not change when the schema does. A `select` that becomes `color()` leaves every document invalid (the old option name is not a hex color), and the panel shows the error on each one. A transform in the import script moves the values once, with the same validation the panel applies:
+
+```ts
+// scripts/import-content.ts
+import type { ImportSessionType } from '@linkcharsoft/cms/import'
+
+const COLORS: Record<string, string> = { blue: '#1f5fa8', ink: '#0e0e13' }
+
+export default async (cms: ImportSessionType) => {
+  const { changed, invalid } = await cms.transform({
+    entry: 'projects',
+    map: data => (typeof data.accent === 'string' && data.accent in COLORS ? { ...data, accent: COLORS[data.accent] } : null)
+  })
+  console.log(`${changed} projects moved to hex colors`, invalid)
+}
+```
+
+Run it with `--no-publish` first and read `invalid`: those documents keep their old value until the map covers them. Publish when the list is empty.
 
 ## Upgrade
 
