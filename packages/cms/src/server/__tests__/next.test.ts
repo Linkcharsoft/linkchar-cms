@@ -10,7 +10,12 @@ import { createCmsServer } from '../next'
 import { createFakeDb, fakeClient, signIn } from './fakeSupabase'
 import type { FakeDbType } from './fakeSupabase'
 
-const state = vi.hoisted(() => ({ db: null as unknown, draft: false, redirect: vi.fn((to: string) => { throw new Error(`NEXT_REDIRECT ${to}`) }) }))
+const state = vi.hoisted(() => ({
+  db: null as unknown,
+  draft: false,
+  redirect: vi.fn((to: string) => { throw new Error(`NEXT_REDIRECT ${to}`) }),
+  clients: [] as { url: string, key: string, options: Record<string, unknown> }[]
+}))
 
 vi.mock('react', () => ({ cache: <T>(fn: T) => fn }))
 vi.mock('next/headers', () => ({
@@ -20,7 +25,12 @@ vi.mock('next/headers', () => ({
 vi.mock('next/navigation', () => ({ redirect: state.redirect }))
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }))
 vi.mock('@supabase/ssr', () => ({ createServerClient: () => fakeClient(state.db as FakeDbType) }))
-vi.mock('@supabase/supabase-js', () => ({ createClient: () => fakeClient(state.db as FakeDbType) }))
+vi.mock('@supabase/supabase-js', () => ({
+  createClient: (url: string, key: string, options: Record<string, unknown>) => {
+    state.clients.push({ url, key, options })
+    return fakeClient(state.db as FakeDbType)
+  }
+}))
 
 const config = defineCmsConfig({ schema: {} })
 const supabase = { url: 'http://127.0.0.1:54421', publishableKey: 'pk', secretKey: 'sk' }
@@ -60,6 +70,23 @@ describe('createCmsServer', () => {
     const response = await cms.handlers.buildStatus(webhook('Bearer s3cret'))
     expect(await response.json()).toEqual({ matched: true })
     expect(db.tables.publish_log[0].build_status).toBe('success')
+  })
+
+  it('stamps every detached read with the build, so a build never reuses the fetch cache of the previous one', async () => {
+    db.tables.publish_log.push({ id: 1, requested_at: new Date().toISOString(), build_status: 'building', job_id: 'job-1' })
+    const cms = createCmsServer({ config, supabase, publishTarget: amplify({ hookUrl: 'https://hooks.example', webhookSecret: 's3cret' }) })
+    process.env.CMS_BUILD_STAMP = 'build-1'
+    try {
+      state.clients.length = 0
+      await cms.handlers.buildStatus(webhook('Bearer s3cret'))
+      expect(state.clients.at(-1)).toMatchObject({ key: 'sk', options: { global: { headers: { 'x-cms-build': 'build-1' } } } })
+    } finally {
+      delete process.env.CMS_BUILD_STAMP
+    }
+    await cms.handlers.buildStatus(webhook('Bearer s3cret'))
+    const stamp = (state.clients.at(-1)?.options.global as { headers: Record<string, string> }).headers['x-cms-build']
+    expect(stamp).toMatch(/^[0-9a-z]+$/)
+    expect(stamp).not.toBe('build-1')
   })
 
   it('has no webhook when the target reports in-process', async () => {
