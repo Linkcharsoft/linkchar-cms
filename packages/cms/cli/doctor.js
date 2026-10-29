@@ -84,6 +84,11 @@ export const postcssCheck = text => (/@linkcharsoft\/cms\/tailwind\/postcss/.tes
   ? { level: 'ok', text: 'PostCSS runs Tailwind per stylesheet (@linkcharsoft/cms/tailwind/postcss)' }
   : { level: 'fail', text: 'The PostCSS config runs tailwindcss directly: the panel\'s @config reaches the site\'s stylesheets and next build fails on the project\'s own classes. Replace tailwindcss: {} with \'@linkcharsoft/cms/tailwind/postcss\': {}' })
 
+/** @param {string} text the project's amplify.yml @returns {CheckType | null} */
+export const amplifyCacheCheck = text => (/\.next\/cache/.test(text) && !/fetch-cache/.test(text)
+  ? { level: 'warn', text: 'amplify.yml keeps .next/cache between builds, fetch-cache included: add "rm -rf .next/cache/fetch-cache" to preBuild, or the cache grows with every build' }
+  : null)
+
 export const PACKAGE_RELATIONS = ['profiles', 'documents', 'published_documents', 'document_status', 'document_versions', 'redirects', 'media', 'activity_log', 'publish_log']
 
 /** @param {Response} response @returns {Promise<string | null>} the PostgREST or Postgres error code */
@@ -175,6 +180,9 @@ export const environmentChecks = async ({ root, supabaseDir, env, siteUrl, fetch
   }
   const postcssConfig = POSTCSS_CONFIGS.map(name => join(root, name)).find(path => existsSync(path))
   if (postcssConfig) checks.push(postcssCheck(await readFile(postcssConfig, 'utf8')))
+  const amplifyConfig = join(root, 'amplify.yml')
+  const amplifyCache = existsSync(amplifyConfig) ? amplifyCacheCheck(await readFile(amplifyConfig, 'utf8')) : null
+  if (amplifyCache) checks.push(amplifyCache)
 
   const configToml = join(supabaseDir, 'config.toml')
   if (process.platform === 'win32' && existsSync(configToml)) {

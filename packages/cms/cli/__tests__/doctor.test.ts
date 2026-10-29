@@ -2,7 +2,7 @@ import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { authChecks, configPorts, environmentChecks, excludesPackageFromQuarantine, parseExcludedRanges, portChecks, postcssCheck, tablesCheck } from '../doctor.js'
+import { amplifyCacheCheck, authChecks, configPorts, environmentChecks, excludesPackageFromQuarantine, parseExcludedRanges, portChecks, postcssCheck, tablesCheck } from '../doctor.js'
 
 const NETSH = `
 Protocol tcp Port Exclusion Ranges
@@ -80,9 +80,10 @@ describe('environmentChecks', () => {
     return url.includes('/rest/v1/profiles') ? Response.json(admins) : new Response('{}')
   }) as typeof fetch
 
-  const levels = async (options: Partial<Parameters<typeof environmentChecks>[0]>) => {
+  const levels = async (options: Partial<Parameters<typeof environmentChecks>[0]>, files: Record<string, string> = {}) => {
     const root = await mkdtemp(join(tmpdir(), 'cms-doctor-'))
     try {
+      for (const [name, text] of Object.entries(files)) await writeFile(join(root, name), text)
       return await environmentChecks({ root, supabaseDir: join(root, 'supabase'), env, siteUrl: 'https://acme.com', fetch: answer([{ id: 'u1' }]), ...options })
     } finally {
       await rm(root, { recursive: true, force: true })
@@ -105,6 +106,16 @@ describe('environmentChecks', () => {
     expect((await levels({ fetch: answer([]) })).find(check => check.level === 'fail')?.text).toBe('No superadmin yet: linkchar-cms admin --email …')
     expect((await levels({ fetch: (async () => { throw new Error('ECONNREFUSED') }) as typeof fetch })).find(check => check.level === 'fail')?.text)
       .toContain('ECONNREFUSED')
+  })
+
+  it('warns while amplify.yml keeps the fetch cache of the previous build', async () => {
+    const keeps = 'frontend:\n  cache:\n    paths:\n      - node_modules/**/*\n      - .next/cache/**/*\n'
+    const drops = 'frontend:\n  phases:\n    preBuild:\n      commands:\n        - rm -rf .next/cache/fetch-cache\n  cache:\n    paths:\n      - .next/cache/**/*\n'
+    expect(amplifyCacheCheck(keeps)).toMatchObject({ level: 'warn', text: expect.stringContaining('rm -rf .next/cache/fetch-cache') })
+    expect(amplifyCacheCheck(drops)).toBeNull()
+    expect(amplifyCacheCheck('frontend:\n  cache:\n    paths:\n      - node_modules/**/*\n')).toBeNull()
+    expect((await levels({}, { 'amplify.yml': keeps })).filter(check => check.level === 'warn').map(check => check.text)).toEqual([expect.stringContaining('amplify.yml keeps .next/cache')])
+    expect((await levels({}, { 'amplify.yml': drops })).filter(check => check.level !== 'ok')).toEqual([])
   })
 
   it('tells missing grants of the secret key apart from missing migrations', async () => {
