@@ -82,6 +82,11 @@ describe('parseAmplifyEvent', () => {
 })
 
 describe('mockBuild', () => {
+  it('is meant for a local Supabase unless the project insists', () => {
+    expect(mockBuild().localOnly).toBe(true)
+    expect(mockBuild({ allowRemote: true }).localOnly).toBe(false)
+  })
+
   it('reports the start and then the result', async () => {
     vi.useFakeTimers()
     const reported = vi.fn(async () => {})

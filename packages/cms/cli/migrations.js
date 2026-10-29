@@ -18,6 +18,13 @@ const sameText = (a, b) => a.replace(/\r\n/g, '\n') === b.replace(/\r\n/g, '\n')
 const listFiles = async (dir, suffix) =>
   (existsSync(dir) ? (await readdir(dir)).filter(name => name.endsWith(suffix)).sort() : [])
 
+// The version a migration file carries: its leading timestamp, as supabase_migrations.schema_migrations records it.
+const MIGRATION_VERSION = /^(\d{14})_/
+
+/** @param {string} dir a migrations folder @returns {Promise<string[]>} the versions of its files */
+export const migrationVersions = async dir =>
+  (await listFiles(dir, '.sql')).map(name => MIGRATION_VERSION.exec(name)?.[1]).filter(version => version !== undefined)
+
 /** @param {string} from @param {string} to */
 const compare = async (from, to) => {
   if (!existsSync(to)) return 'missing'

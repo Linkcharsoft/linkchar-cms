@@ -39,6 +39,7 @@ describe('initProject', () => {
     expect(config).toContain('defaults: { entry: \'settings\', description: \'tagline\', image: \'shareImage\' }')
     expect(config).toContain('    database: Database')
     expect(await read('src/cms/server.ts')).toContain('import cmsConfig from \'../../cms.config\'')
+    expect(await read('src/cms/server.ts')).toContain('publishTarget: publishTargetFromEnv(env)')
     expect(await read('src/proxy.ts')).toContain('export const config = { matcher: [\'/cms/:path*\'] }')
     expect(await read('src/app/(site)/layout.tsx')).toContain('<DraftRefresh locale=\'es\' />')
     expect(await read('src/app/(cms)/layout.tsx')).toContain('import { cms } from \'../../cms/server\'')

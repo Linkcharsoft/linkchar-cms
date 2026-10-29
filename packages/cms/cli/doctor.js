@@ -3,6 +3,7 @@ import { existsSync } from 'node:fs'
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { promisify } from 'node:util'
+import { migrationVersions, PACKAGE_SUPABASE } from './migrations.js'
 
 /**
  * @typedef {{ level: 'ok' | 'warn' | 'fail', text: string }} CheckType
@@ -89,6 +90,43 @@ export const amplifyCacheCheck = text => (/\.next\/cache/.test(text) && !/fetch-
   ? { level: 'warn', text: 'amplify.yml keeps .next/cache between builds, fetch-cache included: add "rm -rf .next/cache/fetch-cache" to preBuild, or the cache grows with every build' }
   : null)
 
+/**
+ * Whether a real build ever reported a publish back; the simulated build's successes don't count.
+ * @param {typeof fetch} get @param {string} url @param {Record<string, string>} headers @returns {Promise<CheckType | null>}
+ */
+export const publishCircuitCheck = async (get, url, headers) => {
+  /** @param {string} query */
+  const count = async query => {
+    const body = await (await get(`${url}/rest/v1/publish_log?select=id&${query}`, { headers })).json().catch(() => null)
+    return Array.isArray(body) ? body.length : 0
+  }
+  if (await count('limit=1') === 0) return null
+  return await count('build_status=eq.success&job_id=not.is.null&job_id=not.like.mock-*&limit=1') > 0
+    ? { level: 'ok', text: 'The site confirmed a publish' }
+    : { level: 'warn', text: 'No publish has been confirmed by the site yet: the successes in the log are simulated or unconfirmed. Check the circuit with linkchar-cms publish:ping' }
+}
+
+/**
+ * The migrations the database applied against those the package and the project ship; needs cms_migrations() (0.13.0).
+ * @param {typeof fetch} get @param {string} url @param {Record<string, string>} headers @param {string[]} expected
+ * @returns {Promise<CheckType>}
+ */
+export const appliedMigrationsCheck = async (get, url, headers, expected) => {
+  const response = await get(`${url}/rest/v1/rpc/cms_migrations`, { method: 'POST', headers: { ...headers, 'content-type': 'application/json' }, body: '{}' })
+  const body = await response.json().catch(() => null)
+  if (!response.ok || !Array.isArray(body)) {
+    const code = body && typeof body === 'object' && 'code' in body ? String(body.code) : `HTTP ${response.status}`
+    return code === 'PGRST202'
+      ? { level: 'warn', text: 'Cannot list the applied migrations: the database lacks cms_migrations() (0.13.0). Run linkchar-cms migrations sync, then supabase migration up (local) or supabase db push (hosted)' }
+      : { level: 'warn', text: `Cannot list the applied migrations (${code})` }
+  }
+  const applied = new Set(body.map(String))
+  const missing = expected.filter(version => !applied.has(version))
+  return missing.length === 0
+    ? { level: 'ok', text: `The database has every migration (${expected.length})` }
+    : { level: 'fail', text: `The database at ${url} lacks migrations ${missing.join(', ')}: supabase migration up (local) or supabase db push (hosted)` }
+}
+
 export const PACKAGE_RELATIONS = ['profiles', 'documents', 'published_documents', 'document_status', 'document_versions', 'redirects', 'media', 'activity_log', 'publish_log']
 
 /** @param {Response} response @returns {Promise<string | null>} the PostgREST or Postgres error code */
@@ -166,6 +204,10 @@ export const environmentChecks = async ({ root, supabaseDir, env, envFile = '.en
         checks.push((await admins.json()).length > 0
           ? { level: 'ok', text: 'There is a superadmin' }
           : { level: 'fail', text: 'No superadmin yet: linkchar-cms admin --email …' })
+        const circuit = await publishCircuitCheck(get, url, headers)
+        if (circuit) checks.push(circuit)
+        const expected = [...new Set([...await migrationVersions(join(PACKAGE_SUPABASE, 'migrations')), ...await migrationVersions(join(supabaseDir, 'migrations'))])].sort()
+        checks.push(await appliedMigrationsCheck(get, url, headers, expected))
       }
     } catch (error) {
       checks.push({ level: 'fail', text: `Supabase does not answer at ${url} (${error instanceof Error ? error.message : error}): supabase start?` })

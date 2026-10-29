@@ -17,6 +17,7 @@ import InlineList, { fillTemplate } from '../../primitives/InlineList/InlineList
 import Notice from '../../primitives/Notice/Notice'
 import { useNotify } from '../../providers/notify'
 import { PUBLISH_SEVERITIES } from '../../shell/PublishStatus/PublishStatus'
+import type { PublishCircuitType } from '../../../core/publish'
 import type { PendingChangeType, PublishRecordType } from '../../../server/publish'
 import type { Route } from 'next'
 
@@ -24,6 +25,8 @@ interface Props {
   changes: PendingChangeType[]
   history: PublishRecordType[]
   canPublish: boolean
+  // Whether a real build ever reported back; the admins who publish see when none did.
+  circuit?: PublishCircuitType
   highlight?: string
   // The activity screen filtered to publishes, for the roles that may open it.
   activityHref?: string
@@ -146,6 +149,7 @@ const HistoryItem = ({ record, onRetry }: { record: PublishRecordType, onRetry?:
         </span>
         <span className='PublishPanel__ItemTags'>
           {record.retryOf !== null && <Tag value={t('publishPanel.retryOf')} severity='secondary' />}
+          {record.simulated && <Tag value={t('publishPanel.simulated')} severity='secondary' />}
           <Tag value={statusLabel} severity={PUBLISH_SEVERITIES[displayed]} />
         </span>
       </div>
@@ -192,7 +196,7 @@ const HistoryItem = ({ record, onRetry }: { record: PublishRecordType, onRetry?:
   )
 }
 
-const PublishPanel = ({ changes, history, canPublish, highlight, activityHref }: Props) => {
+const PublishPanel = ({ changes, history, canPublish, circuit, highlight, activityHref }: Props) => {
   const { t, translate, locale } = useT()
   const { actions } = useCms()
   const router = useRouter()
@@ -354,6 +358,7 @@ const PublishPanel = ({ changes, history, canPublish, highlight, activityHref }:
 
       <section className='PublishPanel__Card' aria-labelledby='history-title' data-tour='publish-history'>
         <h2 id='history-title' className='PublishPanel__CardTitle' data-tour='publish-log'>{t('publishPanel.history')}</h2>
+        {canPublish && circuit === 'unconfirmed' && <Notice tone='warning'>{t('publishPanel.circuitUnconfirmed')}</Notice>}
         {history.length === 0
           ? <EmptyState compact icon='pi pi-send' title={t('publishPanel.historyEmpty')} />
           : (

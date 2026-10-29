@@ -119,17 +119,11 @@ export const planInit = ({ name, basePath, locales, panelLocale, siteUrl }, { so
     ]],
     [serverFile, [
       'import \'server-only\'',
-      'import { amplify } from \'@linkcharsoft/cms/publish/amplify\'',
-      'import { mockBuild } from \'@linkcharsoft/cms/publish/mock\'',
+      'import { publishTargetFromEnv } from \'@linkcharsoft/cms/publish\'',
       'import { createCmsServer } from \'@linkcharsoft/cms/server\'',
       `import cmsConfig from '${importPath(serverFile, configFile.replace(/\.[cm]?[jt]s$/, ''))}'`,
       '',
       'const env = process.env',
-      '',
-      '// Without a build hook (local development) publishing runs against the mock build.',
-      'const publishTarget = env.CMS_BUILD_HOOK_URL',
-      '  ? amplify({ hookUrl: env.CMS_BUILD_HOOK_URL, webhookSecret: env.CMS_BUILD_WEBHOOK_SECRET })',
-      '  : mockBuild()',
       '',
       'export const cms = createCmsServer({',
       '  config: cmsConfig,',
@@ -138,7 +132,8 @@ export const planInit = ({ name, basePath, locales, panelLocale, siteUrl }, { so
       '    publishableKey: env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,',
       '    secretKey: env.SUPABASE_SECRET_KEY',
       '  },',
-      '  publishTarget',
+      '  // Amplify with CMS_BUILD_HOOK_URL, the simulated build against a local Supabase, no build otherwise.',
+      '  publishTarget: publishTargetFromEnv(env)',
       '})'
     ]],
     [join(sourceDir, 'types', 'supabase.ts'), [

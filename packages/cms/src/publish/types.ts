@@ -23,4 +23,6 @@ export interface PublishTargetType {
   revalidateOnPublish?: boolean
   // Reads a build status notification sent to the panel's webhook route.
   readWebhook?: (request: Request) => Promise<WebhookResultType>
+  // Meant for a local Supabase only: against a hosted project the server treats it as missing.
+  localOnly?: boolean
 }

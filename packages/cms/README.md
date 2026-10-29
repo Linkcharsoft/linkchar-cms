@@ -2,7 +2,7 @@
 
 Linkchar's CMS for Next.js projects: a content schema in code, Supabase storage, an editor panel and site readers. The package ships TypeScript source; the project compiles it.
 
-> The package ships the core, the server layer (Supabase queries and actions, with a `logger` the project provides), publishing (Amplify and a local mock), the migrations, the editor panel with its theme and catalogs (`es`, `en`) and its per-language editing, the site readers (`cms.site`, `@linkcharsoft/cms/site`), `withCms` (`@linkcharsoft/cms/next`) and the `linkchar-cms` CLI (`init`, `routes`, `migrations sync`, `templates`, `admin`, `doctor`, `import`). The changes of each version are in [CHANGELOG.md](./CHANGELOG.md), which ships with the package.
+> The package ships the core, the server layer (Supabase queries and actions, with a `logger` the project provides), publishing (Amplify and a local mock), the migrations, the editor panel with its theme and catalogs (`es`, `en`) and its per-language editing, the site readers (`cms.site`, `@linkcharsoft/cms/site`), `withCms` (`@linkcharsoft/cms/next`) and the `linkchar-cms` CLI (`init`, `routes`, `migrations sync`, `templates`, `admin`, `doctor`, `import`, `publish:ping`). The changes of each version are in [CHANGELOG.md](./CHANGELOG.md), which ships with the package.
 
 Sections: [Install](#install) · [Start a project](#start-a-project) · [Configure](#configure) · [Schema texts](#schema-texts) · [Localized content](#localized-content) · [URLs per locale](#urls-per-locale) · [Links](#links) · [Database](#database) · [Supabase](#supabase) · [Server](#server) · [Site](#site) · [Next config](#next-config) · [Field kinds](#field-kinds) · [Panel](#panel) · [Brand](#brand) · [Panel texts](#panel-texts) · [Extensions](#extensions) · [Amplify setup](#amplify-setup) · [Import content](#import-content) · [Upgrade](#upgrade) · [Development](#development)
 
@@ -70,7 +70,7 @@ pnpm exec linkchar-cms init --name "Acme" --base-path /cms --locales es,en --pan
 It writes only the files that don't exist yet and never touches the rest:
 
 - `cms.config.ts` with the site defaults (`site.defaults`) and `Register` (config and database types);
-- `src/cms/schema.ts` (a `settings` singleton and a home page, to rewrite with the real schema) and `src/cms/server.ts` (Amplify when `CMS_BUILD_HOOK_URL` is set, the mock build otherwise);
+- `src/cms/schema.ts` (a `settings` singleton and a home page, to rewrite with the real schema) and `src/cms/server.ts` (`publishTargetFromEnv`: Amplify when `CMS_BUILD_HOOK_URL` is set, the simulated build against a local Supabase, no build otherwise);
 - `src/types/supabase.ts`, which re-exports the package types until `supabase gen types` replaces it;
 - the panel's root layout (`app/(cms)/layout.tsx`);
 - the site under `app/(site)/`: a root layout that renders `DraftRefresh` in Draft Mode, the home, the 404 and the catch-all that makes unmatched URLs reach it, plus `app/sitemap.ts` and `proxy.ts`.
@@ -192,9 +192,9 @@ supabase db push
 supabase test db                                # the package suites land in supabase/tests/cms
 ```
 
-`sync` never rewrites a file it already copied; a migration the project edited shows as `!` in its output and stays as it is. The project's own migrations go with later timestamps.
+`sync` never rewrites a file it already copied; a migration the project edited shows as `!` in its output and stays as it is. The project's own migrations go with later timestamps. `doctor` compares the migrations a database applied (local, or hosted with `--env-file`) with the files of the package and the project through `cms_migrations()`, a function only the secret key may call, and names the ones a database lacks.
 
-**Project tables.** Generate the project's types (`supabase gen types typescript --local > src/types/supabase.ts`, which includes the CMS tables) and register them next to the config: `interface Register { config: typeof cmsConfig, database: Database }`. Then `await cms.supabase()` is the request's session client (RLS applies) and `cms.supabaseAdmin()` the secret-key one, both typed with the project's tables; call `cms.queries.requireRole()` first, as in [Extensions](#extensions). The package's own code keeps its own types, so stale project types never break it. The base migration (`20261020000000_cms_base.sql`) holds roles, content, media (alt text and caption per locale), logs, publishing, checkpoints and `media_usage`; later ones add per-locale slugs, `document_usage`, `publish_log.retry_of`, `media.hash` and the `service_role` grants.
+**Project tables.** Generate the project's types (`supabase gen types typescript --local > src/types/supabase.ts`, which includes the CMS tables) and register them next to the config: `interface Register { config: typeof cmsConfig, database: Database }`. Then `await cms.supabase()` is the request's session client (RLS applies) and `cms.supabaseAdmin()` the secret-key one, both typed with the project's tables; call `cms.queries.requireRole()` first, as in [Extensions](#extensions). The package's own code keeps its own types, so stale project types never break it. The base migration (`20261020000000_cms_base.sql`) holds roles, content, media (alt text and caption per locale), logs, publishing, checkpoints and `media_usage`; later ones add per-locale slugs, `document_usage`, `publish_log.retry_of`, `media.hash`, the `service_role` grants and `cms_migrations()`.
 
 ## Supabase
 
@@ -272,8 +272,7 @@ The project owns one server instance: it reads its environment and passes everyt
 ```ts
 // src/cms/server.ts
 import 'server-only'
-import { amplify } from '@linkcharsoft/cms/publish/amplify'
-import { mockBuild } from '@linkcharsoft/cms/publish/mock'
+import { publishTargetFromEnv } from '@linkcharsoft/cms/publish'
 import { createCmsServer } from '@linkcharsoft/cms/server'
 import cmsConfig from '../../cms.config'
 
@@ -284,12 +283,12 @@ export const cms = createCmsServer({
     publishableKey: process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
     secretKey: process.env.SUPABASE_SECRET_KEY
   },
-  publishTarget: process.env.CMS_BUILD_HOOK_URL
-    ? amplify({ hookUrl: process.env.CMS_BUILD_HOOK_URL, webhookSecret: process.env.CMS_BUILD_WEBHOOK_SECRET })
-    : mockBuild(),
+  publishTarget: publishTargetFromEnv(process.env),
   logger: { error: (message, detail) => console.error('[cms]', message, detail) }
 })
 ```
+
+`publishTargetFromEnv` picks the target the way the CLI does: Amplify when `CMS_BUILD_HOOK_URL` is set, the simulated build (`mockBuild`) when `NEXT_PUBLIC_SUPABASE_URL` is a local Supabase, and none otherwise, so a hosted project without a hook records `target_missing` instead of a success nobody built. A project that wires the targets itself (`@linkcharsoft/cms/publish/amplify`, `@linkcharsoft/cms/publish/mock`) gets the same guard from the server: the mock against a hosted project counts as no target and logs why, unless it was made with `mockBuild({ allowRemote: true })`.
 
 ```ts
 // src/proxy.ts: refreshes the session and keeps signed-out users on the sign-in screens.
@@ -305,7 +304,7 @@ The server actions, the build status webhook and the panel routes are generated 
 - The server functions also take the context directly (`saveDocument(ctx, input)`), which is how the tests run them.
 - `logger` is where the server reports the failures it swallows (best-effort writes, the build hook, activity rows): `{ error(message, detail?) }`, the console by default. It reaches every server function as `ctx.logger` and the publish targets as part of their trigger context.
 
-Publishing calls the `PublishTarget`. With Amplify, the build hook queues a build and the EventBridge rule reports its status with `Authorization: Bearer <CMS_BUILD_WEBHOOK_SECRET>` (see [Amplify setup](#amplify-setup)). A status event for an unknown job goes to the oldest open publish of the last 30 minutes. A failed build stores `publish_log.error_code` (`target_missing`, `hook_refused`, `hook_unreachable`, `build_failed`, `build_cancelled`), which the panel translates (`errors.build.*`) and offers to retry. The mock build reports `started` and then the result in-process: `mockBuild({ result: 'failed' | 'cancelled', seconds })` reproduces the failures locally.
+Publishing calls the `PublishTarget`. With Amplify, the build hook queues a build and the EventBridge rule reports its status with `Authorization: Bearer <CMS_BUILD_WEBHOOK_SECRET>` (see [Amplify setup](#amplify-setup)). A status event for an unknown job goes to the oldest open publish of the last 30 minutes. A failed build stores `publish_log.error_code` (`target_missing`, `hook_refused`, `hook_unreachable`, `build_failed`, `build_cancelled`), which the panel translates (`errors.build.*`) and offers to retry. The mock build reports `started` and then the result in-process: `mockBuild({ result: 'failed' | 'cancelled', seconds })` reproduces the failures locally; its publishes read "Simulada" in the history (`job_id` starts with `mock-`).
 
 ## Site
 
@@ -625,6 +624,13 @@ Publishing on Amplify is a build hook plus one EventBridge rule that reports the
 
 3. **API destination** as the rule's target: endpoint `https://<site>/api/cms/build-status`, method `POST`, with a **Connection** of type API key, key `Authorization`, value `Bearer <CMS_BUILD_WEBHOOK_SECRET>`. No input transformer: the handler reads Amplify's own event (`jobId`, `jobStatus`).
 4. The handler maps `SUCCEED`, `FAILED` and `CANCELLED` to the publish log; an event for a job the panel didn't start matches the oldest open publish of the last 30 minutes. A publish without an answer after 30 minutes reads "sin confirmar" and can be retried.
+5. **Verify the circuit** once, with the hosted keys in an env file kept out of git:
+
+   ```bash
+   pnpm exec linkchar-cms publish:ping --env-file .env.remote [--timeout 20]
+   ```
+
+   It logs an empty publish, fires the build hook and waits for the site to report the build back, printing each status change; the exit code says whether the site confirmed it. A hook that answers but never reports means the EventBridge rule, the API destination or the webhook secret is wrong. It costs one Amplify build and takes the 30-minute publish lock like any publish. Until a real build has confirmed a publish, the publish page (for whoever can publish) and `doctor` warn that the circuit is unverified; publishes of the simulated build read "Simulada" in the history and never count.
 
 A weekly scheduled build (Amplify's own, or a cron hitting the hook) keeps the site's static pages from drifting from drafts nobody published. It does not keep a free Supabase project awake: see [docs/deploy.md](https://github.com/Linkcharsoft/linkchar-cms/blob/main/docs/deploy.md#free-plan).
 

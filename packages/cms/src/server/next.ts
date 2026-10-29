@@ -7,6 +7,7 @@ import { NextResponse } from 'next/server'
 import { cache } from 'react'
 import { consoleLogger } from '../core/logger'
 import { panelPaths, safePanelPath } from '../core/paths'
+import { isLocalSupabaseUrl } from '../publish/local'
 import { createSiteReaders } from '../site/readers'
 import { documentJsonLd, documentMetadata, seoOf, siteDefaultValues } from '../site/seo'
 import { changePassword, markTourSeen, recordMfaChange, resetTours, updateAvatar, updateProfile } from './account'
@@ -19,7 +20,7 @@ import { saveDocument } from './editing'
 import { confirmEmailLink, disableDraft, enableDraft, signOutTo } from './handlers'
 import * as media from './media'
 import { listPages } from './pages'
-import { applyBuildEvent, getLatestPublish, getPendingChanges, getPendingCount, getPendingCounts, getPublishHistory, getPublishStatus, publishChanges, retryPublish } from './publish'
+import { applyBuildEvent, getLatestPublish, getPendingChanges, getPendingCount, getPendingCounts, getPublishCircuit, getPublishHistory, getPublishStatus, publishChanges, retryPublish } from './publish'
 import { acceptInvite, completeSecondFactor, login, logout, requestPasswordReset, updatePassword } from './session'
 import { purgeDocument, restoreDocument } from './trash'
 import { deleteInvite, inviteUser, listPanelUsers, resendInvite, resetUserMfa, setUserActive, updateUserAccess } from './users'
@@ -73,7 +74,7 @@ const QUERIES = {
   getDocumentState: documents.getDocumentState, getRelationLabels: documents.getRelationLabels, getRecentDrafts: documents.getRecentDrafts,
   getStaleDrafts: documents.getStaleDrafts, purgeUntouchedDrafts: documents.purgeUntouchedDrafts,
   listMedia: media.listMedia, getMediaByIds: media.getMediaByIds, purgeExpiredMedia: media.purgeExpiredMedia,
-  listPages, getPendingChanges, getPendingCount, getPendingCounts, getPublishHistory, getLatestPublish, listPanelUsers, listActivity, purgeExpiredActivity
+  listPages, getPendingChanges, getPendingCount, getPendingCounts, getPublishHistory, getLatestPublish, getPublishCircuit, listPanelUsers, listActivity, purgeExpiredActivity
 }
 
 const PROCESS_STAMP = Date.now().toString(36)
@@ -97,13 +98,24 @@ export const createCmsServer = ({ config, supabase, publishTarget = null, logger
     return detached(secretKey)
   }
 
+  let warnedRemoteMock = false
+  // A local-only target (the mock) against a hosted project would record successes while no site is built.
+  const usablePublishTarget = () => {
+    if (!publishTarget?.localOnly || isLocalSupabaseUrl(credentials().url)) return publishTarget
+    if (!warnedRemoteMock) {
+      warnedRemoteMock = true
+      logger.error(`[publish] the ${publishTarget.name} build is for a local Supabase: against ${credentials().url} publishing records no build (set CMS_BUILD_HOOK_URL, or mockBuild({ allowRemote: true }) to insist)`)
+    }
+    return null
+  }
+
   const baseContext = (db: CmsClientType): CmsContextType => ({
     config,
     supabaseUrl: credentials().url,
     db,
     admin,
     anonymous: () => detached(credentials().publishableKey),
-    publishTarget,
+    publishTarget: usablePublishTarget(),
     revalidate: (path, type) => revalidatePath(path, type),
     now: () => new Date(),
     logger
