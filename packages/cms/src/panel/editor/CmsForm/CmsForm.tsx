@@ -122,6 +122,16 @@ const CmsForm = ({
     onSubmit: () => undefined
   })
 
+  const bar = useRef<HTMLDivElement>(null)
+  // The outline and the preview pane stick under the bar, whose height follows the title and the actions.
+  useEffect(() => {
+    const element = bar.current
+    if (!element || typeof ResizeObserver === 'undefined') return
+    const observer = new ResizeObserver(() => element.parentElement?.style.setProperty('--cms-editor-bar-height', `${element.offsetHeight}px`))
+    observer.observe(element)
+    return () => observer.disconnect()
+  }, [])
+
   const latestValues = useRef(formik.values)
   useEffect(() => {
     latestValues.current = formik.values
@@ -325,7 +335,7 @@ const CmsForm = ({
   return (
     <FormikProvider value={formik}>
       <div className='CmsForm'>
-        <div className='CmsForm__Bar'>
+        <div className='CmsForm__Bar' ref={bar}>
           <DashboardPageHeader
             size='editor'
             className='CmsForm__Header'

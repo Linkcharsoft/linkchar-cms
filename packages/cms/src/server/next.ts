@@ -21,7 +21,7 @@ import { confirmEmailLink, disableDraft, enableDraft, signOutTo } from './handle
 import * as media from './media'
 import { listPages } from './pages'
 import { applyBuildEvent, getLatestPublish, getPendingChanges, getPendingCount, getPendingCounts, getPublishCircuit, getPublishHistory, getPublishStatus, publishChanges, retryPublish } from './publish'
-import { acceptInvite, completeSecondFactor, login, logout, requestPasswordReset, updatePassword } from './session'
+import { acceptInvite, completeSecondFactor, confirmLink, login, logout, requestPasswordReset, updatePassword } from './session'
 import { purgeDocument, restoreDocument } from './trash'
 import { deleteInvite, inviteUser, listPanelUsers, resendInvite, resetUserMfa, setUserActive, updateUserAccess } from './users'
 import { discardChanges, getVersionDiff, listVersions, restoreVersion } from './versions'
@@ -63,7 +63,7 @@ const ACTIONS = {
   publishChanges, retryPublish, getPublishStatus,
   inviteUser, updateUserAccess, setUserActive, resendInvite, deleteInvite, resetUserMfa,
   updateProfile, updateAvatar, changePassword, recordMfaChange, markTourSeen, resetTours,
-  login, requestPasswordReset, updatePassword, acceptInvite, completeSecondFactor, logout
+  login, requestPasswordReset, updatePassword, confirmLink, acceptInvite, completeSecondFactor, logout
 }
 
 // Read by panel pages, which call requireRole first.

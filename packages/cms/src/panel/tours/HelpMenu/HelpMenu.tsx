@@ -8,7 +8,7 @@ import { useCms, useT } from '../../client/context'
 import CustomButton from '../../primitives/CustomButton/CustomButton'
 import { useNotify } from '../../providers/notify'
 import { isEditing } from '../focus'
-import { buildTours, tourAnchor, tourForPath } from '../tours'
+import { buildTours, tourAnchor, tourForPath, tourProgress } from '../tours'
 import type { TourType } from '../tours'
 import type { DriveStep } from 'driver.js'
 import type { Route } from 'next'
@@ -78,7 +78,11 @@ const HelpMenu = ({ seenTours }: Props) => {
       stagePadding: 4,
       stageRadius: 12,
       showProgress: true,
-      progressText: t('help.progress', { current: '{{current}}', total: '{{total}}' }),
+      // driver.js counts the steps it skips in {{total}}: the footer is rewritten with the ones this screen shows.
+      onPopoverRender: (popover, { state }) => {
+        const shown = tour.steps.map(step => !step.anchor || !!visibleAnchor(step.anchor))
+        popover.progress.innerText = t('help.progress', tourProgress(shown, state.activeIndex ?? 0))
+      },
       nextBtnText: t('help.next'),
       prevBtnText: t('help.previous'),
       doneBtnText: t('help.done'),

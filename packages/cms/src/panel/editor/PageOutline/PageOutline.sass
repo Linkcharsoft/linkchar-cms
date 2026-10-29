@@ -5,7 +5,7 @@
   flex-direction: column
   gap: 8px
   position: sticky
-  top: calc(var(--cms-header-height, 0px) + 7rem)
+  top: cms.editor-top()
   @apply lg:flex
 
   &__Title
@@ -80,4 +80,4 @@
     @apply bg-cms-neutral-50 lg:hidden
 
     @media (min-width: 768px)
-      top: calc(var(--cms-header-height, 0px) + 6rem)
+      top: cms.editor-top()

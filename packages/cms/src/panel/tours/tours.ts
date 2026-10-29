@@ -48,6 +48,12 @@ type StepKeyType = {
   [K in MessageKeyType]: K extends `tours.${infer S}.description` ? `tours.${S}.title` extends MessageKeyType ? S : never : never
 }[MessageKeyType]
 
+// What the footer counts: the steps this screen shows, so a skipped anchor leaves no hole in "2 de 7".
+export const tourProgress = (shown: readonly boolean[], activeIndex: number) => ({
+  current: shown.slice(0, activeIndex + 1).filter(Boolean).length,
+  total: shown.filter(Boolean).length
+})
+
 const exactly = (path: string) => (pathname: string) => pathname === path
 
 // Segments after a prefix: 1 for a list (/colecciones/blog), 2 for a document (/colecciones/blog/123).

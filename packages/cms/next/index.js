@@ -47,6 +47,24 @@ const isTypegen = (argv = process.argv) => argv.includes('typegen')
 
 const APP_ICONS = ['icon.svg', 'icon.png', 'apple-icon.png']
 const PUBLIC_PNG = /^(icon|favicon|apple-touch-icon|android-chrome)[\w-]*\.png$/i
+// public/ itself, then the seo/ folder some projects keep their icons in.
+const PUBLIC_FOLDERS = ['', 'seo']
+
+/** @param {string} name */
+const folder = name => (name ? `${name}/` : '')
+
+/** @param {string} root @param {string} name @returns {{ url: string, file: string } | null} */
+const publicIcon = (root, name) => {
+  const dir = join(root, 'public', name)
+  const files = existsSync(dir) ? readdirSync(dir) : []
+  const at = (/** @type {string} */ file) => ({ url: `/${folder(name)}${file}`, file: `public/${folder(name)}${file}` })
+  if (files.includes('icon.svg')) return at('icon.svg')
+  if (files.includes('favicon.svg')) return at('favicon.svg')
+  const [largest] = files.filter(file => PUBLIC_PNG.test(file))
+    .map(file => ({ file, width: pngWidth(join(dir, file)) }))
+    .sort((a, b) => b.width - a.width)
+  return largest ? at(largest.file) : null
+}
 
 /** @param {string} file */
 const pngWidth = file => {
@@ -65,17 +83,14 @@ export const findBrandIcon = (root = process.cwd()) => {
     const name = APP_ICONS.find(icon => existsSync(join(root, dir, icon)))
     if (name) return { url: `/${name}`, file: `${dir}/${name}` }
   }
-  const publicDir = join(root, 'public')
-  const files = existsSync(publicDir) ? readdirSync(publicDir) : []
-  if (files.includes('icon.svg')) return { url: '/icon.svg', file: 'public/icon.svg' }
-  if (files.includes('favicon.svg')) return { url: '/favicon.svg', file: 'public/favicon.svg' }
-  const [largest] = files.filter(name => PUBLIC_PNG.test(name))
-    .map(name => ({ name, width: pngWidth(join(publicDir, name)) }))
-    .sort((a, b) => b.width - a.width)
-  if (largest) return { url: `/${largest.name}`, file: `public/${largest.name}` }
+  for (const folder of PUBLIC_FOLDERS) {
+    const found = publicIcon(root, folder)
+    if (found) return found
+  }
   const favicon = appDirs.find(dir => existsSync(join(root, dir, 'favicon.ico')))
   if (favicon) return { url: '/favicon.ico', file: `${favicon}/favicon.ico` }
-  return files.includes('favicon.ico') ? { url: '/favicon.ico', file: 'public/favicon.ico' } : null
+  const ico = PUBLIC_FOLDERS.find(folder => existsSync(join(root, 'public', folder, 'favicon.ico')))
+  return ico !== undefined ? { url: `/${folder(ico)}favicon.ico`, file: `public/${folder(ico)}favicon.ico` } : null
 }
 
 /**

@@ -3,10 +3,13 @@ import { countIssues, nullableIssues } from './shared'
 import type { BaseOptions, OptionType } from '../fields'
 import type { IssueType, SummaryContextType } from './registry'
 
+// A 1-based line number, or what grid-column / grid-row take: '1 / 4', '2 / span 2'.
+export type GridLineType = number | string
+
 export interface GridPreviewCellType {
-  // 1-based, like CSS grid lines.
-  column: number
-  row: number
+  column: GridLineType
+  row: GridLineType
+  // Only with a numeric line; a string carries its own span or end.
   columnSpan?: number
   rowSpan?: number
 }
@@ -51,9 +54,27 @@ const optionLabel = (options: readonly OptionType[], value: unknown, ctx: Summar
 
 const isOption = (options: readonly OptionType[], value: unknown) => options.some(option => option.value === value)
 
-const inGrid = (cell: GridPreviewCellType, columns: number, rows: number) =>
-  Number.isInteger(cell.column) && Number.isInteger(cell.row) && cell.column >= 1 && cell.row >= 1
-  && cell.column + (cell.columnSpan ?? 1) - 1 <= columns && cell.row + (cell.rowSpan ?? 1) - 1 <= rows
+const LINE = /^\s*(\d+)\s*(?:\/\s*(?:span\s+(\d+)|(\d+)))?\s*$/
+
+// The lines a cell starts and ends on along one axis, or null when the value is not a placement.
+export const gridLines = (value: GridLineType, span = 1): { start: number, end: number } | null => {
+  if (typeof value === 'number') return Number.isInteger(value) && Number.isInteger(span) && span >= 1 ? { start: value, end: value + span } : null
+  const match = LINE.exec(value)
+  if (!match) return null
+  const start = Number(match[1])
+  const end = match[2] ? start + Number(match[2]) : match[3] ? Number(match[3]) : start + span
+  return end > start ? { start, end } : null
+}
+
+// What the card paints as grid-column or grid-row.
+export const gridPlacement = (value: GridLineType, span = 1) => (typeof value === 'number' ? `${value} / span ${span}` : value.trim())
+
+const cellProblem = (cell: GridPreviewCellType, columns: number, rows: number): 'invalid' | 'outside' | null => {
+  const column = gridLines(cell.column, cell.columnSpan)
+  const row = gridLines(cell.row, cell.rowSpan)
+  if (!column || !row) return 'invalid'
+  return column.start >= 1 && row.start >= 1 && column.end <= columns + 1 && row.end <= rows + 1 ? null : 'outside'
+}
 
 // Why a select can't be shown as cards, or null; `defineCmsConfig` reports it with the field's path.
 export const selectDisplayProblem = (field: SelectField): string | null => {
@@ -66,7 +87,9 @@ export const selectDisplayProblem = (field: SelectField): string | null => {
     if ('grid' in preview) {
       const { columns, rows, cells } = preview.grid
       if (!Number.isInteger(columns) || !Number.isInteger(rows) || columns < 1 || rows < 1) return `option "${option.value}" has a grid preview without columns and rows.`
-      if (cells.length === 0 || cells.some(cell => !inGrid(cell, columns, rows))) return `option "${option.value}" has a grid cell outside its ${columns}×${rows} grid.`
+      const problems = cells.map(cell => cellProblem(cell, columns, rows))
+      if (problems.includes('invalid')) return `option "${option.value}" has a grid cell with an invalid line: use a number, '1 / 4' or '1 / span 2'.`
+      if (cells.length === 0 || problems.includes('outside')) return `option "${option.value}" has a grid cell outside its ${columns}×${rows} grid.`
     }
   }
   return null

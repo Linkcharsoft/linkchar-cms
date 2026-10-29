@@ -228,7 +228,7 @@ Hosted projects set the same values in the dashboard (Authentication → URL con
 
 **Data API privileges.** Hosted projects created with "Default privileges for new entities" off give `anon`, `authenticated` and `service_role` nothing on new tables, not even the secret key. The package migrations grant every role they rely on, so they work with the toggle on or off, and turning it on later fixes nothing for tables that already exist. Set `auto_expose_new_tables = false` under `[api]` so the local database behaves like such a project: the project's own tables then need their own grants, locally and hosted alike. `linkchar-cms doctor` fails when the secret key cannot read a package table.
 
-**Email templates.** Supabase's default invitation and recovery emails link to `/auth/v1/verify?token=…&redirect_to=<site_url>`; the panel only accepts `/dashboard/auth/confirm?token_hash=…&type=…`, so without templates nobody can accept an invitation or reset a password. Each project ships its own, with `{{ .SiteURL }}` and its `basePath`. `linkchar-cms templates` writes both in the panel language (the `emails.*` catalog keys, so `messages` can reword them) with Inferencia's brand and the product name (`branding.name`), and adds them to `config.toml`. It never rewrites a template the project edited; one still as 0.10 wrote it takes the branded version. `--check` fails while one is missing, unbranded or links elsewhere. What it writes:
+**Email templates.** Supabase's default invitation and recovery emails link to `/auth/v1/verify?token=…&redirect_to=<site_url>`; the panel only accepts `/dashboard/auth/confirm?token_hash=…&type=…`, so without templates nobody can accept an invitation or reset a password. That page shows what the link does and a "Continuar" button, and verifies the token only when it is pressed: mail scanners open links before people do, and a token spent on arrival left them with "El link venció". Each project ships its own, with `{{ .SiteURL }}` and its `basePath`. `linkchar-cms templates` writes both in the panel language (the `emails.*` catalog keys, so `messages` can reword them) with Inferencia's brand and the product name (`branding.name`), and adds them to `config.toml`. It never rewrites a template the project edited; one still as 0.10 wrote it takes the branded version. `--check` fails while one is missing, unbranded or links elsewhere. What it writes:
 
 ```toml
 [auth.email.template.invite]
@@ -419,7 +419,7 @@ The package ships `text`, `textarea`, `email`, `phone`, `url`, `video`, `slug`, 
 
 `color({ label: 'Color de marca', presets: ['#1f5fa8', '#0e0e13'] })` stores one `#rrggbb` in lower case (a stored `#1F5FA8` is repaired on read; `red` or `#abc` is "Usá un color como #1f5fa8"). The input is the browser's color picker next to the hex, and `presets` adds swatches the editor picks with one click; the version history shows each color with its swatch. Imports take the same hex.
 
-`select` shows a dropdown, or one card per option with `display: 'cards'`: every option then needs a serializable `preview`, a PrimeIcons name (`{ icon: 'pi-th-large' }`), an image (`{ image: '/layouts/mosaic.svg' }`, a path or an https URL) or a mosaic sketch the panel draws (`{ grid: { columns, rows, cells: [{ column, row, columnSpan?, rowSpan? }] } }`, 1-based like CSS grid lines). `defineCmsConfig` rejects cards with an option that has no preview, a preview without `display: 'cards'`, and a cell outside its grid. `multiSelect` has no cards. A gallery block that lets the editor pick its layout:
+`select` shows a dropdown, or one card per option with `display: 'cards'`: every option then needs a serializable `preview`, a PrimeIcons name (`{ icon: 'pi-th-large' }`), an image (`{ image: '/layouts/mosaic.svg' }`, a path or an https URL) or a mosaic sketch the panel draws (`{ grid: { columns, rows, cells: [{ column, row, columnSpan?, rowSpan? }] } }`, 1-based like CSS grid lines; `column` and `row` also take what `grid-column` and `grid-row` take, `'1 / 4'` or `'2 / span 2'`). `defineCmsConfig` rejects cards with an option that has no preview, a preview without `display: 'cards'`, a cell outside its grid and a line it can't read. `multiSelect` has no cards. A gallery block that lets the editor pick its layout:
 
 ```ts
 layout: select({
@@ -427,7 +427,7 @@ layout: select({
   display: 'cards',
   default: 'grid',
   options: [
-    { label: 'Mosaico', value: 'mosaic', preview: { grid: { columns: 3, rows: 2, cells: [{ column: 1, row: 1, columnSpan: 2, rowSpan: 2 }, { column: 3, row: 1 }, { column: 3, row: 2 }] } } },
+    { label: 'Mosaico', value: 'mosaic', preview: { grid: { columns: 3, rows: 2, cells: [{ column: '1 / 3', row: '1 / 3' }, { column: 3, row: 1 }, { column: 3, row: 2 }] } } },
     { label: 'Grilla', value: 'grid', preview: { grid: { columns: 3, rows: 2, cells: [{ column: 1, row: 1 }, { column: 2, row: 1 }, { column: 3, row: 1 }, { column: 1, row: 2 }, { column: 2, row: 2 }, { column: 3, row: 2 }] } } }
   ]
 })
@@ -544,7 +544,7 @@ pnpm exec linkchar-cms routes          # writes the panel wiring under src/app/(
 pnpm exec linkchar-cms routes --check  # CI: exit 1 when a file is missing or stale, or the proxy matcher misses basePath
 ```
 
-- `src/app/(cms)/<basePath>/…`: one file per screen (`export default route.Page`), the layouts, `loading.tsx` (a table skeleton for lists, fields for the editors), the panel's `error.tsx` and `not-found.tsx` (with a catch-all, so an unknown panel URL shows the panel's 404 instead of the site's), and the email link and sign-out handlers.
+- `src/app/(cms)/<basePath>/…`: one file per screen (`export default route.Page`), the layouts, `loading.tsx` (a table skeleton for lists, fields for the editors), the panel's `error.tsx` and `not-found.tsx` (with a catch-all, so an unknown panel URL shows the panel's 404 instead of the site's), the page the invitation and recovery emails land on (`auth/confirm`, with the button that spends the token) and the sign-out handler.
 - `src/app/api/cms/{build-status,draft,disable-draft}/route.ts`: the build webhook and the preview's Draft Mode.
 - `src/cms/actions.ts`: `'use server'`, re-exports every action the browser calls.
 - Created once and then owned by the project: `src/app/(cms)/layout.tsx` (the panel's root layout) and `src/cms/client.ts` (`createCmsClient`, where project inputs are registered).
@@ -575,7 +575,7 @@ branding: {
 }
 ```
 
-Without `icon`, `withCms` takes the favicon at build: `app/icon.svg`, `icon.png` or `apple-icon.png` (under `src/` too), then `public/icon.svg` or `favicon.svg`, then the largest `favicon*.png` or `icon*.png` in `public/`, then `favicon.ico`. `doctor` says which one it found; with none, the panel shows the initials of the name. The icon sits on a white tile, so a favicon drawn for a light tab still shows on the dark sidebar.
+Without `icon`, `withCms` takes the favicon at build: `app/icon.svg`, `icon.png` or `apple-icon.png` (under `src/` too), then `public/icon.svg` or `favicon.svg`, then the largest `favicon*.png` or `icon*.png` in `public/`, the same under `public/seo/`, then `favicon.ico`. `doctor` says which one it found; with none, the panel shows the initials of the name. The icon sits on a white tile, so a favicon drawn for a light tab still shows on the dark sidebar.
 
 ## Panel texts
 
