@@ -85,6 +85,7 @@ const routes = async ({ config, src, check }) => {
     console.warn(`  export const proxy = cms.proxy\n  export const config = { matcher: ['${loaded.basePath}/:path*'] }`)
   }
   const behind = changes.some(change => change.status === 'added' || change.status === 'updated' || change.status === 'removed')
+  if (!check && changes.some(change => change.status === 'removed')) console.log('\nA removed route leaves .next/types behind: run next typegen (or next build) before the next type-check.')
   return check && (behind || proxy !== 'ok') ? 1 : 0
 }
 

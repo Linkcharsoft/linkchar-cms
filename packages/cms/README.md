@@ -548,6 +548,8 @@ pnpm exec linkchar-cms routes          # writes the panel wiring under src/app/(
 pnpm exec linkchar-cms routes --check  # CI: exit 1 when a file is missing or stale, or the proxy matcher misses basePath
 ```
 
+A route the package stops generating is deleted, and Next's `.next/types` keeps a validator for it until `next typegen` or `next build` runs: run one of them before the next type-check. On Windows, `pnpm exec` goes through cmd.exe: a path with parentheses (`src/app/(cms)/…`) must be quoted when it is an argument.
+
 - `src/app/(cms)/<basePath>/…`: one file per screen (`export default route.Page`), the layouts, `loading.tsx` (a table skeleton for lists, fields for the editors), the panel's `error.tsx` and `not-found.tsx` (with a catch-all, so an unknown panel URL shows the panel's 404 instead of the site's), the page the invitation and recovery emails land on (`auth/confirm`, with the button that spends the token) and the sign-out handler.
 - `src/app/api/cms/{build-status,draft,disable-draft}/route.ts`: the build webhook and the preview's Draft Mode.
 - `src/cms/actions.ts`: `'use server'`, re-exports every action the browser calls.
