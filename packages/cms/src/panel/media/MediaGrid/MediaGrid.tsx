@@ -3,7 +3,7 @@ import './MediaGrid.sass'
 import Image from 'next/image'
 import { classNames } from 'primereact/utils'
 import { languageName } from '../../../core/i18n/translator'
-import { isImageMime, missingAltLocales } from '../../../core/media'
+import { formatDuration, isImageMime, mediaTypeOf, missingAltLocales } from '../../../core/media'
 import { useCms, useT } from '../../client/context'
 import { useMediaText } from '../mediaText'
 import type { MediaItemType } from '../../../core/media'
@@ -45,6 +45,13 @@ const MediaGrid = ({ items, selectable = false, selectedIds = [], onActivate }: 
                     blurDataURL={item.blurDataUrl ?? undefined}
                     className='MediaGrid__Image'
                   />
+                ) : mediaTypeOf(item.mime) === 'video' ? (
+                  <>
+                    {item.posterUrl
+                      ? <Image src={item.posterUrl} alt='' fill sizes='(min-width: 1024px) 180px, 45vw' className='MediaGrid__Image' />
+                      : <i className='pi pi-video MediaGrid__Video' aria-hidden='true' />}
+                    {item.duration !== null && <span className='MediaGrid__Duration'>{formatDuration(item.duration)}</span>}
+                  </>
                 ) : (
                   <i className='pi pi-file-pdf MediaGrid__Pdf' aria-hidden='true' />
                 )}

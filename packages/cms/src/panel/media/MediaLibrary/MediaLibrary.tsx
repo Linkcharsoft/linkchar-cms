@@ -16,7 +16,7 @@ import { useNotify } from '../../providers/notify'
 import MediaDetails from '../MediaDetails/MediaDetails'
 import MediaGrid from '../MediaGrid/MediaGrid'
 import MediaUploader from '../MediaUploader/MediaUploader'
-import type { MediaItemType } from '../../../core/media'
+import type { MediaItemType, MediaTypeType } from '../../../core/media'
 import type { MediaQueryType } from '../../../server/media'
 import type { Dispatch, SetStateAction } from 'react'
 
@@ -25,7 +25,7 @@ interface Props {
   initialItems?: MediaItemType[]
   initialTotal?: number
   mode: 'manage' | 'pick'
-  accept?: 'image' | 'document' | 'any'
+  accept?: MediaTypeType | 'any'
   multiple?: boolean
   defaultFolder?: string
   canPurge?: boolean
@@ -78,7 +78,8 @@ const MediaLibrary = ({
   const typeOptions = [
     { label: t('media.library.types.any'), value: ALL },
     { label: t('media.library.types.image'), value: 'image' },
-    { label: t('media.library.types.document'), value: 'document' }
+    { label: t('media.library.types.document'), value: 'document' },
+    { label: t('media.library.types.video'), value: 'video' }
   ]
 
   const otherLocales = config.locales.filter(locale => locale !== config.defaultLocale)
@@ -203,7 +204,7 @@ const MediaLibrary = ({
             onChange={event => update({ type: event.value === ALL ? undefined : event.value })}
           />
         )}
-        {otherLocales.length > 0 && accept !== 'document' && (
+        {otherLocales.length > 0 && (accept === 'any' || accept === 'image') && (
           <Dropdown
             inputId={`${mode}-media-alt`}
             aria-label={t('media.library.altFilter')}

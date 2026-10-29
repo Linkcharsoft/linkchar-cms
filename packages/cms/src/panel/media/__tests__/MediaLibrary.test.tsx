@@ -13,6 +13,7 @@ vi.mock('../MediaUploader/MediaUploader', () => ({
 const media = (n: number): MediaItemType => ({
   id: `00000000-0000-4000-8000-00000000000${n}`, path: `${n}.webp`, url: `http://127.0.0.1:54421/${n}.webp`, filename: `foto-${n}.webp`, folder: 'sitio',
   alt: { es: `Foto ${n}` }, caption: {}, mime: 'image/webp', size: 10, width: 800, height: 600, focalX: null, focalY: null, blurDataUrl: null,
+  duration: null, posterId: null, posterUrl: null,
   createdAt: '2026-10-01T12:00:00Z', deletedAt: null
 })
 

@@ -4,7 +4,7 @@ import { useField } from 'formik'
 import Image from 'next/image'
 import { use, useState } from 'react'
 import { languageName } from '../../../core/i18n/translator'
-import { formatBytes, isImageMime } from '../../../core/media'
+import { formatBytes, formatDuration, isImageMime, isVideoMime, mediaTypeOf } from '../../../core/media'
 import { useCms, useT } from '../../client/context'
 import MediaDetails from '../../media/MediaDetails/MediaDetails'
 import MediaPicker from '../../media/MediaPicker/MediaPicker'
@@ -18,15 +18,19 @@ import { fieldId, useFieldError, useFieldLabel, useMediaVariant, useText } from 
 import { LocaleBadge } from '../LocaleNote/LocaleNote'
 import MissingAlt from '../MissingAlt/MissingAlt'
 import { useMediaRegistry } from '../referencesContext'
-import type { FileField, ImageField } from '../../../core/fields'
+import type { FileField, ImageField, VideoFileField } from '../../../core/fields'
 import type { MediaItemType } from '../../../core/media'
 
 interface Props {
   name: string
-  field: ImageField | FileField
+  field: ImageField | FileField | VideoFileField
 }
 
-// One image or PDF by media id (alt and focal point live on the item); other languages reuse the original.
+const PICKS = { image: 'image', file: 'document', videoFile: 'video' } as const
+
+const ICONS = { image: 'pi pi-image', file: 'pi pi-file-pdf', videoFile: 'pi pi-video' } as const
+
+// One image, PDF or video by media id (alt, focal point and poster live on the item); other languages reuse the original.
 const MediaInput = ({ name, field }: Props) => {
   const { t } = useT()
   const { config } = useCms()
@@ -44,7 +48,7 @@ const MediaInput = ({ name, field }: Props) => {
   const id = fieldId(name)
   const item = value ? known[value] : undefined
   const isImageField = field.kind === 'image'
-  const kind = isImageField ? 'image' : 'file'
+  const kind = field.kind
   const fieldName = text(field.label)
   const language = languageName(locale || config.defaultLocale, config.panelLocale)
   const original = languageName(config.defaultLocale, config.panelLocale)
@@ -86,7 +90,7 @@ const MediaInput = ({ name, field }: Props) => {
         : item ? t(`mediaInput.${kind}.changeOf`, { label: fieldName }) : t(`mediaInput.${kind}.chooseFor`, { label: fieldName })}
       onClick={() => setIsPicking(true)}
     >
-      <i className={item ? 'pi pi-sync' : isImageField ? 'pi pi-image' : 'pi pi-file-pdf'} aria-hidden='true' />
+      <i className={item ? 'pi pi-sync' : ICONS[kind]} aria-hidden='true' />
       {inherited ? t(`mediaInput.${kind}.override`, { language }) : item ? t('mediaInput.change') : t(`mediaInput.${kind}.choose`)}
     </CustomButton>
   )
@@ -112,16 +116,19 @@ const MediaInput = ({ name, field }: Props) => {
                   sizes='240px'
                   className='MediaInput__Image'
                 />
+              ) : mediaTypeOf(item.mime) === 'video' && item.posterUrl ? (
+                <Image src={item.posterUrl} alt='' fill sizes='240px' className='MediaInput__Image' />
               ) : (
-                <i className='pi pi-file-pdf MediaInput__Pdf' aria-hidden='true' />
+                <i className={mediaTypeOf(item.mime) === 'video' ? 'pi pi-video MediaInput__Video' : 'pi pi-file-pdf MediaInput__Pdf'} aria-hidden='true' />
               )}
             </div>
             <div className='MediaInput__Info'>
               <p className='MediaInput__Name'>{item.filename || mediaText(item.alt)}</p>
               {isImageMime(item.mime)
                 ? altShown && <p className='MediaInput__Meta'>{t('mediaInput.altText', { alt: altShown })}</p>
-                : <p className='MediaInput__Meta'>{formatBytes(item.size)}</p>}
+                : <p className='MediaInput__Meta'>{[formatBytes(item.size), item.duration !== null && t('media.details.duration', { duration: formatDuration(item.duration) })].filter(Boolean).join(' · ')}</p>}
               {variant.translating && isImageMime(item.mime) && <MissingAlt ids={[item.id]} />}
+              {isVideoMime(item.mime) && !item.posterId && <p role='alert' className='MediaInput__Warning'>{t('mediaInput.posterMissing')}</p>}
               {item.deletedAt && (
                 <p role='alert' className='MediaInput__Warning'>{t('mediaInput.trashed', { media: navItems(config).media.label })}</p>
               )}
@@ -157,7 +164,7 @@ const MediaInput = ({ name, field }: Props) => {
       {isPicking && (
         <MediaPicker
           header={inherited ? t(`mediaInput.${kind}.override`, { language }) : t(`mediaInput.${kind}.choose`)}
-          accept={isImageField ? 'image' : 'document'}
+          accept={PICKS[kind]}
           defaultFolder={field.folder}
           onHide={() => setIsPicking(false)}
           onPick={([picked]) => {
