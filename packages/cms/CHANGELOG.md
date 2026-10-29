@@ -1,5 +1,22 @@
 # @linkcharsoft/cms
 
+## 0.15.0
+
+### Minor Changes
+
+- a0d5276: The site's build reports itself, so publishing on Amplify needs the build hook and two lines in `amplify.yml` instead of an EventBridge rule, an API destination, a connection, an IAM role and a webhook secret. `linkchar-cms build:report --start` (end of `preBuild`) takes the open publish and records Amplify's job, app, branch, region and commit; `pnpm run build && linkchar-cms build:report --ok || (linkchar-cms build:report --failed; exit 1)` closes the build: `--ok` leaves the publish `built` with the stamp of the build (`withCms` derives it from `AWS_JOB_ID`, or takes `CMS_BUILD_STAMP`, and inlines it), `--failed` records `build_failed`. The built site answers `GET /api/cms/build-status` with `{ stamp }`, and the panel marks the publish "Listo" when `site.url` serves that stamp (checked whenever the publish log is read: the publish page, the header's poll, `getPublishCircuit()`); meanwhile it reads "Publicando · desplegando", and after 30 minutes without the stamp, "Sin confirmar". A build nobody asked for finds no open publish and does nothing; a build that can't reach Supabase says so and goes on: `build:report` never fails a build. The history links the deployment in the Amplify console for whoever publishes. `doctor` fails while `amplify.yml` lacks the two lines, and `publish:ping` tells the cuts apart (hook refused, build never reported, build never ended, site never served the stamp), confirming the stamp itself. The migration adds `built` to `publish_log.build_status` and the columns `build_stamp`, `built_at`, `app_id`, `branch`, `region` and `commit`. In the core, `publishDisplayStatus` and `headerPublishStatus` take the record (`buildStatus`, `requestedAt`, `builtAt`) instead of two strings and add the `deploying` state; `PublishRecordType` gains `builtAt` and `consoleUrl`; `@linkcharsoft/cms/next` exports `buildStamp(env)`.
+  
+  To update a project: `linkchar-cms migrations sync` and `supabase db push` (migration `20261030000000_build_report`); `linkchar-cms routes` (the build-status route gains the GET); add `pnpm exec linkchar-cms build:report --start` at the end of `preBuild` in `amplify.yml` and run the build as `pnpm run build && pnpm exec linkchar-cms build:report --ok || (pnpm exec linkchar-cms build:report --failed; exit 1)`; remove `CMS_BUILD_WEBHOOK_SECRET` from Amplify and `.env.remote` unless EventBridge stays, and optionally delete the rule, the API destination and the connection. Code that calls `publishDisplayStatus(status, requestedAt)` passes the record instead.
+- a0d5276: `POST /api/cms/build-status` exists only while `CMS_BUILD_WEBHOOK_SECRET` is set: `amplify()` defines `readWebhook` only with a secret, so a project that reports builds from `amplify.yml` answers 404 there instead of 401, and nothing waits for EventBridge.
+  
+  To update a project: nothing, unless it relies on the 401 (keep `CMS_BUILD_WEBHOOK_SECRET` to keep the webhook).
+
+### Patch Changes
+
+- a0d5276: `publish:ping` no longer prints the build hook URL whole: it carries the token that starts builds, so only the host and the `id` are shown. The message after the hook answers no longer mentions a missing job id, which Amplify's hook never returns.
+  
+  To update a project: nothing.
+
 ## 0.14.0
 
 ### Minor Changes
