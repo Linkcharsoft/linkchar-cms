@@ -81,11 +81,24 @@ jobs:
             "$API_URL" "$PUBLISHABLE_KEY" "$SECRET_KEY" > .env.local
       - run: pnpm --filter playground exec playwright install --with-deps chromium
       - run: pnpm --filter playground build
+      - name: A published row changes and the next build starts on the fetch cache of the first, as on Amplify
+        working-directory: apps/playground
+        run: |
+          mkdir -p .next-en/cache && cp -r .next/cache/fetch-cache .next-en/cache/
+          eval "$(pnpm exec supabase status -o env)"
+          psql "$DB_URL" -c "update public.published_documents set data = jsonb_set(data, '{hero,title,en}', '\"Architecture to live in (rebuilt)\"') where type = 'home'"
       - name: The same panel in English
         run: pnpm --filter playground build
         env:
           NEXT_PUBLIC_CMS_PANEL_LOCALE: en
           NEXT_DIST_DIR: .next-en
+      - name: The second build rendered the change instead of the first build's cache
+        working-directory: apps/playground
+        run: |
+          grep -rl "to live in (rebuilt)" .next-en/server/app
+          ! grep -rl "to live in (rebuilt)" .next/server/app
+          eval "$(pnpm exec supabase status -o env)"
+          psql "$DB_URL" -c "update public.published_documents set data = jsonb_set(data, '{hero,title,en}', '\"Architecture to live in\"') where type = 'home'"
       - run: pnpm --filter playground test:e2e
       - uses: actions/upload-artifact@v7
         if: failure()

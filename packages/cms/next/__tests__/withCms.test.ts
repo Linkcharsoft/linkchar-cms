@@ -18,6 +18,19 @@ describe('withCms', () => {
     expect(config.images).not.toHaveProperty('dangerouslyAllowLocalIP')
   })
 
+  it('sets one build stamp for the build and keeps the one its workers inherit', () => {
+    delete process.env.CMS_BUILD_STAMP
+    try {
+      withCms({}, { supabaseUrl: 'https://abc.supabase.co', publishableKey: 'key', redirects: false })
+      const stamp = process.env.CMS_BUILD_STAMP
+      expect(stamp).toMatch(/^[0-9a-z]+$/)
+      withCms({}, { supabaseUrl: 'https://abc.supabase.co', publishableKey: 'key', redirects: false })
+      expect(process.env.CMS_BUILD_STAMP).toBe(stamp)
+    } finally {
+      delete process.env.CMS_BUILD_STAMP
+    }
+  })
+
   it('lets Next optimize images from a local Supabase', () => {
     const config = withCms({}, { supabaseUrl: 'http://127.0.0.1:54421', publishableKey: 'key' })
     expect(config.images).toMatchObject({ dangerouslyAllowLocalIP: true, remotePatterns: [{ protocol: 'http', hostname: '127.0.0.1', port: '54421' }] })

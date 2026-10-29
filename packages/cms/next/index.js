@@ -89,6 +89,8 @@ export const withCms = (nextConfig = {}, options = {}) => {
   const bucket = supabaseUrl ? new URL(supabaseUrl) : null
   const images = nextConfig.images ?? {}
   const icon = findBrandIcon()
+  // Next keeps the site's reads in .next/cache/fetch-cache across builds; one stamp per build, inherited by its workers, keeps them fresh.
+  process.env.CMS_BUILD_STAMP ??= Date.now().toString(36)
 
   return {
     ...nextConfig,

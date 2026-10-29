@@ -84,6 +84,11 @@ export const postcssCheck = text => (/@linkcharsoft\/cms\/tailwind\/postcss/.tes
   ? { level: 'ok', text: 'PostCSS runs Tailwind per stylesheet (@linkcharsoft/cms/tailwind/postcss)' }
   : { level: 'fail', text: 'The PostCSS config runs tailwindcss directly: the panel\'s @config reaches the site\'s stylesheets and next build fails on the project\'s own classes. Replace tailwindcss: {} with \'@linkcharsoft/cms/tailwind/postcss\': {}' })
 
+/** @param {string} text the project's amplify.yml @returns {CheckType | null} */
+export const amplifyCacheCheck = text => (/\.next\/cache/.test(text) && !/fetch-cache/.test(text)
+  ? { level: 'warn', text: 'amplify.yml keeps .next/cache between builds, fetch-cache included: add "rm -rf .next/cache/fetch-cache" to preBuild, or the cache grows with every build' }
+  : null)
+
 export const PACKAGE_RELATIONS = ['profiles', 'documents', 'published_documents', 'document_status', 'document_versions', 'redirects', 'media', 'activity_log', 'publish_log']
 
 /** @param {Response} response @returns {Promise<string | null>} the PostgREST or Postgres error code */
@@ -130,15 +135,15 @@ const hasPackagesToken = async env => {
 
 /**
  * Environment checks the other commands don't cover: variables, Supabase, the package registry and the ports.
- * @param {{ root: string, supabaseDir: string, env: Record<string, string | undefined>, siteUrl: string | null, fetch?: typeof fetch }} options
+ * @param {{ root: string, supabaseDir: string, env: Record<string, string | undefined>, envFile?: string, siteUrl: string | null, fetch?: typeof fetch }} options
  * @returns {Promise<CheckType[]>}
  */
-export const environmentChecks = async ({ root, supabaseDir, env, siteUrl, fetch: get = fetch }) => {
+export const environmentChecks = async ({ root, supabaseDir, env, envFile = '.env.local', siteUrl, fetch: get = fetch }) => {
   /** @type {CheckType[]} */
   const checks = []
   const missing = ['NEXT_PUBLIC_SUPABASE_URL', 'NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY', 'SUPABASE_SECRET_KEY'].filter(key => !env[key])
   checks.push(missing.length > 0
-    ? { level: 'fail', text: `Missing ${missing.join(', ')} in the environment or .env.local` }
+    ? { level: 'fail', text: `Missing ${missing.join(', ')} in the environment or ${envFile} (another file: --env-file)` }
     : { level: 'ok', text: 'Supabase variables are set' })
   checks.push(siteUrl
     ? { level: 'ok', text: `site.url is ${siteUrl}` }
@@ -175,6 +180,9 @@ export const environmentChecks = async ({ root, supabaseDir, env, siteUrl, fetch
   }
   const postcssConfig = POSTCSS_CONFIGS.map(name => join(root, name)).find(path => existsSync(path))
   if (postcssConfig) checks.push(postcssCheck(await readFile(postcssConfig, 'utf8')))
+  const amplifyConfig = join(root, 'amplify.yml')
+  const amplifyCache = existsSync(amplifyConfig) ? amplifyCacheCheck(await readFile(amplifyConfig, 'utf8')) : null
+  if (amplifyCache) checks.push(amplifyCache)
 
   const configToml = join(supabaseDir, 'config.toml')
   if (process.platform === 'win32' && existsSync(configToml)) {

@@ -192,7 +192,7 @@ const doctor = async ({ config, src, dir, 'env-file': envFile }) => {
 
   const env = { ...(await readEnvFile(resolve(envFile))), ...process.env }
   const siteUrl = loaded?.site?.url ?? null
-  checks.push(...await environmentChecks({ root: resolve('.'), supabaseDir, env, siteUrl }))
+  checks.push(...await environmentChecks({ root: resolve('.'), supabaseDir, env, envFile, siteUrl }))
 
   const marks = { ok: '✓', warn: '!', fail: '✗' }
   for (const { level, text } of checks) console.log(`${marks[level]} ${text}`)

@@ -76,6 +76,11 @@ const QUERIES = {
   listPages, getPendingChanges, getPendingCount, getPendingCounts, getPublishHistory, getLatestPublish, listPanelUsers, listActivity, purgeExpiredActivity
 }
 
+const PROCESS_STAMP = Date.now().toString(36)
+
+// Part of the fetch cache key of every read, so a static build never serves the reads of the previous one.
+const buildStamp = () => process.env.CMS_BUILD_STAMP ?? PROCESS_STAMP
+
 export const createCmsServer = ({ config, supabase, publishTarget = null, logger = consoleLogger }: CmsServerOptionsType) => {
   const credentials = () => {
     const { url, publishableKey, secretKey } = supabase
@@ -84,7 +89,7 @@ export const createCmsServer = ({ config, supabase, publishTarget = null, logger
   }
 
   const detached = (key: string): CmsClientType =>
-    createClient<Database>(credentials().url, key, { auth: { persistSession: false, autoRefreshToken: false } })
+    createClient<Database>(credentials().url, key, { auth: { persistSession: false, autoRefreshToken: false }, global: { headers: { 'x-cms-build': buildStamp() } } })
 
   const admin = () => {
     const { secretKey } = credentials()
