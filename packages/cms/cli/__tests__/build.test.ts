@@ -6,8 +6,8 @@ type RowType = Record<string, unknown> & { id: number, build_status: string, job
 const settings = { url: 'http://127.0.0.1:44421', secretKey: 'sk' }
 const NOW = 1_000_000
 const at = (minutesAgo: number) => new Date(NOW - minutesAgo * 60_000).toISOString()
-const amplify = { jobId: '7', appId: 'd1', branch: 'main', region: 'us-east-1', commit: 'abc', stamp: 'd1.main.7' }
-const nowhere = { jobId: null, appId: null, branch: null, region: null, commit: null, stamp: null }
+const amplify = { jobId: '7', appId: 'd1', branch: 'main', region: 'us-east-1', commit: 'abc', stamp: 'd1.main.7', reportBranch: null }
+const nowhere = { jobId: null, appId: null, branch: null, region: null, commit: null, stamp: null, reportBranch: null }
 
 const isOpen = (row: RowType) => ['pending', 'building'].includes(row.build_status)
 
@@ -56,6 +56,24 @@ describe('runBuildReport', () => {
     expect(describeBuildReport('ok', result, amplify)).toContain('publish #2 is built (stamp d1.main.7)')
   })
 
+  it('--ok and --failed never take a publish this build\'s --start did not claim', async () => {
+    const log = fakeLog([row(2, { requested_at: at(9) }), row(3, { job_id: '9', requested_at: at(1) })])
+    expect(await report('ok', log)).toEqual({ publishId: null, action: 'none' })
+    expect(await report('failed', log)).toEqual({ publishId: null, action: 'none' })
+    expect(log.rows.map(current => current.build_status)).toEqual(['building', 'building'])
+    expect(log.requests.filter(request => request.includes('job_id=is.null'))).toEqual([])
+    expect(describeBuildReport('ok', { publishId: null, action: 'none' }, amplify)).toBe('build:report --ok: no publish claimed this build (job 7) at --start; nothing to report.')
+  })
+
+  it('reports nothing from a branch other than CMS_BUILD_BRANCH', async () => {
+    const log = fakeLog([row(2)])
+    const preview = { ...amplify, branch: 'new-landing', reportBranch: 'main' }
+    for (const phase of ['start', 'ok', 'failed'] as const) expect(await report(phase, log, preview)).toEqual({ publishId: null, action: 'other_branch' })
+    expect(log.requests).toEqual([])
+    expect(describeBuildReport('start', { publishId: null, action: 'other_branch' }, preview)).toBe('build:report --start: this build is of new-landing and publishes are built from main (CMS_BUILD_BRANCH); nothing to report.')
+    expect(await report('start', log, { ...amplify, reportBranch: 'main' })).toEqual({ publishId: 2, action: 'started' })
+  })
+
   it('--ok without a stamp closes the publish as a success, since no deploy can be confirmed', async () => {
     const log = fakeLog([row(4)])
     const result = await report('ok', log, nowhere)
@@ -81,9 +99,9 @@ describe('runBuildReport', () => {
     expect(log.rows[0].build_status).toBe('success')
   })
 
-  it('asks the log for the open publish by job first, then by age', async () => {
+  it('--start asks the log for the open publish by job first, then by age', async () => {
     const log = fakeLog([])
-    await report('ok', log)
+    await report('start', log)
     expect(log.requests).toEqual([
       'GET ?select=id,build_status,job_id&build_status=in.(pending,building)&job_id=eq.7&limit=1',
       `GET ?select=id,build_status,job_id&build_status=in.(pending,building)&job_id=is.null&requested_at=gte.${at(30)}&order=requested_at.asc&limit=1`
@@ -103,9 +121,12 @@ describe('reportSettings and buildIdentity', () => {
   })
 
   it('reads the build from Amplify\'s variables, with the stamp withCms gives the same build', () => {
-    expect(buildIdentity({ AWS_JOB_ID: '7', AWS_APP_ID: 'd1', AWS_BRANCH: 'main', AWS_REGION: 'us-east-1', AWS_COMMIT_ID: 'abc' })).toEqual(amplify)
-    expect(buildIdentity({ CMS_BUILD_STAMP: 'given', AWS_JOB_ID: '' })).toEqual({ ...nowhere, stamp: 'given' })
-    expect(buildIdentity({})).toEqual(nowhere)
+    const head = () => 'deadbeef'
+    expect(buildIdentity({ AWS_JOB_ID: '7', AWS_APP_ID: 'd1', AWS_BRANCH: 'main', AWS_REGION: 'us-east-1', AWS_COMMIT_ID: 'abc' }, head)).toEqual(amplify)
+    expect(buildIdentity({ CMS_BUILD_STAMP: 'given', AWS_JOB_ID: '' }, () => null)).toEqual({ ...nowhere, stamp: 'given' })
+    expect(buildIdentity({}, () => null)).toEqual(nowhere)
+    expect(buildIdentity({ AWS_JOB_ID: '7', AWS_COMMIT_ID: 'HEAD', CMS_BUILD_BRANCH: 'main' }, head)).toMatchObject({ commit: 'deadbeef', reportBranch: 'main' })
+    expect(buildIdentity({}).commit).toMatch(/^[0-9a-f]{40}$/)
   })
 
   it('links the deployment in the Amplify console', () => {

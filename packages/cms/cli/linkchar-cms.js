@@ -50,7 +50,8 @@ const USAGE = `Usage:
   publish:ping verifies the publish circuit end to end: it logs an empty publish, fires CMS_BUILD_HOOK_URL and waits
   (--timeout minutes) for the build to report itself and the site to serve it. It costs one Amplify build and takes the 30-minute lock.
   build:report runs inside the site's build (amplify.yml) with the build's own variables: --start in preBuild takes the
-  open publish, --ok and --failed close the build. Without an open publish it does nothing, and it never fails the build.`
+  open publish, --ok and --failed close the build --start claimed. With a preview branch, CMS_BUILD_BRANCH names the
+  branch that builds publishes. Without an open publish it does nothing, and it never fails the build.`
 
 /** @type {Record<SyncChangeType['status'] | RouteChangeType['status'] | TemplateChangeType['status'], string>} */
 const SYMBOLS = { added: '+', updated: '~', removed: '-', differs: '!', stale: '!', same: '=', kept: '=' }
