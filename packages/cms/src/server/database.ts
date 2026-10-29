@@ -198,6 +198,7 @@ export type Database = {
           created_at: string;
           created_by: string | null;
           deleted_at: string | null;
+          duration: number | null;
           filename: string;
           focal_x: number | null;
           focal_y: number | null;
@@ -207,6 +208,7 @@ export type Database = {
           id: string;
           mime: string;
           path: string;
+          poster_id: string | null;
           size: number;
           updated_at: string;
           width: number | null;
@@ -219,6 +221,7 @@ export type Database = {
           created_at?: string;
           created_by?: string | null;
           deleted_at?: string | null;
+          duration?: number | null;
           filename?: string;
           focal_x?: number | null;
           focal_y?: number | null;
@@ -228,6 +231,7 @@ export type Database = {
           id?: string;
           mime: string;
           path: string;
+          poster_id?: string | null;
           size: number;
           updated_at?: string;
           width?: number | null;
@@ -239,6 +243,7 @@ export type Database = {
           created_at?: string;
           created_by?: string | null;
           deleted_at?: string | null;
+          duration?: number | null;
           filename?: string;
           focal_x?: number | null;
           focal_y?: number | null;
@@ -248,6 +253,7 @@ export type Database = {
           id?: string;
           mime?: string;
           path?: string;
+          poster_id?: string | null;
           size?: number;
           updated_at?: string;
           width?: number | null;
@@ -258,6 +264,13 @@ export type Database = {
             columns: ['created_by'];
             isOneToOne: false;
             referencedRelation: 'profiles';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'media_poster_id_fkey';
+            columns: ['poster_id'];
+            isOneToOne: false;
+            referencedRelation: 'media';
             referencedColumns: ['id'];
           }
         ];
