@@ -1,5 +1,28 @@
 # @linkcharsoft/cms
 
+## 0.14.0
+
+### Minor Changes
+
+- 5c2263f: The import's closing lines say how it found what it updated (`15 updated (14 by key, 1 by slug, 1 key adopted)`), so the first run after adding `match: { key }` shows the keys being adopted instead of needing a query on `documents.key`, and list the hidden documents of the collections it wrote that it never touched and nobody published: a draft someone started in the panel under the same name is the duplicate the import can't see. `summary()` is now async and returns `matched`, `adopted` and `untouched` next to `created` and `updated`.
+  
+  To update a project: a script that calls `summary()` awaits it; nothing else.
+
+### Patch Changes
+
+- ee5ab96: Without `--env-file`, `admin`, `doctor`, `import` and `publish:ping` read `.env.local` and then `.env`, as Next does, instead of `.env.local` alone; their messages name the file(s) read, `publish:ping` included when `CMS_BUILD_HOOK_URL` is missing.
+  
+  To update a project: nothing.
+- 25098af: `linkchar-cms <command> --help` prints the full usage instead of running the command, the usage lists `--password` and `--env-file`, and `import` without a script names its options.
+  
+  To update a project: nothing.
+- ca26243: `doctor` no longer warns about an unconfirmed publish circuit against a local Supabase: the simulated build is its target by design and `publish:ping` has nothing to verify there. The warning stays for hosted projects.
+  
+  To update a project: nothing.
+- 43cd245: `linkchar-cms routes` says, when it deletes a route the package no longer generates, that `.next/types` keeps a validator for it until `next typegen` or `next build` runs, which is why `tsc --noEmit` fails right after.
+  
+  To update a project: nothing.
+
 ## 0.13.0
 
 ### Minor Changes
