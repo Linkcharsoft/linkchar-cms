@@ -88,9 +88,21 @@ export interface ImportCreatedType {
   existing: number
 }
 
+export interface ImportUntouchedType {
+  entry: string
+  id: string
+  title: string
+}
+
 export interface ImportSummaryType {
   created: ImportCreatedType[]
   updated: number
+  // How the updated documents were found.
+  matched: Record<ImportMatchType, number>
+  // Documents found by slug that took the script's key in this run.
+  adopted: number
+  // Hidden documents of the collections the script wrote that it never touched and nobody published: drafts the panel left.
+  untouched: ImportUntouchedType[]
 }
 
 export interface ImportTransformInputType {
@@ -228,7 +240,10 @@ export const createImportSession = async (options: ImportSessionOptionsType) => 
 
   const touched = new Set<string>()
   const creations: ImportCreatedType[] = []
+  const collections = new Set<string>()
+  const matched: Record<ImportMatchType, number> = { id: 0, key: 0, slug: 0 }
   let updated = 0
+  let adopted = 0
   const problems = (errors: Record<string, string>) => Object.entries(errors).map(([path, message]) => `${path} ${message}`)
 
   // The same file twice (same bytes) gives back the first upload, so an import can run again.
@@ -337,8 +352,13 @@ export const createImportSession = async (options: ImportSessionOptionsType) => 
       const shown = await setDocumentVisibility(ctx, entryId, saved.id, true)
       if (!shown.ok) throw failed(entryId, shown.error)
     }
-    if (entry.kind === 'collection' && match?.key && !found?.key) await adoptKey(entryId, saved.id, match.key)
+    if (entry.kind === 'collection' && match?.key && !found?.key) {
+      await adoptKey(entryId, saved.id, match.key)
+      if (found) adopted++
+    }
     touched.add(saved.id)
+    if (entry.kind === 'collection') collections.add(entryId)
+    if (found && matchedBy) matched[matchedBy]++
     if (found) updated++
     else creations.push({ entry: entryId, id: saved.id, lookup, existing })
     return { id: saved.id, created: !found, matchedBy: found ? matchedBy : null, adjusted: saved.adjusted ?? [] }
@@ -382,7 +402,23 @@ export const createImportSession = async (options: ImportSessionOptionsType) => 
     return report
   }
 
-  const summary = (): ImportSummaryType => ({ created: [...creations], updated })
+  // A draft someone started in the panel under the same name is how a duplicate hides from the import.
+  const untouchedHidden = async (): Promise<ImportUntouchedType[]> => {
+    const items: ImportUntouchedType[] = []
+    for (const entryId of collections) {
+      const entry = getEntry(config, entryId)
+      if (!entry || entry.kind !== 'collection') continue
+      const { data: rows } = await db.from('documents').select('id, data').eq('type', entryId).eq('visible', false).is('deleted_at', null)
+      const hidden = (rows ?? []).filter(row => !touched.has(row.id))
+      if (hidden.length === 0) continue
+      const { data: published } = await db.from('published_documents').select('id').in('id', hidden.map(row => row.id))
+      const live = new Set((published ?? []).map(row => row.id))
+      items.push(...hidden.filter(row => !live.has(row.id)).map(row => ({ entry: entryId, id: row.id, title: documentTitle(entry, row.data, textContext(config)) })))
+    }
+    return items
+  }
+
+  const summary = async (): Promise<ImportSummaryType> => ({ created: [...creations], updated, matched: { ...matched }, adopted, untouched: await untouchedHidden() })
 
   // One publish (and one build) for everything this import touched that has no missing content.
   const publish = async (): Promise<ImportPublishReportType> => {

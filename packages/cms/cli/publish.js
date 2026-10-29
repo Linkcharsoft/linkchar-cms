@@ -18,12 +18,13 @@ const FAILURE_CODES = { failed: 'build_failed', cancelled: 'build_cancelled' }
 /**
  * Where the ping goes, from the environment: the publish log through the secret key and the Amplify build hook.
  * @param {Record<string, string | undefined>} env
+ * @param {string} [envLabel] the env file(s) read, for the messages
  * @returns {PingSettingsType}
  */
-export const pingSettings = env => {
+export const pingSettings = (env, envLabel = 'the env file') => {
   const missing = ['NEXT_PUBLIC_SUPABASE_URL', 'SUPABASE_SECRET_KEY'].filter(key => !env[key])
-  if (missing.length > 0) throw new CliError(`Missing ${missing.join(', ')} in the environment or the env file.`)
-  if (!env.CMS_BUILD_HOOK_URL) throw new CliError('publish:ping needs CMS_BUILD_HOOK_URL: without a build hook there is no circuit to verify (a local Supabase runs the simulated build).')
+  if (missing.length > 0) throw new CliError(`Missing ${missing.join(', ')} in the environment or ${envLabel}.`)
+  if (!env.CMS_BUILD_HOOK_URL) throw new CliError(`publish:ping needs CMS_BUILD_HOOK_URL, not in the environment or ${envLabel}: without a build hook there is no circuit to verify (a local Supabase runs the simulated build).`)
   return {
     url: /** @type {string} */ (env.NEXT_PUBLIC_SUPABASE_URL).replace(/\/$/, ''),
     secretKey: /** @type {string} */ (env.SUPABASE_SECRET_KEY),

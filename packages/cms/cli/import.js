@@ -1,5 +1,6 @@
 import { existsSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
+import { isLocalSupabaseUrl } from './local.js'
 import { CliError } from './migrations.js'
 import { tsconfigAliases } from './routes.js'
 
@@ -13,15 +14,14 @@ import { tsconfigAliases } from './routes.js'
  * }} ImportSettingsType
  */
 
-const LOCAL = /^https?:\/\/(127\.0\.0\.1|localhost)(:\d+)?$/
-
 /**
  * Who imports and where, from the flags and the environment; the build follows the project's server.ts.
  * @param {Record<string, string | undefined>} env
  * @param {ImportFlagsType} flags
+ * @param {string} [envLabel] the env file(s) read, for the messages
  * @returns {ImportSettingsType}
  */
-export const importSettings = (env, { email, password, otp }) => {
+export const importSettings = (env, { email, password, otp }, envLabel = 'the env file') => {
   const user = email ?? env.CMS_IMPORT_EMAIL
   const secret = password ?? env.CMS_IMPORT_PASSWORD
   if (!user || !secret) throw new CliError('The import signs in as a panel user: pass --email and set CMS_IMPORT_PASSWORD (or --password, or --password-stdin).')
@@ -31,12 +31,12 @@ export const importSettings = (env, { email, password, otp }) => {
   const secretKey = env.SUPABASE_SECRET_KEY
   const missing = Object.entries({ NEXT_PUBLIC_SUPABASE_URL: url, NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: publishableKey, SUPABASE_SECRET_KEY: secretKey })
     .filter(([, value]) => !value).map(([name]) => name)
-  if (!url || !publishableKey || !secretKey) throw new CliError(`Missing ${missing.join(', ')} in the environment or the env file.`)
+  if (!url || !publishableKey || !secretKey) throw new CliError(`Missing ${missing.join(', ')} in the environment or ${envLabel}.`)
 
   // A hosted project without a hook gets no build: the publish log says so instead of a mock success.
   const build = env.CMS_BUILD_HOOK_URL
     ? /** @type {const} */ ({ kind: 'amplify', hookUrl: env.CMS_BUILD_HOOK_URL, webhookSecret: env.CMS_BUILD_WEBHOOK_SECRET })
-    : LOCAL.test(url) ? /** @type {const} */ ({ kind: 'mock' }) : /** @type {const} */ ({ kind: 'none' })
+    : isLocalSupabaseUrl(url) ? /** @type {const} */ ({ kind: 'mock' }) : /** @type {const} */ ({ kind: 'none' })
 
   return { email: user, password: secret, otp, supabase: { url, publishableKey, secretKey }, build }
 }
@@ -55,12 +55,14 @@ export const readPasswordFromStdin = async stream => {
 }
 
 /**
- * The lines printed after a run: what it updated and what it created where documents already existed.
+ * The lines printed after a run: how it found what it updated, what it created where documents already existed, and the hidden drafts it left alone.
  * @param {ImportSummaryType} summary
  * @returns {string[]}
  */
-export const summaryLines = ({ created, updated }) => {
-  const lines = [`${updated} updated, ${created.length} created.`]
+export const summaryLines = ({ created, updated, matched = { id: 0, key: 0, slug: 0 }, adopted = 0, untouched = [] }) => {
+  const by = Object.entries(matched).filter(([, count]) => count > 0).map(([how, count]) => `${count} by ${how}`)
+  const how = [...by, ...(adopted > 0 ? [`${adopted} key${adopted === 1 ? '' : 's'} adopted`] : [])]
+  const lines = [`${updated} updated${how.length > 0 ? ` (${how.join(', ')})` : ''}, ${created.length} created.`]
   const entries = [...new Set(created.filter(item => item.existing > 0).map(item => item.entry))]
   for (const entry of entries) {
     const items = created.filter(item => item.entry === entry)
@@ -69,6 +71,11 @@ export const summaryLines = ({ created, updated }) => {
       return `${value.join(' ')} (${by} not found)`
     })
     lines.push(`! ${entry} already had ${items[0].existing} documents; created ${names.join(', ')}. Pass match: { key } so the import finds a document after its slug changes, or --no-create to refuse.`)
+  }
+  for (const entry of [...new Set(untouched.map(item => item.entry))]) {
+    const titles = untouched.filter(item => item.entry === entry).map(item => item.title || item.id)
+    const one = titles.length === 1
+    lines.push(`! ${entry} has ${titles.length} hidden ${one ? 'document' : 'documents'} the script did not touch and nobody published: ${titles.join(', ')}. Open the collection in the panel to keep or trash ${one ? 'it' : 'them'}.`)
   }
   return lines
 }
@@ -112,5 +119,5 @@ export const runImport = async ({ script, configFile, root, settings, publish, c
   } finally {
     await session.signOut()
   }
-  return { build: build.kind, summary: session.summary() }
+  return { build: build.kind, summary: await session.summary() }
 }

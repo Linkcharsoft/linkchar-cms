@@ -3,6 +3,7 @@ import { existsSync } from 'node:fs'
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { promisify } from 'node:util'
+import { isLocalSupabaseUrl } from './local.js'
 import { migrationVersions, PACKAGE_SUPABASE } from './migrations.js'
 
 /**
@@ -173,7 +174,7 @@ const hasPackagesToken = async env => {
 
 /**
  * Environment checks the other commands don't cover: variables, Supabase, the package registry and the ports.
- * @param {{ root: string, supabaseDir: string, env: Record<string, string | undefined>, envFile?: string, siteUrl: string | null, fetch?: typeof fetch }} options
+ * @param {{ root: string, supabaseDir: string, env: Record<string, string | undefined>, envFile?: string, siteUrl: string | null, fetch?: typeof fetch }} options envFile names the env file(s) read, for the messages
  * @returns {Promise<CheckType[]>}
  */
 export const environmentChecks = async ({ root, supabaseDir, env, envFile = '.env.local', siteUrl, fetch: get = fetch }) => {
@@ -181,7 +182,7 @@ export const environmentChecks = async ({ root, supabaseDir, env, envFile = '.en
   const checks = []
   const missing = ['NEXT_PUBLIC_SUPABASE_URL', 'NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY', 'SUPABASE_SECRET_KEY'].filter(key => !env[key])
   checks.push(missing.length > 0
-    ? { level: 'fail', text: `Missing ${missing.join(', ')} in the environment or ${envFile} (another file: --env-file)` }
+    ? { level: 'fail', text: `Missing ${missing.join(', ')} in the environment or ${envFile} (--env-file picks another file)` }
     : { level: 'ok', text: 'Supabase variables are set' })
   checks.push(siteUrl
     ? { level: 'ok', text: `site.url is ${siteUrl}` }
@@ -204,7 +205,7 @@ export const environmentChecks = async ({ root, supabaseDir, env, envFile = '.en
         checks.push((await admins.json()).length > 0
           ? { level: 'ok', text: 'There is a superadmin' }
           : { level: 'fail', text: 'No superadmin yet: linkchar-cms admin --email …' })
-        const circuit = await publishCircuitCheck(get, url, headers)
+        const circuit = isLocalSupabaseUrl(url) ? null : await publishCircuitCheck(get, url, headers)
         if (circuit) checks.push(circuit)
         const expected = [...new Set([...await migrationVersions(join(PACKAGE_SUPABASE, 'migrations')), ...await migrationVersions(join(supabaseDir, 'migrations'))])].sort()
         checks.push(await appliedMigrationsCheck(get, url, headers, expected))

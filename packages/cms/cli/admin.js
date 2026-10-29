@@ -1,5 +1,6 @@
 import { existsSync } from 'node:fs'
 import { readFile } from 'node:fs/promises'
+import { resolve } from 'node:path'
 import { CliError } from './migrations.js'
 
 /**
@@ -28,6 +29,24 @@ export const readEnvFile = async file => {
     if (!match || line.trim().startsWith('#')) return []
     return [[match[1], match[2].replace(/^(['"])(.*)\1$/, '$2')]]
   }))
+}
+
+// Without --env-file, the files Next reads for a local run, the first one winning.
+export const DEFAULT_ENV_FILES = ['.env.local', '.env']
+
+/**
+ * The project's environment for a command: the env file(s) under process.env, and a label of what was read for the messages.
+ * @param {string | undefined} envFile @param {string} [root]
+ * @returns {Promise<{ env: Record<string, string | undefined>, label: string }>}
+ */
+export const readProjectEnv = async (envFile, root = process.cwd()) => {
+  const files = envFile ? [envFile] : DEFAULT_ENV_FILES
+  const found = files.filter(file => existsSync(resolve(root, file)))
+  /** @type {Record<string, string | undefined>} */
+  let env = {}
+  for (const file of [...found].reverse()) env = { ...env, ...(await readEnvFile(resolve(root, file))) }
+  const label = envFile ?? (found.length > 0 ? found.join(' and ') : `${DEFAULT_ENV_FILES.join(' or ')} (neither exists)`)
+  return { env: { ...env, ...process.env }, label }
 }
 
 /** @param {AdminClientType} client @param {string} email */

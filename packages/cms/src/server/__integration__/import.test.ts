@@ -134,9 +134,18 @@ describe('an import session', () => {
   })
 
   it('reports what it created in collections that already had documents, and refuses to create with create: false', async () => {
-    const { created, updated } = session.summary()
-    expect(updated).toBeGreaterThan(0)
-    expect(created).toContainEqual(expect.objectContaining({ entry: 'posts', lookup: `key ${`imp-key-${stamp}`}`, existing: expect.any(Number) }))
+    const draft = await admin.from('documents').insert({ type: 'posts', data: { title: { es: `E2E hidden ${stamp}` } }, visible: false }).select('id').single()
+    try {
+      const { created, updated, matched, adopted, untouched } = await session.summary()
+      expect(updated).toBeGreaterThan(0)
+      expect(matched.key).toBeGreaterThan(0)
+      expect(matched.slug).toBeGreaterThan(0)
+      expect(adopted).toBe(1)
+      expect(created).toContainEqual(expect.objectContaining({ entry: 'posts', lookup: `key ${`imp-key-${stamp}`}`, existing: expect.any(Number) }))
+      expect(untouched).toContainEqual({ entry: 'posts', id: draft.data?.id, title: `E2E hidden ${stamp}` })
+    } finally {
+      if (draft.data) await admin.from('documents').delete().eq('id', draft.data.id)
+    }
 
     const strict = await createImportSession({ config: cmsConfig, supabase, email: 'qa-super@local.test', password: 'QaLocal12345', create: false, root, logger: console })
     try {

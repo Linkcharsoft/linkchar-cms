@@ -43,9 +43,16 @@ describe('readPasswordFromStdin', () => {
 
 describe('summaryLines', () => {
   it('counts the run and warns about documents created where the collection already had some', () => {
-    expect(summaryLines({ updated: 3, created: [] })).toEqual(['3 updated, 0 created.'])
-    expect(summaryLines({ updated: 0, created: [{ entry: 'projects', id: '1', lookup: 'slug givxo', existing: 0 }] })).toEqual(['0 updated, 1 created.'])
+    expect(summaryLines({ matched: { id: 0, key: 0, slug: 0 }, adopted: 0, untouched: [], updated: 3, created: [] })).toEqual(['3 updated, 0 created.'])
+    expect(summaryLines({ updated: 15, created: [], matched: { id: 0, key: 14, slug: 1 }, adopted: 1, untouched: [] })).toEqual(['15 updated (14 by key, 1 by slug, 1 key adopted), 0 created.'])
+    expect(summaryLines({ updated: 2, created: [], matched: { id: 0, key: 0, slug: 2 }, adopted: 2, untouched: [] })).toEqual(['2 updated (2 by slug, 2 keys adopted), 0 created.'])
+    expect(summaryLines({ updated: 1, created: [], matched: { id: 0, key: 1, slug: 0 }, adopted: 0, untouched: [{ entry: 'projects', id: 'd1', title: 'TocToc' }, { entry: 'projects', id: 'd2', title: '' }] })).toEqual([
+      '1 updated (1 by key), 0 created.',
+      '! projects has 2 hidden documents the script did not touch and nobody published: TocToc, d2. Open the collection in the panel to keep or trash them.'
+    ])
+    expect(summaryLines({ matched: { id: 0, key: 0, slug: 0 }, adopted: 0, untouched: [], updated: 0, created: [{ entry: 'projects', id: '1', lookup: 'slug givxo', existing: 0 }] })).toEqual(['0 updated, 1 created.'])
     expect(summaryLines({
+      matched: { id: 0, key: 0, slug: 0 }, adopted: 0, untouched: [],
       updated: 2,
       created: [
         { entry: 'projects', id: '1', lookup: 'slug consultores-de-empresas-automatizacion-arca', existing: 12 },
