@@ -101,7 +101,7 @@ describe('environmentChecks', () => {
 
   it('names what is missing and the command that fixes it', async () => {
     expect((await levels({ env: { NODE_AUTH_TOKEN: 'x' }, siteUrl: null })).map(check => check.text)).toEqual([
-      'Missing NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY, SUPABASE_SECRET_KEY in the environment or .env.local (another file: --env-file)',
+      'Missing NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY, SUPABASE_SECRET_KEY in the environment or .env.local (--env-file picks another file)',
       'site.url is empty: the sitemap throws and canonical URLs stay relative (set NEXT_PUBLIC_SITE_URL)'
     ])
     expect((await levels({ fetch: answer([], { profiles: { status: 404, code: 'PGRST205' } }) })).find(check => check.level === 'fail')?.text)

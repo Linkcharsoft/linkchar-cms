@@ -18,9 +18,10 @@ import { tsconfigAliases } from './routes.js'
  * Who imports and where, from the flags and the environment; the build follows the project's server.ts.
  * @param {Record<string, string | undefined>} env
  * @param {ImportFlagsType} flags
+ * @param {string} [envLabel] the env file(s) read, for the messages
  * @returns {ImportSettingsType}
  */
-export const importSettings = (env, { email, password, otp }) => {
+export const importSettings = (env, { email, password, otp }, envLabel = 'the env file') => {
   const user = email ?? env.CMS_IMPORT_EMAIL
   const secret = password ?? env.CMS_IMPORT_PASSWORD
   if (!user || !secret) throw new CliError('The import signs in as a panel user: pass --email and set CMS_IMPORT_PASSWORD (or --password, or --password-stdin).')
@@ -30,7 +31,7 @@ export const importSettings = (env, { email, password, otp }) => {
   const secretKey = env.SUPABASE_SECRET_KEY
   const missing = Object.entries({ NEXT_PUBLIC_SUPABASE_URL: url, NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: publishableKey, SUPABASE_SECRET_KEY: secretKey })
     .filter(([, value]) => !value).map(([name]) => name)
-  if (!url || !publishableKey || !secretKey) throw new CliError(`Missing ${missing.join(', ')} in the environment or the env file.`)
+  if (!url || !publishableKey || !secretKey) throw new CliError(`Missing ${missing.join(', ')} in the environment or ${envLabel}.`)
 
   // A hosted project without a hook gets no build: the publish log says so instead of a mock success.
   const build = env.CMS_BUILD_HOOK_URL

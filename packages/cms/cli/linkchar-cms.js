@@ -4,7 +4,7 @@ import { readFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 import { parseArgs } from 'node:util'
 import { findBrandIcon } from '../next/index.js'
-import { createSuperadmin, readEnvFile } from './admin.js'
+import { createSuperadmin, readProjectEnv } from './admin.js'
 import { authChecks, environmentChecks } from './doctor.js'
 import { importSettings, readPasswordFromStdin, runImport, summaryLines } from './import.js'
 import { initProject, nextSteps, normalizeBasePath } from './init.js'
@@ -128,13 +128,13 @@ const init = async options => {
   return 0
 }
 
-/** @param {{ email?: string, password?: string, name?: string, 'env-file': string }} options */
+/** @param {{ email?: string, password?: string, name?: string, 'env-file'?: string }} options */
 const admin = async ({ email, password, name, 'env-file': envFile }) => {
   if (!email) throw new CliError('--email is required.')
-  const env = { ...(await readEnvFile(resolve(envFile))), ...process.env }
+  const { env, label } = await readProjectEnv(envFile)
   const url = env.NEXT_PUBLIC_SUPABASE_URL
   const secretKey = env.SUPABASE_SECRET_KEY
-  if (!url || !secretKey) throw new CliError(`NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SECRET_KEY are needed, in the environment or in ${envFile}.`)
+  if (!url || !secretKey) throw new CliError(`NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SECRET_KEY are needed, in the environment or in ${label}.`)
 
   const { createClient } = await import('@supabase/supabase-js')
   const client = createClient(url, secretKey, { auth: { persistSession: false, autoRefreshToken: false } })
@@ -156,7 +156,7 @@ const brandIconCheck = ({ branding }) => {
     : { level: 'warn', text: 'No product icon: add app/icon.svg or set branding.icon (the panel shows initials meanwhile)' }
 }
 
-/** @param {{ config: string, src?: string, dir: string, 'env-file': string }} options */
+/** @param {{ config: string, src?: string, dir: string, 'env-file'?: string }} options */
 const doctor = async ({ config, src, dir, 'env-file': envFile }) => {
   /** @type {import('./doctor.js').CheckType[]} */
   const checks = []
@@ -195,9 +195,9 @@ const doctor = async ({ config, src, dir, 'env-file': envFile }) => {
     checks.push({ level: 'fail', text: `There is no ${dir}/config.toml: supabase init` })
   }
 
-  const env = { ...(await readEnvFile(resolve(envFile))), ...process.env }
+  const { env, label } = await readProjectEnv(envFile)
   const siteUrl = loaded?.site?.url ?? null
-  checks.push(...await environmentChecks({ root: resolve('.'), supabaseDir, env, envFile, siteUrl }))
+  checks.push(...await environmentChecks({ root: resolve('.'), supabaseDir, env, envFile: label, siteUrl }))
 
   const marks = { ok: '✓', warn: '!', fail: '✗' }
   for (const { level, text } of checks) console.log(`${marks[level]} ${text}`)
@@ -206,13 +206,14 @@ const doctor = async ({ config, src, dir, 'env-file': envFile }) => {
 
 /**
  * @param {string | undefined} script
- * @param {{ config: string, email?: string, password?: string, 'password-stdin': boolean, otp?: string, publish: boolean, create: boolean, 'env-file': string }} options
+ * @param {{ config: string, email?: string, password?: string, 'password-stdin': boolean, otp?: string, publish: boolean, create: boolean, 'env-file'?: string }} options
  */
 const importContent = async (script, { config, email, password, 'password-stdin': passwordStdin, otp, publish, create, 'env-file': envFile }) => {
   if (!script) throw new CliError('Usage: linkchar-cms import <script.ts> --email ana@acme.com')
   if (passwordStdin && password) throw new CliError('Pass --password or --password-stdin, not both.')
   const secret = passwordStdin ? await readPasswordFromStdin(process.stdin) : password
-  const settings = importSettings({ ...(await readEnvFile(resolve(envFile))), ...process.env }, { email, password: secret, otp })
+  const { env, label } = await readProjectEnv(envFile)
+  const settings = importSettings(env, { email, password: secret, otp }, label)
   const { build, summary } = await runImport({ script: resolve(script), configFile: resolve(config), root: resolve('.'), settings, publish, create })
   const builds = { amplify: 'publishing triggers the Amplify build', mock: 'publishing ran the mock build', none: 'no build hook (CMS_BUILD_HOOK_URL): retry the build from Publicar' }
   console.log(`Import done as ${settings.email} at ${settings.supabase.url}${publish ? `; ${builds[build]}` : '; nothing published (--no-publish)'}.`)
@@ -220,9 +221,10 @@ const importContent = async (script, { config, email, password, 'password-stdin'
   return 0
 }
 
-/** @param {{ timeout: string, 'env-file': string }} options */
+/** @param {{ timeout: string, 'env-file'?: string }} options */
 const publishPing = async ({ timeout, 'env-file': envFile }) => {
-  const settings = pingSettings({ ...(await readEnvFile(resolve(envFile))), ...process.env })
+  const { env, label } = await readProjectEnv(envFile)
+  const settings = pingSettings(env, label)
   const minutes = Number(timeout)
   if (!Number.isFinite(minutes) || minutes <= 0) throw new CliError('--timeout takes the minutes to wait for the site, e.g. --timeout 20.')
   console.log(`Verifying the publish circuit of ${settings.url} through ${settings.hookUrl} (up to ${minutes} min)…`)
@@ -247,7 +249,7 @@ const main = async () => {
       otp: { type: 'string' },
       publish: { type: 'boolean', default: true },
       create: { type: 'boolean', default: true },
-      'env-file': { type: 'string', default: '.env.local' },
+      'env-file': { type: 'string' },
       timeout: { type: 'string', default: '20' },
       'base-path': { type: 'string', default: '/dashboard' },
       locales: { type: 'string', default: 'es' },
