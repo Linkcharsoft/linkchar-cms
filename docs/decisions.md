@@ -35,6 +35,7 @@ One line per decision that still shapes the package. Each is settled; reopening 
 - Route segments default to Spanish and are configurable with `paths`; the proxy matcher and the segments stay literals because Next reads them statically.
 - `server-only` is declared once, in `server/index.ts`; `@linkcharsoft/cms/import` (`server/import.ts`) runs in scripts outside Next and never imports it.
 - Imports sign in as a panel user and write through the same server functions (RLS, activity); the secret key only updates the publish log.
+- The simulated build is for a local Supabase: `publishTargetFromEnv` never picks it for a hosted project, and the server treats a local-only target against one as missing, because a fake success hides that no site was built.
 - ESLint layer zones keep `core`, `site`, `publish`, `server` and `panel` apart.
 - `withCms` reads the redirects at `next build`; it detects `next typegen` through `process.argv` because `NEXT_PHASE` is set only after `redirects()` has run. `redirects: false` is the escape hatch.
 - `sitemap()` throws without `site.url`; `absoluteUrl` still returns relative paths for metadata. A page's `lastModified` also counts the entries its sections declare in `uses`, not the singletons it previews (menu, footer).

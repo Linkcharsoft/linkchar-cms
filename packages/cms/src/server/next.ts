@@ -7,6 +7,7 @@ import { NextResponse } from 'next/server'
 import { cache } from 'react'
 import { consoleLogger } from '../core/logger'
 import { panelPaths, safePanelPath } from '../core/paths'
+import { isLocalSupabaseUrl } from '../publish/local'
 import { createSiteReaders } from '../site/readers'
 import { documentJsonLd, documentMetadata, seoOf, siteDefaultValues } from '../site/seo'
 import { changePassword, markTourSeen, recordMfaChange, resetTours, updateAvatar, updateProfile } from './account'
@@ -97,13 +98,24 @@ export const createCmsServer = ({ config, supabase, publishTarget = null, logger
     return detached(secretKey)
   }
 
+  let warnedRemoteMock = false
+  // A local-only target (the mock) against a hosted project would record successes while no site is built.
+  const usablePublishTarget = () => {
+    if (!publishTarget?.localOnly || isLocalSupabaseUrl(credentials().url)) return publishTarget
+    if (!warnedRemoteMock) {
+      warnedRemoteMock = true
+      logger.error(`[publish] the ${publishTarget.name} build is for a local Supabase: against ${credentials().url} publishing records no build (set CMS_BUILD_HOOK_URL, or mockBuild({ allowRemote: true }) to insist)`)
+    }
+    return null
+  }
+
   const baseContext = (db: CmsClientType): CmsContextType => ({
     config,
     supabaseUrl: credentials().url,
     db,
     admin,
     anonymous: () => detached(credentials().publishableKey),
-    publishTarget,
+    publishTarget: usablePublishTarget(),
     revalidate: (path, type) => revalidatePath(path, type),
     now: () => new Date(),
     logger

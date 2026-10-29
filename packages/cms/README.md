@@ -70,7 +70,7 @@ pnpm exec linkchar-cms init --name "Acme" --base-path /cms --locales es,en --pan
 It writes only the files that don't exist yet and never touches the rest:
 
 - `cms.config.ts` with the site defaults (`site.defaults`) and `Register` (config and database types);
-- `src/cms/schema.ts` (a `settings` singleton and a home page, to rewrite with the real schema) and `src/cms/server.ts` (Amplify when `CMS_BUILD_HOOK_URL` is set, the mock build otherwise);
+- `src/cms/schema.ts` (a `settings` singleton and a home page, to rewrite with the real schema) and `src/cms/server.ts` (`publishTargetFromEnv`: Amplify when `CMS_BUILD_HOOK_URL` is set, the simulated build against a local Supabase, no build otherwise);
 - `src/types/supabase.ts`, which re-exports the package types until `supabase gen types` replaces it;
 - the panel's root layout (`app/(cms)/layout.tsx`);
 - the site under `app/(site)/`: a root layout that renders `DraftRefresh` in Draft Mode, the home, the 404 and the catch-all that makes unmatched URLs reach it, plus `app/sitemap.ts` and `proxy.ts`.
@@ -272,8 +272,7 @@ The project owns one server instance: it reads its environment and passes everyt
 ```ts
 // src/cms/server.ts
 import 'server-only'
-import { amplify } from '@linkcharsoft/cms/publish/amplify'
-import { mockBuild } from '@linkcharsoft/cms/publish/mock'
+import { publishTargetFromEnv } from '@linkcharsoft/cms/publish'
 import { createCmsServer } from '@linkcharsoft/cms/server'
 import cmsConfig from '../../cms.config'
 
@@ -284,12 +283,12 @@ export const cms = createCmsServer({
     publishableKey: process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
     secretKey: process.env.SUPABASE_SECRET_KEY
   },
-  publishTarget: process.env.CMS_BUILD_HOOK_URL
-    ? amplify({ hookUrl: process.env.CMS_BUILD_HOOK_URL, webhookSecret: process.env.CMS_BUILD_WEBHOOK_SECRET })
-    : mockBuild(),
+  publishTarget: publishTargetFromEnv(process.env),
   logger: { error: (message, detail) => console.error('[cms]', message, detail) }
 })
 ```
+
+`publishTargetFromEnv` picks the target the way the CLI does: Amplify when `CMS_BUILD_HOOK_URL` is set, the simulated build (`mockBuild`) when `NEXT_PUBLIC_SUPABASE_URL` is a local Supabase, and none otherwise, so a hosted project without a hook records `target_missing` instead of a success nobody built. A project that wires the targets itself (`@linkcharsoft/cms/publish/amplify`, `@linkcharsoft/cms/publish/mock`) gets the same guard from the server: the mock against a hosted project counts as no target and logs why, unless it was made with `mockBuild({ allowRemote: true })`.
 
 ```ts
 // src/proxy.ts: refreshes the session and keeps signed-out users on the sign-in screens.
@@ -305,7 +304,7 @@ The server actions, the build status webhook and the panel routes are generated 
 - The server functions also take the context directly (`saveDocument(ctx, input)`), which is how the tests run them.
 - `logger` is where the server reports the failures it swallows (best-effort writes, the build hook, activity rows): `{ error(message, detail?) }`, the console by default. It reaches every server function as `ctx.logger` and the publish targets as part of their trigger context.
 
-Publishing calls the `PublishTarget`. With Amplify, the build hook queues a build and the EventBridge rule reports its status with `Authorization: Bearer <CMS_BUILD_WEBHOOK_SECRET>` (see [Amplify setup](#amplify-setup)). A status event for an unknown job goes to the oldest open publish of the last 30 minutes. A failed build stores `publish_log.error_code` (`target_missing`, `hook_refused`, `hook_unreachable`, `build_failed`, `build_cancelled`), which the panel translates (`errors.build.*`) and offers to retry. The mock build reports `started` and then the result in-process: `mockBuild({ result: 'failed' | 'cancelled', seconds })` reproduces the failures locally.
+Publishing calls the `PublishTarget`. With Amplify, the build hook queues a build and the EventBridge rule reports its status with `Authorization: Bearer <CMS_BUILD_WEBHOOK_SECRET>` (see [Amplify setup](#amplify-setup)). A status event for an unknown job goes to the oldest open publish of the last 30 minutes. A failed build stores `publish_log.error_code` (`target_missing`, `hook_refused`, `hook_unreachable`, `build_failed`, `build_cancelled`), which the panel translates (`errors.build.*`) and offers to retry. The mock build reports `started` and then the result in-process: `mockBuild({ result: 'failed' | 'cancelled', seconds })` reproduces the failures locally; its publishes read "Simulada" in the history (`job_id` starts with `mock-`).
 
 ## Site
 

@@ -89,6 +89,21 @@ describe('createCmsServer', () => {
     expect(stamp).not.toBe('build-1')
   })
 
+  it('treats the simulated build as missing against a hosted project, and says why once', async () => {
+    const error = vi.fn()
+    const hosted = { ...supabase, url: 'https://abc.supabase.co' }
+    const cms = createCmsServer({ config, supabase: hosted, publishTarget: mockBuild(), logger: { error } })
+    db.tables.publish_log.push({ id: 1, requested_at: new Date().toISOString(), build_status: 'pending', job_id: null })
+    await cms.handlers.buildStatus(webhook('Bearer x'))
+    await cms.queries.getPublishHistory()
+    await cms.queries.getPublishHistory()
+    expect(error).toHaveBeenCalledTimes(1)
+    expect(error.mock.calls[0][0]).toContain('mockBuild({ allowRemote: true })')
+
+    const insisting = createCmsServer({ config, supabase: hosted, publishTarget: mockBuild({ allowRemote: true }), logger: { error: vi.fn() } })
+    expect(insisting).toBeTruthy()
+  })
+
   it('has no webhook when the target reports in-process', async () => {
     const cms = createCmsServer({ config, supabase, publishTarget: mockBuild() })
     expect((await cms.handlers.buildStatus(webhook('Bearer x'))).status).toBe(404)
