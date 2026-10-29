@@ -3,6 +3,10 @@
 
 $dialog-widths: (sm: 480px, md: 640px, lg: 960px)
 
+// Where the editor's sticky panes start: 16px under the sticky header and the editor bar, whose height CmsForm measures.
+@function editor-top()
+  @return calc(var(--cms-header-height, 0px) + var(--cms-editor-bar-height, 8rem) + 16px)
+
 // One focus convention, mirrored by FOCUS_* in pt/shared.ts: a ring on light grounds, an accent outline on dark ones.
 @mixin focus-ring($offset: false)
   @apply focus:outline-none focus-visible:ring-2 focus-visible:ring-cms-primary-ring
