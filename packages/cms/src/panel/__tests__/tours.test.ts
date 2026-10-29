@@ -7,13 +7,20 @@ import { collection } from '../../core/define'
 import { text } from '../../core/kinds/strings'
 import { buildPanelNav } from '../shell/navigation'
 import { isEditing } from '../tours/focus'
-import { buildTours, TOUR_IDS, tourAnchor, tourForPath } from '../tours/tours'
+import { buildTours, TOUR_IDS, tourAnchor, tourForPath, tourProgress } from '../tours/tours'
 
 const tours = buildTours(cmsConfig)
 const tour = (id: string) => tours.find(item => item.id === id)!
 const descriptions = (id: string) => tour(id).steps.map(step => step.description).join(' ')
 
 describe('guided tours', () => {
+  it('count only the steps the screen shows', () => {
+    expect(tourProgress([true, false, true, true], 0)).toEqual({ current: 1, total: 3 })
+    expect(tourProgress([true, false, true, true], 2)).toEqual({ current: 2, total: 3 })
+    expect(tourProgress([true, false, true, true], 3)).toEqual({ current: 3, total: 3 })
+    expect(tourProgress([true, true], 1)).toEqual({ current: 2, total: 2 })
+  })
+
   it('have unique, known ids and at least one step each', () => {
     expect(tours.map(item => item.id)).toEqual([...TOUR_IDS])
     for (const item of tours) expect(item.steps.length).toBeGreaterThan(0)
