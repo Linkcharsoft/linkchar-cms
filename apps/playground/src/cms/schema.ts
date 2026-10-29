@@ -9,7 +9,7 @@ import {
   datetime,
   defineSchema,
   email,
-  file,
+  file, videoFile,
   gallery,
   image,
   list,
@@ -150,6 +150,7 @@ export const schema = defineSchema({
       photos: gallery({ label: 'Fotos', max: 24, folder: 'proyectos' }),
       body: richText({ label: 'Descripción', headings: [2, 3] }),
       brochure: file({ label: 'Ficha en PDF', folder: 'proyectos' }),
+      video: videoFile({ label: 'Video', help: 'MP4 o WebM hasta 25 MB, con portada.', folder: 'proyectos' }),
       featured: boolean({ label: 'Destacado' })
     }),
     seo: seo({ titleFrom: 'title', descriptionFrom: 'summary' })
