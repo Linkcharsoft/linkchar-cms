@@ -2,6 +2,7 @@
 import './SelectCards.sass'
 import { classNames } from 'primereact/utils'
 import { useRef } from 'react'
+import { gridPlacement } from '../../../core/kinds/select'
 import type { SelectOptionType, SelectPreviewType } from '../../../core/fields'
 import type { KeyboardEvent } from 'react'
 
@@ -27,7 +28,7 @@ const Preview = ({ preview }: { preview: SelectPreviewType }) => {
         <span
           key={index}
           className='SelectCards__Cell'
-          style={{ gridColumn: `${cell.column} / span ${cell.columnSpan ?? 1}`, gridRow: `${cell.row} / span ${cell.rowSpan ?? 1}` }}
+          style={{ gridColumn: gridPlacement(cell.column, cell.columnSpan), gridRow: gridPlacement(cell.row, cell.rowSpan) }}
         />
       ))}
     </span>
