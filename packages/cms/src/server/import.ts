@@ -6,11 +6,12 @@ import { translatorFor } from '../core/config'
 import { withDefaults, withItemKeys } from '../core/defaults'
 import { getEntry } from '../core/entries'
 import { consoleLogger } from '../core/logger'
-import { buildMediaPath, isImageMime, MAX_IMAGE_DIMENSION, MEDIA_BUCKET } from '../core/media'
+import { buildMediaPath, isImageMime, isVideoMime, MAX_IMAGE_DIMENSION, MAX_VIDEO_BYTES, MEDIA_BUCKET } from '../core/media'
+import { MP4_HEAD_BYTES, readMp4Head } from '../core/mp4'
 import { validateContent } from '../core/validation'
 import { addDocument, setDocumentVisibility } from './collections'
 import { saveDocument } from './editing'
-import { findMediaByHash, registerMedia } from './media'
+import { findMediaByHash, registerMedia, updateMedia } from './media'
 import { getPendingChanges, publishChanges } from './publish'
 import type { CmsClientType, CmsContextType, DataRecord } from './context'
 import type { Database } from './database'
@@ -52,6 +53,8 @@ export interface ImportMediaInputType {
   // Images need it in the default locale, like an upload from the panel.
   alt?: LocalizedTextType
   caption?: LocalizedTextType
+  // Videos: the id of an image already in the library, shown before the video plays (publishing asks for one).
+  poster?: string
 }
 
 export interface ImportUpsertInputType {
@@ -82,7 +85,22 @@ const MIME_TYPES: Record<string, string> = {
   '.webp': 'image/webp',
   '.avif': 'image/avif',
   '.gif': 'image/gif',
-  '.pdf': 'application/pdf'
+  '.pdf': 'application/pdf',
+  '.mp4': 'video/mp4',
+  '.webm': 'video/webm'
+}
+
+const MAX_VIDEO_MB = MAX_VIDEO_BYTES / 1024 / 1024
+
+// Videos go up as they are: within the cap, and an mp4 only when it plays while it downloads.
+const checkVideo = (file: string, mime: string, original: Buffer) => {
+  if (original.byteLength > MAX_VIDEO_BYTES) {
+    throw new CmsImportError(`${file}: videos go up to ${MAX_VIDEO_MB} MB; export it at 720p with H.264 (CRF 28) or trim it`)
+  }
+  if (mime !== 'video/mp4') return { fastStart: true, duration: null, width: null, height: null }
+  const head = readMp4Head(new Uint8Array(original.buffer, original.byteOffset, Math.min(original.byteLength, MP4_HEAD_BYTES)))
+  if (head.fastStart !== true) throw new CmsImportError(`${file}: the mp4 is not faststart (its moov box comes after mdat): export it with -movflags +faststart`)
+  return head
 }
 
 interface SharpPipelineType {
@@ -174,16 +192,19 @@ export const createImportSession = async (options: ImportSessionOptionsType) => 
   const touched = new Set<string>()
 
   // The same file twice (same bytes) gives back the first upload, so an import can run again.
-  const media = async ({ file, folder, alt = {}, caption = {} }: ImportMediaInputType): Promise<MediaItemType> => {
+  const media = async ({ file, folder, alt = {}, caption = {}, poster }: ImportMediaInputType): Promise<MediaItemType> => {
     const path = resolve(root, file)
     const mime = MIME_TYPES[extname(path).toLowerCase()]
-    if (!mime) throw new CmsImportError(`${file}: only images (jpg, png, webp, avif, gif) and PDFs go to Media`)
+    if (!mime) throw new CmsImportError(`${file}: only images (jpg, png, webp, avif, gif), PDFs and videos (mp4, webm) go to Media`)
     const original = await readFile(path)
+    const video = isVideoMime(mime) ? checkVideo(file, mime, original) : null
     const hash = createHash('sha256').update(original).digest('hex')
     const existing = await findMediaByHash(ctx, hash)
     if (existing) return existing
 
-    const processed = isImageMime(mime) ? await processImage(original, mime) : { data: original, mime, width: null, height: null, blurDataUrl: null }
+    const processed = isImageMime(mime)
+      ? await processImage(original, mime)
+      : { data: original, mime, width: video?.width ?? null, height: video?.height ?? null, blurDataUrl: null }
     const storagePath = buildMediaPath(folder, processed.mime)
     const { error } = await db.storage.from(MEDIA_BUCKET).upload(storagePath, processed.data, { contentType: processed.mime, cacheControl: '31536000', upsert: false })
     if (error) throw new CmsImportError(`${file} could not be uploaded: ${error.message}`)
@@ -199,10 +220,15 @@ export const createImportSession = async (options: ImportSessionOptionsType) => 
       width: processed.width,
       height: processed.height,
       blurDataUrl: processed.blurDataUrl,
-      hash
+      hash,
+      duration: video?.duration ?? null
     })
     if (!result.ok) throw failed(file, result.error)
-    return result.item
+    if (!video || !poster) return result.item
+
+    const withPoster = await updateMedia(ctx, result.item.id, { alt: result.item.alt, caption: result.item.caption, folder, focalX: null, focalY: null, posterId: poster })
+    if (!withPoster.ok) throw failed(file, withPoster.error)
+    return withPoster.item
   }
 
   const findDocument = async (entryId: string, match: ImportUpsertInputType['match'], data: DataRecord) => {
