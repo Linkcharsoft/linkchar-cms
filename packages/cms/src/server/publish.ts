@@ -3,7 +3,7 @@ import { withDefaults } from '../core/defaults'
 import { entryIds, getEntry } from '../core/entries'
 import { changedSections } from '../core/pages'
 import { panelPaths } from '../core/paths'
-import { BUILD_CONFIRMATION_TIMEOUT_MS, publishDisplayStatus } from '../core/publish'
+import { BUILD_CONFIRMATION_TIMEOUT_MS, isSimulatedJob, MOCK_JOB_PREFIX, publishDisplayStatus } from '../core/publish'
 import { unfreedConflicts } from '../core/publishSelection'
 import { documentReferences } from '../core/references'
 import { referenceWarnings, relationIssue, relationName } from '../core/relations'
@@ -14,12 +14,12 @@ import { logActivity } from './activity'
 import { requireRole } from './auth'
 import { authorNames } from './authors'
 import { getDocumentUsageRows, getRelationLabels, titleOf } from './documents'
-import { incompleteIds, mediaAltOf, missingItems } from './incomplete'
+import { incompleteIds, mediaChecksOf, missingItems } from './incomplete'
 import { describeUsage } from './media'
 import type { CmsContextType } from './context'
 import type { MissingItemType } from './incomplete'
 import type { MessageKeyType } from '../core/i18n/types'
-import type { BuildErrorCodeType, BuildEventStatusType, BuildEventType, BuildStatusType } from '../core/publish'
+import type { BuildErrorCodeType, BuildEventStatusType, BuildEventType, BuildStatusType, PublishCircuitType } from '../core/publish'
 import type { SelectionDependencyType, UrlConflictType } from '../core/publishSelection'
 import type { DocumentStatusType } from '../core/status'
 
@@ -68,6 +68,8 @@ export interface PublishRecordType {
   errorDetail: string | null
   // The failed publish this one builds again; a retry publishes nothing new.
   retryOf: number | null
+  // Reported by the simulated build: no site was built.
+  simulated: boolean
   items: { id: string, title: string | null, action: 'publish' | 'unpublish' }[]
 }
 
@@ -102,12 +104,12 @@ export const getPendingChanges = async (ctx: CmsContextType): Promise<PendingCha
   const paths = panelPaths(ctx.config)
   const texts = textContext(ctx.config)
   const changedPages = rows.filter(row => row.id && row.status === 'changed' && row.type && getEntry(ctx.config, row.type)?.kind === 'page').map(row => row.id!)
-  const [names, published, mediaAlt] = await Promise.all([
+  const [names, published, media] = await Promise.all([
     authorNames(ctx, rows.map(row => row.updated_by)),
     changedPages.length > 0
       ? ctx.db.from('published_documents').select('id, data').in('id', changedPages).then(({ data: live }) => live ?? [])
       : [],
-    mediaAltOf(ctx, rows.filter(row => row.status !== 'unpublishing'))
+    mediaChecksOf(ctx, rows.filter(row => row.status !== 'unpublishing'))
   ])
 
   const changes = await Promise.all(rows.map(async (row): Promise<PendingChangeType | null> => {
@@ -120,7 +122,7 @@ export const getPendingChanges = async (ctx: CmsContextType): Promise<PendingCha
     // Published before URLs were kept per locale: the default locale's comes from the single slug.
     const defaultLive = live[ctx.config.defaultLocale] ?? entryPath(ctx.config, described.entry, { slug: row.published_slug })
     if (defaultLive && row.status !== 'new') live[ctx.config.defaultLocale] = defaultLive
-    const missing = action === 'publish' ? await missingItems(ctx, described.entry.fields, row.data, mediaAlt, item => paths.field(described.entry.kind, row.type!, described.id, item))
+    const missing = action === 'publish' ? await missingItems(ctx, described.entry.fields, row.data, media, item => paths.field(described.entry.kind, row.type!, described.id, item))
       : []
     return {
       id: described.id,
@@ -274,12 +276,22 @@ export const getPublishHistory = async (ctx: CmsContextType, limit = 10): Promis
     errorCode: row.error_code as BuildErrorCodeType | null,
     errorDetail: row.error_detail,
     retryOf: row.retry_of,
+    simulated: isSimulatedJob(row.job_id),
     // A purged document has no title left: the panel names it as deleted.
     items: itemsOf(row.items).map(item => ({ id: item.id, action: item.action, title: titles[item.id] ?? null }))
   }))
 }
 
 export const getLatestPublish = async (ctx: CmsContextType) => (await getPublishHistory(ctx, 1))[0] ?? null
+
+// A success with a real job id means the site's build reported back once; the simulated build's never count.
+export const getPublishCircuit = async (ctx: CmsContextType): Promise<PublishCircuitType> => {
+  const { data: any } = await ctx.db.from('publish_log').select('id').limit(1)
+  if (!any?.length) return 'unused'
+  const { data: confirmed } = await ctx.db.from('publish_log').select('id')
+    .eq('build_status', 'success').not('job_id', 'is', null).not('job_id', 'like', `${MOCK_JOB_PREFIX}%`).limit(1)
+  return confirmed?.length ? 'confirmed' : 'unconfirmed'
+}
 
 // A second publish while the site is still building would queue another build of the same content.
 const isBuilding = async (ctx: CmsContextType) => {

@@ -6,11 +6,11 @@ import { useT } from '../../client/context'
 import CustomButton from '../../primitives/CustomButton/CustomButton'
 import DialogFooter from '../../primitives/DialogFooter/DialogFooter'
 import MediaLibrary from '../MediaLibrary/MediaLibrary'
-import type { MediaItemType } from '../../../core/media'
+import type { MediaItemType, MediaTypeType } from '../../../core/media'
 
 interface Props {
   header: string
-  accept: 'image' | 'document'
+  accept: MediaTypeType
   multiple?: boolean
   defaultFolder?: string
   onPick: (items: MediaItemType[]) => void

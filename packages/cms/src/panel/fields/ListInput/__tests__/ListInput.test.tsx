@@ -18,7 +18,7 @@ afterEach(cleanup)
 
 const PHOTO: MediaItemType = {
   id: '00000000-0000-4000-8000-000000000001', path: '1.webp', url: 'http://127.0.0.1:54421/1.webp', filename: 'foto-1.webp', folder: '',
-  alt: { es: 'Fachada' }, caption: {}, mime: 'image/webp', size: 10, width: 800, height: 600, focalX: null, focalY: null, blurDataUrl: null, createdAt: '2026-10-01T12:00:00Z', deletedAt: null
+  alt: { es: 'Fachada' }, caption: {}, mime: 'image/webp', size: 10, width: 800, height: 600, focalX: null, focalY: null, blurDataUrl: null, duration: null, posterId: null, posterUrl: null, createdAt: '2026-10-01T12:00:00Z', deletedAt: null
 }
 
 const toNested = (errors: Record<string, string>) => Object.entries(errors).reduce<Record<string, unknown>>((acc, [path, message]) => setIn(acc, path, message), {})

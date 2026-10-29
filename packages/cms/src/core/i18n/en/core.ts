@@ -48,6 +48,7 @@ const core = {
     minBlocks: { one: 'Add at least {count} block', other: 'Add at least {count} blocks' },
     translationMissing: 'Missing in {language}',
     altOf: 'Alt text of {field}',
+    posterOf: 'Poster of the video in {field}',
     altMissing: 'Missing alt text in {language}',
     slugTaken: 'Another item already uses this URL',
     slugLive: 'On the site, "{title}" still uses this URL. Publish both together, or change this one before publishing.'
@@ -100,6 +101,7 @@ const core = {
       invalidDimensions: 'Invalid dimensions.',
       invalidPreview: 'Invalid preview.',
       invalidFocalPoint: 'Invalid focal point.',
+      invalidPoster: 'The poster must be an image from Media.',
       registerFailed: 'The file could not be saved in the library.',
       gone: 'The file no longer exists.',
       updateFailed: 'The changes could not be saved.'

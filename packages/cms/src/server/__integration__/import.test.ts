@@ -1,5 +1,5 @@
 import { execFileSync, execSync } from 'node:child_process'
-import { mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { copyFile, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -41,6 +41,7 @@ beforeAll(async () => {
   // A color of its own, so a file left by an earlier run is not the same bytes.
   const background = { r: Math.floor(Math.random() * 256), g: Math.floor(Math.random() * 256), b: Math.floor(Math.random() * 256) }
   await writeFile(join(root, 'cover.png'), await sharp({ create: { width: 3000, height: 1500, channels: 3, background } }).png().toBuffer())
+  for (const clip of ['clip.mp4', 'slow.mp4']) await copyFile(fileURLToPath(new URL(`../../core/__tests__/fixtures/${clip}`, import.meta.url)), join(root, clip))
   session = await createImportSession({
     config: cmsConfig,
     supabase,
@@ -66,6 +67,15 @@ describe('an import session', () => {
     expect(cover).toMatchObject({ mime: 'image/webp', width: 2560, height: 1280, alt: { es: 'Fachada', en: 'Facade' } })
     expect(cover.blurDataUrl).toMatch(/^data:image\/webp;base64,/)
     expect((await session.media({ file: 'cover.png', folder: 'blog', alt: { es: 'Otra' } })).id).toBe(cover.id)
+  })
+
+  it('uploads a faststart video as it is, with its duration and poster, and turns away one that cannot stream', async () => {
+    const poster = await session.media({ file: 'cover.png', folder: 'blog', alt: { es: 'Fachada' } })
+    const clip = await session.media({ file: 'clip.mp4', folder: 'blog', poster: poster.id })
+    media.push({ id: clip.id, path: clip.path })
+    expect(clip).toMatchObject({ mime: 'video/mp4', width: 64, height: 64, duration: 1, posterId: poster.id, blurDataUrl: null })
+    expect(clip.posterUrl).toContain(poster.path)
+    await expect(session.media({ file: 'slow.mp4', folder: 'blog' })).rejects.toThrow('-movflags +faststart')
   })
 
   it('creates a visible document, finds it again by its slug and publishes it with its URLs', async () => {
@@ -98,6 +108,57 @@ describe('an import session', () => {
     expect((live?.data as { title: Record<string, string> }).title.es).toBe(`Casa nueva ${stamp}`)
     const { data: row } = await admin.from('documents').select('visible').eq('id', first.id).single()
     expect(row?.visible).toBe(true)
+  })
+
+  it('finds a document again by match.key after an editor changed its slug, instead of creating a second one', async () => {
+    const key = `imp-key-${stamp}`
+    const seed = { data: { title: { es: `Con key ${stamp}` }, slug: { es: `imp-${stamp}-k` } }, match: { key } }
+    const first = await session.upsert('posts', seed)
+    documents.push(first.id)
+    expect(first).toMatchObject({ created: true, matchedBy: null })
+    expect((await admin.from('documents').select('key').eq('id', first.id).single()).data?.key).toBe(key)
+
+    await admin.from('documents').update({ slug: `imp-${stamp}-renamed`, data: { ...seed.data, slug: { es: `imp-${stamp}-renamed` } } }).eq('id', first.id)
+    const again = await session.upsert('posts', seed)
+    expect(again).toMatchObject({ id: first.id, created: false, matchedBy: 'key' })
+    expect((await admin.from('documents').select('id', { count: 'exact', head: true }).eq('type', 'posts').in('slug', [`imp-${stamp}-k`, `imp-${stamp}-renamed`])).count).toBe(1)
+  })
+
+  it('adopts match.key on a document it found by slug', async () => {
+    const slug = `imp-${stamp}-adopt`
+    const { id } = await session.upsert('posts', { data: { title: { es: `Adopta ${stamp}` }, slug: { es: slug } } })
+    documents.push(id)
+    const adopted = await session.upsert('posts', { data: { title: { es: `Adopta ${stamp}` }, slug: { es: slug } }, match: { key: `imp-adopt-${stamp}` } })
+    expect(adopted).toMatchObject({ id, created: false, matchedBy: 'slug' })
+    expect((await admin.from('documents').select('key').eq('id', id).single()).data?.key).toBe(`imp-adopt-${stamp}`)
+  })
+
+  it('reports what it created in collections that already had documents, and refuses to create with create: false', async () => {
+    const { created, updated } = session.summary()
+    expect(updated).toBeGreaterThan(0)
+    expect(created).toContainEqual(expect.objectContaining({ entry: 'posts', lookup: `key ${`imp-key-${stamp}`}`, existing: expect.any(Number) }))
+
+    const strict = await createImportSession({ config: cmsConfig, supabase, email: 'qa-super@local.test', password: 'QaLocal12345', create: false, root, logger: console })
+    try {
+      await expect(strict.upsert('posts', { data: { title: { es: 'Nuevo' }, slug: { es: `imp-${stamp}-missing` } } })).rejects.toThrow(`posts: no document with slug imp-${stamp}-missing`)
+      expect((await strict.upsert('posts', { data: { title: { es: `Adopta ${stamp}` }, slug: { es: `imp-${stamp}-adopt` } } })).created).toBe(false)
+    } finally {
+      await strict.signOut()
+    }
+  })
+
+  it('transforms the documents of an entry through the same validation and save as an import', async () => {
+    const mine = (slug: string | null) => slug?.startsWith(`imp-${stamp}`) ?? false
+    const title = (data: Record<string, unknown>) => data.title as Record<string, string>
+    const dry = await session.transform({ entry: 'posts', dryRun: true, map: (data, { slug }) => (mine(slug) ? { ...data, title: { ...title(data), es: `${title(data).es} (dry)` } } : null) })
+    expect(dry.changed).toBeGreaterThanOrEqual(2)
+    expect((await admin.from('documents').select('data').eq('id', documents[0]).single()).data?.data).not.toMatchObject({ title: { es: expect.stringContaining('(dry)') } })
+
+    const report = await session.transform({ entry: 'posts', map: (data, { slug }) => (mine(slug) ? { ...data, title: { ...title(data), es: slug === `imp-${stamp}-adopt` ? 'x'.repeat(130) : `${title(data).es} (t)` } } : null) })
+    expect(report.changed).toBe(dry.changed - 1)
+    expect(report.unchanged).toBeGreaterThan(0)
+    expect(report.invalid).toEqual([expect.objectContaining({ title: `Adopta ${stamp}`, problems: [expect.stringContaining('title.es')] })])
+    expect((await admin.from('documents').select('data').eq('id', documents[0]).single()).data?.data).toMatchObject({ title: { es: `Casa nueva ${stamp} (t)` } })
   })
 
   it('refuses entries the schema does not have and documents it cannot find again', async () => {
@@ -140,12 +201,12 @@ describe('linkchar-cms import', () => {
       '}'
     ].join('\n'))
 
-    const output = execFileSync(process.execPath, [fileURLToPath(new URL('../../../cli/linkchar-cms.js', import.meta.url)), 'import', script, '--email', 'qa-super@local.test', '--no-publish'], {
+    const output = execFileSync(process.execPath, [fileURLToPath(new URL('../../../cli/linkchar-cms.js', import.meta.url)), 'import', script, '--email', 'qa-super@local.test', '--no-publish', '--password-stdin'], {
       cwd: fileURLToPath(new URL('../../../../../apps/playground', import.meta.url)),
       encoding: 'utf8',
+      input: 'QaLocal12345\n',
       env: {
         ...process.env,
-        CMS_IMPORT_PASSWORD: 'QaLocal12345',
         NEXT_PUBLIC_SUPABASE_URL: supabase.url,
         NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: supabase.publishableKey,
         SUPABASE_SECRET_KEY: supabase.secretKey
@@ -156,6 +217,9 @@ describe('linkchar-cms import', () => {
     documents.push(id)
     expect(published).toBe('0')
     expect(output).toContain('nothing published (--no-publish)')
+    expect(output).toContain('1 created')
+    expect(output).toContain('posts already had')
+    expect(output).toContain(`cli-${stamp} (slug not found)`)
     const { data } = await admin.from('documents').select('slug, visible').eq('id', id).single()
     expect(data).toEqual({ slug: `cli-${stamp}`, visible: true })
   }, 120_000)

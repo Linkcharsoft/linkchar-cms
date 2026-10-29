@@ -21,6 +21,7 @@
     "./core/opening-hours": "./src/core/kinds/openingHours.ts",
     "./server": "./src/server/index.ts",
     "./import": "./src/server/import.ts",
+    "./publish": "./src/publish/index.ts",
     "./publish/amplify": "./src/publish/amplify.ts",
     "./publish/mock": "./src/publish/mock.ts",
     "./panel": "./src/panel/index.ts",

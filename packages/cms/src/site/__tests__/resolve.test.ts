@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { defineCmsConfig } from '../../core/config'
 import { collection, page } from '../../core/define'
-import { button, gallery, image, link, richText, section, slug, text } from '../../core/fields'
+import { button, gallery, image, link, richText, section, slug, text, videoFile } from '../../core/fields'
 import { resolveSiteContent } from '../resolve'
 import type { MediaItemType } from '../../core/media'
 import type { SiteRefsType } from '../resolve'
@@ -16,7 +16,8 @@ const schema = {
       photos: gallery({ label: 'Fotos' }),
       cta: button({ label: 'Botón', variants: [{ label: 'Principal', value: 'primary' }] }),
       more: link({ label: 'Más' }),
-      body: richText({ label: 'Texto' })
+      body: richText({ label: 'Texto' }),
+      clip: videoFile({ label: 'Video' })
     }, { anchor: 'inicio' })
   }, { path: '/' }),
   about: page('Estudio', { story: section('Historia', { title: text({ label: 'Título' }) }, { anchor: 'historia' }) }, { path: { es: '/estudio', en: '/studio' } }),
@@ -28,11 +29,13 @@ const config = defineCmsConfig({ schema, locales: ['es', 'en'] })
 
 const media = (n: number, alt: Record<string, string>): MediaItemType => ({
   id: ID(n), path: `sitio/${n}.webp`, url: `https://cdn.test/${n}.webp`, filename: `${n}.webp`, folder: 'sitio', alt, caption: {},
-  mime: 'image/webp', size: 100, width: 1200, height: 800, focalX: 0.3, focalY: null, blurDataUrl: null, createdAt: '', deletedAt: null
+  mime: 'image/webp', size: 100, width: 1200, height: 800, focalX: 0.3, focalY: null, blurDataUrl: null, duration: null, posterId: null, posterUrl: null, createdAt: '', deletedAt: null
 })
 
+const clip: MediaItemType = { ...media(5, {}), path: 'sitio/5.mp4', url: 'https://cdn.test/5.mp4', filename: 'clip.mp4', mime: 'video/mp4', size: 5000, focalX: null, duration: 12.5, posterId: ID(1) }
+
 const refs: SiteRefsType = {
-  media: new Map([[ID(1), media(1, { es: 'Fachada', en: 'Facade' })], [ID(2), media(2, { es: 'Patio' })]]),
+  media: new Map([[ID(1), media(1, { es: 'Fachada', en: 'Facade' })], [ID(2), media(2, { es: 'Patio' })], [ID(5), clip]]),
   documents: new Map([[ID(9), { type: 'posts', slugs: { es: 'casa', en: 'house' } }]])
 }
 
@@ -63,6 +66,15 @@ describe('resolveSiteContent', () => {
     expect(hero.title).toBe('Hello')
     expect(hero.cover).toEqual({ id: ID(1), src: 'https://cdn.test/1.webp', alt: 'Facade', caption: '', width: 1200, height: 800, focalX: 0.3, focalY: null, blurDataUrl: null })
     expect(hero.photos.map(photo => photo.alt)).toEqual(['Facade', 'Patio'])
+  })
+
+  it('resolves a video with its poster as an image of the locale', () => {
+    const { hero } = resolveSiteContent(config, schema.home.fields, { ...data, hero: { ...data.hero, clip: { es: ID(5) } } }, 'en', refs)
+    expect(hero.clip).toEqual({
+      id: ID(5), src: 'https://cdn.test/5.mp4', mime: 'video/mp4', size: 5000, width: 1200, height: 800, duration: 12.5,
+      poster: { id: ID(1), src: 'https://cdn.test/1.webp', alt: 'Facade', caption: '', width: 1200, height: 800, focalX: 0.3, focalY: null, blurDataUrl: null }
+    })
+    expect(resolveSiteContent(config, schema.home.fields, data, 'en', refs).hero.clip).toBeNull()
   })
 
   it('resolves links to pages and documents to their URL in each locale', () => {

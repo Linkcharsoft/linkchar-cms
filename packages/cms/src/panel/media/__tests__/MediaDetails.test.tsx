@@ -8,6 +8,7 @@ import type { MediaUsageType } from '../../../server/media'
 const item: MediaItemType = {
   id: '00000000-0000-4000-8000-000000000001', path: '1.pdf', url: 'http://127.0.0.1:54421/1.pdf', filename: 'ficha.pdf', folder: 'sitio',
   alt: { es: 'Ficha' }, caption: {}, mime: 'application/pdf', size: 10, width: null, height: null, focalX: null, focalY: null, blurDataUrl: null,
+  duration: null, posterId: null, posterUrl: null,
   createdAt: '2026-10-01T12:00:00Z', deletedAt: null
 }
 

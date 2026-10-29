@@ -7,10 +7,10 @@
   @apply bg-cms-surface border border-cms-border
 
   @media (min-width: 768px)
-    scroll-margin-top: calc(var(--cms-header-height, 0px) + 10rem)
+    scroll-margin-top: calc(#{cms.editor-top()} + 5rem)
 
   @media (min-width: 1024px)
-    scroll-margin-top: calc(var(--cms-header-height, 0px) + 7rem)
+    scroll-margin-top: cms.editor-top()
 
   &--Hidden
     @apply bg-cms-neutral-50

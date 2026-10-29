@@ -2,7 +2,7 @@
 
 Linkchar's CMS for Next.js projects: a content schema in code, Supabase storage, an editor panel and site readers. The package ships TypeScript source; the project compiles it.
 
-> The package ships the core, the server layer (Supabase queries and actions, with a `logger` the project provides), publishing (Amplify and a local mock), the migrations, the editor panel with its theme and catalogs (`es`, `en`) and its per-language editing, the site readers (`cms.site`, `@linkcharsoft/cms/site`), `withCms` (`@linkcharsoft/cms/next`) and the `linkchar-cms` CLI (`init`, `routes`, `migrations sync`, `templates`, `admin`, `doctor`, `import`). The changes of each version are in [CHANGELOG.md](./CHANGELOG.md), which ships with the package.
+> The package ships the core, the server layer (Supabase queries and actions, with a `logger` the project provides), publishing (Amplify and a local mock), the migrations, the editor panel with its theme and catalogs (`es`, `en`) and its per-language editing, the site readers (`cms.site`, `@linkcharsoft/cms/site`), `withCms` (`@linkcharsoft/cms/next`) and the `linkchar-cms` CLI (`init`, `routes`, `migrations sync`, `templates`, `admin`, `doctor`, `import`, `publish:ping`). The changes of each version are in [CHANGELOG.md](./CHANGELOG.md), which ships with the package.
 
 Sections: [Install](#install) · [Start a project](#start-a-project) · [Configure](#configure) · [Schema texts](#schema-texts) · [Localized content](#localized-content) · [URLs per locale](#urls-per-locale) · [Links](#links) · [Database](#database) · [Supabase](#supabase) · [Server](#server) · [Site](#site) · [Next config](#next-config) · [Field kinds](#field-kinds) · [Panel](#panel) · [Brand](#brand) · [Panel texts](#panel-texts) · [Extensions](#extensions) · [Amplify setup](#amplify-setup) · [Import content](#import-content) · [Upgrade](#upgrade) · [Development](#development)
 
@@ -70,7 +70,7 @@ pnpm exec linkchar-cms init --name "Acme" --base-path /cms --locales es,en --pan
 It writes only the files that don't exist yet and never touches the rest:
 
 - `cms.config.ts` with the site defaults (`site.defaults`) and `Register` (config and database types);
-- `src/cms/schema.ts` (a `settings` singleton and a home page, to rewrite with the real schema) and `src/cms/server.ts` (Amplify when `CMS_BUILD_HOOK_URL` is set, the mock build otherwise);
+- `src/cms/schema.ts` (a `settings` singleton and a home page, to rewrite with the real schema) and `src/cms/server.ts` (`publishTargetFromEnv`: Amplify when `CMS_BUILD_HOOK_URL` is set, the simulated build against a local Supabase, no build otherwise);
 - `src/types/supabase.ts`, which re-exports the package types until `supabase gen types` replaces it;
 - the panel's root layout (`app/(cms)/layout.tsx`);
 - the site under `app/(site)/`: a root layout that renders `DraftRefresh` in Draft Mode, the home, the 404 and the catch-all that makes unmatched URLs reach it, plus `app/sitemap.ts` and `proxy.ts`.
@@ -192,9 +192,9 @@ supabase db push
 supabase test db                                # the package suites land in supabase/tests/cms
 ```
 
-`sync` never rewrites a file it already copied; a migration the project edited shows as `!` in its output and stays as it is. The project's own migrations go with later timestamps.
+`sync` never rewrites a file it already copied; a migration the project edited shows as `!` in its output and stays as it is. The project's own migrations go with later timestamps. `doctor` compares the migrations a database applied (local, or hosted with `--env-file`) with the files of the package and the project through `cms_migrations()`, a function only the secret key may call, and names the ones a database lacks.
 
-**Project tables.** Generate the project's types (`supabase gen types typescript --local > src/types/supabase.ts`, which includes the CMS tables) and register them next to the config: `interface Register { config: typeof cmsConfig, database: Database }`. Then `await cms.supabase()` is the request's session client (RLS applies) and `cms.supabaseAdmin()` the secret-key one, both typed with the project's tables; call `cms.queries.requireRole()` first, as in [Extensions](#extensions). The package's own code keeps its own types, so stale project types never break it. The base migration (`20261020000000_cms_base.sql`) holds roles, content, media (alt text and caption per locale), logs, publishing, checkpoints and `media_usage`; later ones add per-locale slugs, `document_usage`, `publish_log.retry_of`, `media.hash` and the `service_role` grants.
+**Project tables.** Generate the project's types (`supabase gen types typescript --local > src/types/supabase.ts`, which includes the CMS tables) and register them next to the config: `interface Register { config: typeof cmsConfig, database: Database }`. Then `await cms.supabase()` is the request's session client (RLS applies) and `cms.supabaseAdmin()` the secret-key one, both typed with the project's tables; call `cms.queries.requireRole()` first, as in [Extensions](#extensions). The package's own code keeps its own types, so stale project types never break it. The base migration (`20261020000000_cms_base.sql`) holds roles, content, media (alt text and caption per locale), logs, publishing, checkpoints and `media_usage`; later ones add per-locale slugs, `document_usage`, `publish_log.retry_of`, `media.hash`, the `service_role` grants and `cms_migrations()`.
 
 ## Supabase
 
@@ -228,7 +228,7 @@ Hosted projects set the same values in the dashboard (Authentication → URL con
 
 **Data API privileges.** Hosted projects created with "Default privileges for new entities" off give `anon`, `authenticated` and `service_role` nothing on new tables, not even the secret key. The package migrations grant every role they rely on, so they work with the toggle on or off, and turning it on later fixes nothing for tables that already exist. Set `auto_expose_new_tables = false` under `[api]` so the local database behaves like such a project: the project's own tables then need their own grants, locally and hosted alike. `linkchar-cms doctor` fails when the secret key cannot read a package table.
 
-**Email templates.** Supabase's default invitation and recovery emails link to `/auth/v1/verify?token=…&redirect_to=<site_url>`; the panel only accepts `/dashboard/auth/confirm?token_hash=…&type=…`, so without templates nobody can accept an invitation or reset a password. Each project ships its own, with `{{ .SiteURL }}` and its `basePath`. `linkchar-cms templates` writes both in the panel language (the `emails.*` catalog keys, so `messages` can reword them) with Inferencia's brand and the product name (`branding.name`), and adds them to `config.toml`. It never rewrites a template the project edited; one still as 0.10 wrote it takes the branded version. `--check` fails while one is missing, unbranded or links elsewhere. What it writes:
+**Email templates.** Supabase's default invitation and recovery emails link to `/auth/v1/verify?token=…&redirect_to=<site_url>`; the panel only accepts `/dashboard/auth/confirm?token_hash=…&type=…`, so without templates nobody can accept an invitation or reset a password. That page shows what the link does and a "Continuar" button, and verifies the token only when it is pressed: mail scanners open links before people do, and a token spent on arrival left them with "El link venció". Each project ships its own, with `{{ .SiteURL }}` and its `basePath`. `linkchar-cms templates` writes both in the panel language (the `emails.*` catalog keys, so `messages` can reword them) with Inferencia's brand and the product name (`branding.name`), and adds them to `config.toml`. It never rewrites a template the project edited; one still as 0.10 wrote it takes the branded version. `--check` fails while one is missing, unbranded or links elsewhere. What it writes:
 
 ```toml
 [auth.email.template.invite]
@@ -272,8 +272,7 @@ The project owns one server instance: it reads its environment and passes everyt
 ```ts
 // src/cms/server.ts
 import 'server-only'
-import { amplify } from '@linkcharsoft/cms/publish/amplify'
-import { mockBuild } from '@linkcharsoft/cms/publish/mock'
+import { publishTargetFromEnv } from '@linkcharsoft/cms/publish'
 import { createCmsServer } from '@linkcharsoft/cms/server'
 import cmsConfig from '../../cms.config'
 
@@ -284,12 +283,12 @@ export const cms = createCmsServer({
     publishableKey: process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
     secretKey: process.env.SUPABASE_SECRET_KEY
   },
-  publishTarget: process.env.CMS_BUILD_HOOK_URL
-    ? amplify({ hookUrl: process.env.CMS_BUILD_HOOK_URL, webhookSecret: process.env.CMS_BUILD_WEBHOOK_SECRET })
-    : mockBuild(),
+  publishTarget: publishTargetFromEnv(process.env),
   logger: { error: (message, detail) => console.error('[cms]', message, detail) }
 })
 ```
+
+`publishTargetFromEnv` picks the target the way the CLI does: Amplify when `CMS_BUILD_HOOK_URL` is set, the simulated build (`mockBuild`) when `NEXT_PUBLIC_SUPABASE_URL` is a local Supabase, and none otherwise, so a hosted project without a hook records `target_missing` instead of a success nobody built. A project that wires the targets itself (`@linkcharsoft/cms/publish/amplify`, `@linkcharsoft/cms/publish/mock`) gets the same guard from the server: the mock against a hosted project counts as no target and logs why, unless it was made with `mockBuild({ allowRemote: true })`.
 
 ```ts
 // src/proxy.ts: refreshes the session and keeps signed-out users on the sign-in screens.
@@ -305,7 +304,7 @@ The server actions, the build status webhook and the panel routes are generated 
 - The server functions also take the context directly (`saveDocument(ctx, input)`), which is how the tests run them.
 - `logger` is where the server reports the failures it swallows (best-effort writes, the build hook, activity rows): `{ error(message, detail?) }`, the console by default. It reaches every server function as `ctx.logger` and the publish targets as part of their trigger context.
 
-Publishing calls the `PublishTarget`. With Amplify, the build hook queues a build and the EventBridge rule reports its status with `Authorization: Bearer <CMS_BUILD_WEBHOOK_SECRET>` (see [Amplify setup](#amplify-setup)). A status event for an unknown job goes to the oldest open publish of the last 30 minutes. A failed build stores `publish_log.error_code` (`target_missing`, `hook_refused`, `hook_unreachable`, `build_failed`, `build_cancelled`), which the panel translates (`errors.build.*`) and offers to retry. The mock build reports `started` and then the result in-process: `mockBuild({ result: 'failed' | 'cancelled', seconds })` reproduces the failures locally.
+Publishing calls the `PublishTarget`. With Amplify, the build hook queues a build and the EventBridge rule reports its status with `Authorization: Bearer <CMS_BUILD_WEBHOOK_SECRET>` (see [Amplify setup](#amplify-setup)). A status event for an unknown job goes to the oldest open publish of the last 30 minutes. A failed build stores `publish_log.error_code` (`target_missing`, `hook_refused`, `hook_unreachable`, `build_failed`, `build_cancelled`), which the panel translates (`errors.build.*`) and offers to retry. The mock build reports `started` and then the result in-process: `mockBuild({ result: 'failed' | 'cancelled', seconds })` reproduces the failures locally; its publishes read "Simulada" in the history (`job_id` starts with `mock-`).
 
 ## Site
 
@@ -391,7 +390,9 @@ const site = { name: 'Norte', url: 'https://norte.com', locale: 'es', email: con
 
 In Draft Mode (the panel preview) with an active panel user the readers return drafts. Otherwise they read the published copy without touching cookies, so the pages stay static and each publish rebuilds the site. A route with `dynamicParams = false` still previews a document never published: Draft Mode renders a slug outside `generateStaticParams`, which stays a 404 for everyone else (checked on Next 16.4).
 
-**Images and videos.** The alt text belongs to the file, in Media, and every image in use needs it in each language. Where the site shows an image as decoration (a mosaic, a background), it keeps the alt text and renders `<Image {...imageProps(image, { sizes })} alt='' />` for that use. Media holds images and PDFs; the project's own videos (hero loops, testimonials, with their posters and variants per language or format) stay in `public/` or a CDN, chosen in code or with a `url` field, because a video bypasses the image optimizer and every view would count against Supabase's egress. A `video` field takes YouTube and Vimeo links.
+**Images and videos.** The alt text belongs to the file, in Media, and every image in use needs it in each language. Where the site shows an image as decoration (a mosaic, a background), it keeps the alt text and renders `<Image {...imageProps(image, { sizes })} alt='' />` for that use. A `videoFile` field resolves to a `SiteVideoType` (`src`, `mime`, `width`, `height`, `duration` and its `poster` as a `SiteImageType`) that `<Video video={clip} />` renders: a `<video>` with `preload="metadata"`, `playsInline`, controls, and the poster through the image optimizer, so it costs no Storage egress until the visitor presses play; `autoplay` plays it muted and looping, without controls; `<track>` elements and a fallback go as children. A `video` field takes YouTube and Vimeo links instead.
+
+Storage serves a Media video whole on every play, and Supabase's Free plan has 10 GB of egress a month: Media is for the videos editors rotate (a project's clip, a testimonial), kept short and small; a site's own hero loop stays in `public/`, served by Amplify's CDN.
 
 **Preview.** Render `DraftRefresh` in Draft Mode from the site's layout or frame: it refreshes the page after each autosave, scrolls to the section being edited and shows the exit link (`/api/cms/disable-draft`). `locale` picks the language of the link; `label` and `className` replace its text and look.
 
@@ -416,11 +417,13 @@ export default withCms({ reactStrictMode: true })
 
 ## Field kinds
 
-The package ships `text`, `textarea`, `email`, `phone`, `url`, `video`, `slug`, `richText`, `number`, `boolean`, `date`, `datetime`, `select`, `multiSelect`, `color`, `link`, `button`, `image`, `gallery`, `file`, `relation` and `relations`, plus the structural `group`, `list` and `blocks`; `openingHours` is opt-in from `@linkcharsoft/cms/core/opening-hours`.
+The package ships `text`, `textarea`, `email`, `phone`, `url`, `video`, `slug`, `richText`, `number`, `boolean`, `date`, `datetime`, `select`, `multiSelect`, `color`, `link`, `button`, `image`, `gallery`, `file`, `videoFile`, `relation` and `relations`, plus the structural `group`, `list` and `blocks`; `openingHours` is opt-in from `@linkcharsoft/cms/core/opening-hours`.
+
+`videoFile({ label: 'Video', folder: 'proyectos' })` stores a video of Media like `file` stores a PDF. The uploader takes mp4 and webm up to 25 MB, reads their size and duration, and turns away an mp4 that is not faststart (its `moov` box after `mdat`: the browser would download the whole file before showing a frame). A video needs a poster to be published, chosen in its details from the images of Media or captured from a frame; the poster is an image of the library, so it goes through the image optimizer on the site and can't go to the trash while the video uses it. The details also say what a thousand full plays cost in egress. Export with ffmpeg: `ffmpeg -i in.mov -c:v libx264 -preset slow -crf 28 -vf scale=-2:720 -c:a aac -b:a 96k -movflags +faststart out.mp4` (about 1 MB every 10 seconds).
 
 `color({ label: 'Color de marca', presets: ['#1f5fa8', '#0e0e13'] })` stores one `#rrggbb` in lower case (a stored `#1F5FA8` is repaired on read; `red` or `#abc` is "Usá un color como #1f5fa8"). The input is the browser's color picker next to the hex, and `presets` adds swatches the editor picks with one click; the version history shows each color with its swatch. Imports take the same hex.
 
-`select` shows a dropdown, or one card per option with `display: 'cards'`: every option then needs a serializable `preview`, a PrimeIcons name (`{ icon: 'pi-th-large' }`), an image (`{ image: '/layouts/mosaic.svg' }`, a path or an https URL) or a mosaic sketch the panel draws (`{ grid: { columns, rows, cells: [{ column, row, columnSpan?, rowSpan? }] } }`, 1-based like CSS grid lines). `defineCmsConfig` rejects cards with an option that has no preview, a preview without `display: 'cards'`, and a cell outside its grid. `multiSelect` has no cards. A gallery block that lets the editor pick its layout:
+`select` shows a dropdown, or one card per option with `display: 'cards'`: every option then needs a serializable `preview`, a PrimeIcons name (`{ icon: 'pi-th-large' }`), an image (`{ image: '/layouts/mosaic.svg' }`, a path or an https URL) or a mosaic sketch the panel draws (`{ grid: { columns, rows, cells: [{ column, row, columnSpan?, rowSpan? }] } }`, 1-based like CSS grid lines; `column` and `row` also take what `grid-column` and `grid-row` take, `'1 / 4'` or `'2 / span 2'`). `defineCmsConfig` rejects cards with an option that has no preview, a preview without `display: 'cards'`, a cell outside its grid and a line it can't read. `multiSelect` has no cards. A gallery block that lets the editor pick its layout:
 
 ```ts
 layout: select({
@@ -428,7 +431,7 @@ layout: select({
   display: 'cards',
   default: 'grid',
   options: [
-    { label: 'Mosaico', value: 'mosaic', preview: { grid: { columns: 3, rows: 2, cells: [{ column: 1, row: 1, columnSpan: 2, rowSpan: 2 }, { column: 3, row: 1 }, { column: 3, row: 2 }] } } },
+    { label: 'Mosaico', value: 'mosaic', preview: { grid: { columns: 3, rows: 2, cells: [{ column: '1 / 3', row: '1 / 3' }, { column: 3, row: 1 }, { column: 3, row: 2 }] } } },
     { label: 'Grilla', value: 'grid', preview: { grid: { columns: 3, rows: 2, cells: [{ column: 1, row: 1 }, { column: 2, row: 1 }, { column: 3, row: 1 }, { column: 1, row: 2 }, { column: 2, row: 2 }, { column: 3, row: 2 }] } } }
   ]
 })
@@ -545,7 +548,7 @@ pnpm exec linkchar-cms routes          # writes the panel wiring under src/app/(
 pnpm exec linkchar-cms routes --check  # CI: exit 1 when a file is missing or stale, or the proxy matcher misses basePath
 ```
 
-- `src/app/(cms)/<basePath>/…`: one file per screen (`export default route.Page`), the layouts, `loading.tsx` (a table skeleton for lists, fields for the editors), the panel's `error.tsx` and `not-found.tsx` (with a catch-all, so an unknown panel URL shows the panel's 404 instead of the site's), and the email link and sign-out handlers.
+- `src/app/(cms)/<basePath>/…`: one file per screen (`export default route.Page`), the layouts, `loading.tsx` (a table skeleton for lists, fields for the editors), the panel's `error.tsx` and `not-found.tsx` (with a catch-all, so an unknown panel URL shows the panel's 404 instead of the site's), the page the invitation and recovery emails land on (`auth/confirm`, with the button that spends the token) and the sign-out handler.
 - `src/app/api/cms/{build-status,draft,disable-draft}/route.ts`: the build webhook and the preview's Draft Mode.
 - `src/cms/actions.ts`: `'use server'`, re-exports every action the browser calls.
 - Created once and then owned by the project: `src/app/(cms)/layout.tsx` (the panel's root layout) and `src/cms/client.ts` (`createCmsClient`, where project inputs are registered).
@@ -576,7 +579,7 @@ branding: {
 }
 ```
 
-Without `icon`, `withCms` takes the favicon at build: `app/icon.svg`, `icon.png` or `apple-icon.png` (under `src/` too), then `public/icon.svg` or `favicon.svg`, then the largest `favicon*.png` or `icon*.png` in `public/`, then `favicon.ico`. `doctor` says which one it found; with none, the panel shows the initials of the name. The icon sits on a white tile, so a favicon drawn for a light tab still shows on the dark sidebar.
+Without `icon`, `withCms` takes the favicon at build: `app/icon.svg`, `icon.png` or `apple-icon.png` (under `src/` too), then `public/icon.svg` or `favicon.svg`, then the largest `favicon*.png` or `icon*.png` in `public/`, the same under `public/seo/`, then `favicon.ico`. `doctor` says which one it found; with none, the panel shows the initials of the name. The icon sits on a white tile, so a favicon drawn for a light tab still shows on the dark sidebar.
 
 ## Panel texts
 
@@ -625,6 +628,13 @@ Publishing on Amplify is a build hook plus one EventBridge rule that reports the
 
 3. **API destination** as the rule's target: endpoint `https://<site>/api/cms/build-status`, method `POST`, with a **Connection** of type API key, key `Authorization`, value `Bearer <CMS_BUILD_WEBHOOK_SECRET>`. No input transformer: the handler reads Amplify's own event (`jobId`, `jobStatus`).
 4. The handler maps `SUCCEED`, `FAILED` and `CANCELLED` to the publish log; an event for a job the panel didn't start matches the oldest open publish of the last 30 minutes. A publish without an answer after 30 minutes reads "sin confirmar" and can be retried.
+5. **Verify the circuit** once, with the hosted keys in an env file kept out of git:
+
+   ```bash
+   pnpm exec linkchar-cms publish:ping --env-file .env.remote [--timeout 20]
+   ```
+
+   It logs an empty publish, fires the build hook and waits for the site to report the build back, printing each status change; the exit code says whether the site confirmed it. A hook that answers but never reports means the EventBridge rule, the API destination or the webhook secret is wrong. It costs one Amplify build and takes the 30-minute publish lock like any publish. Until a real build has confirmed a publish, the publish page (for whoever can publish) and `doctor` warn that the circuit is unverified; publishes of the simulated build read "Simulada" in the history and never count.
 
 A weekly scheduled build (Amplify's own, or a cron hitting the hook) keeps the site's static pages from drifting from drafts nobody published. It does not keep a free Supabase project awake: see [docs/deploy.md](https://github.com/Linkcharsoft/linkchar-cms/blob/main/docs/deploy.md#free-plan).
 
@@ -638,7 +648,7 @@ import type { ImportSessionType } from '@linkcharsoft/cms/import'
 
 export default async (cms: ImportSessionType) => {
   const shot = await cms.media({ file: 'src/assets/projects/givxo-1.webp', folder: 'proyectos', alt: { es: 'Givxo: panel de donaciones', en: 'Givxo: donations dashboard' } })
-  await cms.upsert('projects', { data: { title: { es: 'Givxo', en: 'Givxo' }, slug: { es: 'givxo', en: 'givxo' }, mosaic: { es: [shot.id] } } })
+  await cms.upsert('projects', { data: { title: { es: 'Givxo', en: 'Givxo' }, slug: { es: 'givxo', en: 'givxo' }, mosaic: { es: [shot.id] } }, match: { key: 'givxo' } })
   await cms.upsert('home', { data: { hero: { title: { es: 'Hola', en: 'Hello' } } } })
   const { published, skipped } = await cms.publish()
   console.log(`${published} published`, skipped)
@@ -646,15 +656,40 @@ export default async (cms: ImportSessionType) => {
 ```
 
 ```bash
-CMS_IMPORT_PASSWORD='…' pnpm exec linkchar-cms import scripts/import-content.ts --email ana@acme.com --env-file .env.remote [--otp 123456] [--no-publish]
+CMS_IMPORT_PASSWORD='…' pnpm exec linkchar-cms import scripts/import-content.ts --email ana@acme.com --env-file .env.remote [--otp 123456] [--no-publish] [--no-create]
 ```
 
-- `media({ file, folder, alt, caption })` processes an image like the panel's uploader (upright, without metadata, within 2560 px, WebP, blur preview) and needs `sharp` (`pnpm add -D sharp`); PDFs go as they are. The same bytes give back the file already in the library, so the script can run again.
-- `upsert(entry, { data, match })` writes `data` in its stored shape (localized maps, media ids) and returns `{ id, created, adjusted }`. A page or singleton is the one of its entry; a collection document is found again by its slug in the default locale (or `match: { id }`, `match: { slug }`), and a new one goes visible at the end of the list, so the script's order is the order of an orderable collection. List and block items need no `_key`: one missing takes the key of the stored item in the same place (a new one the first time), so running the import again leaves the content as it was. A `_key` the script sets is kept; it must be unique within its list. A new collection document is validated before it is created, so invalid data throws and leaves nothing behind; if the save fails after that (the network, the database), the empty draft it leaves goes when someone opens that collection in the panel a day later.
+The password comes from `CMS_IMPORT_PASSWORD`, `--password`, or `--password-stdin` (the first line of stdin: `printf '%s' "$PASSWORD" | pnpm exec linkchar-cms import … --password-stdin`), which keeps it out of the shell history and of CI logs. The run ends with what it updated and created; a document created in a collection that already had documents is listed as a warning with what was looked for (`givxo (slug not found)`), since that is how a renamed slug turns into a duplicate.
+
+- `media({ file, folder, alt, caption, poster })` processes an image like the panel's uploader (upright, without metadata, within 2560 px, WebP, blur preview) and needs `sharp` (`pnpm add -D sharp`); PDFs go as they are; an mp4 or webm goes as it is, within 25 MB and faststart (an mp4 that is not is refused), with its duration and size read from the file and `poster` the id of an image already imported. The same bytes give back the file already in the library, so the script can run again.
+- `upsert(entry, { data, match })` writes `data` in its stored shape (localized maps, media ids) and returns `{ id, created, matchedBy, adjusted }`. A page or singleton is the one of its entry. A collection document is found again by `match: { key }`, a key of the script's own that is stored with the document and survives whatever editors do to the slug or the title (`matchedBy: 'key'`); without one, by its slug in the default locale (or `match: { id }`, `match: { slug }`). Give every collection document a `key` from the first import: a document found by slug adopts the `key` the script passes, and one created with a `key` keeps it. The script's `data` replaces the stored one, slug included, so a slug an editor shortened goes back to the seed's unless the seed follows. When nothing matches, a new document goes visible at the end of the list, so the script's order is the order of an orderable collection; with `--no-create` (`create: false` in `createImportSession`) it throws instead, which is the safe mode for a seed that only updates. List and block items need no `_key`: one missing takes the key of the stored item in the same place (a new one the first time), so running the import again leaves the content as it was. A `_key` the script sets is kept; it must be unique within its list. A new collection document is validated before it is created, so invalid data throws and leaves nothing behind; if the save fails after that (the network, the database), the empty draft it leaves goes when someone opens that collection in the panel a day later.
+- `transform({ entry, map, dryRun })` rewrites every document of an entry: `map(data, { id, slug })` gets the stored data with defaults filled in and returns the data to save, or `null` to leave that document alone; each result is validated and saved like an upsert (RLS, activity, conflicts), and `{ changed, unchanged, invalid }` lists the documents whose mapped data is invalid, which stay as they were. `dryRun: true` saves nothing. See [Changing a field's kind](#changing-a-fields-kind).
+- `summary()` is what the CLI prints at the end: `{ created: [{ entry, id, lookup, existing }], updated }`.
 - `publish()` publishes what the import touched, in one publish and one build, and lists in `skipped` the documents still missing content, which stay out as in Publicar. `--no-publish` makes it report without publishing.
 - The environment (or `--env-file`, `.env.local` by default) needs `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` and `SUPABASE_SECRET_KEY` (it only updates the publish log). `CMS_BUILD_HOOK_URL` triggers the Amplify build, a local Supabase runs the mock one, and a hosted project without a hook gets no build: retry it from Publicar. A user with two-step verification passes the current code with `--otp`.
 - The script runs outside Next, loaded with jiti and the `tsconfig` paths: it can't import `server-only` modules (`src/cms/server.ts`) or files only Next understands (static images, CSS).
-- `createImportSession(options)` from `@linkcharsoft/cms/import` is the same session for a runner of the project's own.
+- `createImportSession(options)` from `@linkcharsoft/cms/import` is the same session for a runner of the project's own. There is no mode with the secret key and no user: the content would skip RLS and the activity log, and a development shortcut ends up used in production.
+
+### Changing a field's kind
+
+Stored values do not change when the schema does. A `select` that becomes `color()` leaves every document invalid (the old option name is not a hex color), and the panel shows the error on each one. A transform in the import script moves the values once, with the same validation the panel applies:
+
+```ts
+// scripts/import-content.ts
+import type { ImportSessionType } from '@linkcharsoft/cms/import'
+
+const COLORS: Record<string, string> = { blue: '#1f5fa8', ink: '#0e0e13' }
+
+export default async (cms: ImportSessionType) => {
+  const { changed, invalid } = await cms.transform({
+    entry: 'projects',
+    map: data => (typeof data.accent === 'string' && data.accent in COLORS ? { ...data, accent: COLORS[data.accent] } : null)
+  })
+  console.log(`${changed} projects moved to hex colors`, invalid)
+}
+```
+
+Run it with `--no-publish` first and read `invalid`: those documents keep their old value until the map covers them. Publish when the list is empty.
 
 ## Upgrade
 

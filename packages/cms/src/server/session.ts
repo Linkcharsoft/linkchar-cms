@@ -1,11 +1,13 @@
 import { validateAcceptInvite, validateLogin, validatePasswordRecovery, validatePasswordReset } from '../core/forms'
-import { panelPaths } from '../core/paths'
+import { isRecord } from '../core/kinds/shared'
+import { emailLinkTarget, isEmailLinkType, panelPaths } from '../core/paths'
 import { needsSecondFactor } from '../core/roles'
 import { logActivity } from './activity'
 import { openedFromEmailLink, requireRole } from './auth'
 import { CmsRedirect } from './context'
 import type { CmsContextType } from './context'
 import type { MessageKeyType } from '../core/i18n/types'
+import type { EmailLinkType } from '../core/paths'
 
 export interface SessionResultType {
   error?: MessageKeyType
@@ -64,6 +66,17 @@ export const updatePassword = async (ctx: CmsContextType, values: unknown): Prom
   const { error } = await ctx.db.auth.updateUser({ password: value.password })
   if (error) return { error: passwordError(error.code) }
   return { redirectTo: panelPaths(ctx.config).home }
+}
+
+const isEmailLink = (values: unknown): values is { tokenHash: string, type: EmailLinkType } =>
+  isRecord(values) && typeof values.tokenHash === 'string' && !!values.tokenHash && isEmailLinkType(values.type)
+
+// Spends the token of an invite or recovery email: the page shows a button so a mail scanner can't use it up first.
+export const confirmLink = async (ctx: CmsContextType, values: unknown): Promise<SessionResultType> => {
+  if (!isEmailLink(values)) return { error: 'auth.urlErrors.link-invalido' }
+  const { error } = await ctx.db.auth.verifyOtp({ type: values.type, token_hash: values.tokenHash })
+  if (error) return { error: 'auth.urlErrors.link-vencido' }
+  return { redirectTo: emailLinkTarget(ctx.config, values.type) }
 }
 
 export const acceptInvite = async (ctx: CmsContextType, values: unknown): Promise<SessionResultType> => {

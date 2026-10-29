@@ -1,5 +1,6 @@
+import { Readable } from 'node:stream'
 import { describe, expect, it } from 'vitest'
-import { importSettings } from '../import.js'
+import { importSettings, readPasswordFromStdin, summaryLines } from '../import.js'
 
 const supabase = {
   NEXT_PUBLIC_SUPABASE_URL: 'http://127.0.0.1:44421',
@@ -26,8 +27,34 @@ describe('importSettings', () => {
   })
 
   it('names what is missing', () => {
-    expect(() => importSettings(supabase, { email: 'ana@acme.com' })).toThrow('CMS_IMPORT_PASSWORD')
+    expect(() => importSettings(supabase, { email: 'ana@acme.com' })).toThrow('CMS_IMPORT_PASSWORD (or --password, or --password-stdin)')
     expect(() => importSettings({ CMS_IMPORT_EMAIL: 'a@b.co', CMS_IMPORT_PASSWORD: 'p' }, {}))
       .toThrow('Missing NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY, SUPABASE_SECRET_KEY')
+  })
+})
+
+describe('readPasswordFromStdin', () => {
+  it('takes the first line and nothing else', async () => {
+    expect(await readPasswordFromStdin(Readable.from(['secr', 'eto\n', 'ignored\n']))).toBe('secreto')
+    expect(await readPasswordFromStdin(Readable.from(['sin salto']))).toBe('sin salto')
+    await expect(readPasswordFromStdin(Readable.from(['\n']))).rejects.toThrow('--password-stdin got nothing')
+  })
+})
+
+describe('summaryLines', () => {
+  it('counts the run and warns about documents created where the collection already had some', () => {
+    expect(summaryLines({ updated: 3, created: [] })).toEqual(['3 updated, 0 created.'])
+    expect(summaryLines({ updated: 0, created: [{ entry: 'projects', id: '1', lookup: 'slug givxo', existing: 0 }] })).toEqual(['0 updated, 1 created.'])
+    expect(summaryLines({
+      updated: 2,
+      created: [
+        { entry: 'projects', id: '1', lookup: 'slug consultores-de-empresas-automatizacion-arca', existing: 12 },
+        { entry: 'projects', id: '2', lookup: 'key arca', existing: 13 },
+        { entry: 'posts', id: '3', lookup: 'slug nuevo', existing: 0 }
+      ]
+    })).toEqual([
+      '2 updated, 3 created.',
+      '! projects already had 12 documents; created consultores-de-empresas-automatizacion-arca (slug not found), arca (key not found). Pass match: { key } so the import finds a document after its slug changes, or --no-create to refuse.'
+    ])
   })
 })

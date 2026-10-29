@@ -30,6 +30,18 @@ const auth = {
       subtitle: 'Usá al menos {min} caracteres, con letras y números.',
       submit: 'Guardar contraseña'
     },
+    confirm: {
+      title: 'Confirmar el link',
+      submit: 'Continuar',
+      invite: {
+        title: 'Tu invitación al panel',
+        subtitle: 'Tocá el botón para crear tu usuario. El link se usa recién ahí, así no se gasta si tu correo lo abre antes.'
+      },
+      recovery: {
+        title: 'Cambiar tu contraseña',
+        subtitle: 'Tocá el botón para elegir una contraseña nueva. El link se usa recién ahí, así no se gasta si tu correo lo abre antes.'
+      }
+    },
     invite: {
       title: 'Te damos la bienvenida',
       subtitle: 'Para terminar de crear tu usuario, contanos tu nombre y elegí una contraseña.',

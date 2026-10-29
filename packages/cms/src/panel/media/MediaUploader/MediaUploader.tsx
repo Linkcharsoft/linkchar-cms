@@ -7,7 +7,7 @@ import { ProgressBar } from 'primereact/progressbar'
 import { classNames } from 'primereact/utils'
 import { useEffect, useRef, useState } from 'react'
 import { languageName } from '../../../core/i18n/translator'
-import { buildMediaPath, formatBytes, isImageMime, MAX_MEDIA_BYTES, MAX_RAW_IMAGE_BYTES, MEDIA_MIME_TYPES } from '../../../core/media'
+import { buildMediaPath, formatBytes, isImageMime, isVideoMime, MAX_MEDIA_BYTES, MAX_RAW_IMAGE_BYTES, MAX_VIDEO_BYTES, maxBytesFor, MEDIA_MIME_TYPES, mediaTypeOf } from '../../../core/media'
 import { useCms, useT } from '../../client/context'
 import { useBrowserSupabase } from '../../client/supabase'
 import { useText } from '../../fields/fieldUtils'
@@ -15,15 +15,16 @@ import CustomButton from '../../primitives/CustomButton/CustomButton'
 import InputContainer from '../../primitives/InputContainer/InputContainer'
 import Notice from '../../primitives/Notice/Notice'
 import { sha256Hex } from '../hashBlob'
+import { probeVideo } from '../probeVideo'
 import processImage from '../processImage'
 import uploadToStorage, { UploadError } from '../uploadToStorage'
 import type { MessageKeyType } from '../../../core/i18n/types'
-import type { MediaItemType } from '../../../core/media'
+import type { MediaItemType, MediaTypeType } from '../../../core/media'
 import type { DragEvent } from 'react'
 
 interface Props {
   defaultFolder?: string
-  accept?: 'image' | 'document' | 'any'
+  accept?: MediaTypeType | 'any'
   // `remaining` counts the files still in the queue: failed, waiting for a duplicate decision or not yet sent.
   onUploaded: (items: MediaItemType[], remaining: number) => void
 }
@@ -39,17 +40,30 @@ interface QueueItemType {
   error: string | null
   hash: string | null
   existing: MediaItemType | null
+  // What the browser read of a video: its size and duration go with the upload.
+  video: { width: number | null, height: number | null, duration: number | null } | null
 }
 
 const MAX_MB = MAX_MEDIA_BYTES / 1024 / 1024
 
 const MAX_RAW_IMAGE_MB = MAX_RAW_IMAGE_BYTES / 1024 / 1024
 
+const MAX_VIDEO_MB = MAX_VIDEO_BYTES / 1024 / 1024
+
 const ACCEPT = {
   image: 'image/jpeg,image/png,image/webp,image/avif,image/gif',
   document: 'application/pdf',
+  video: 'video/mp4,video/webm',
   any: MEDIA_MIME_TYPES.join(',')
 }
+
+const ONLY: Record<MediaTypeType, MessageKeyType> = {
+  image: 'media.uploader.errors.onlyImages',
+  document: 'media.uploader.errors.onlyDocuments',
+  video: 'media.uploader.errors.onlyVideos'
+}
+
+const PREVIEW_ICON: Record<MediaTypeType, string> = { image: '', document: 'pi pi-file-pdf MediaUploader__PdfIcon', video: 'pi pi-video MediaUploader__VideoIcon' }
 
 const UPLOAD_ERRORS = {
   tooLarge: 'media.uploader.errors.storageTooLarge',
@@ -59,12 +73,13 @@ const UPLOAD_ERRORS = {
 
 class ReadableError extends Error {}
 
-const rejectReason = (file: File, accept: Props['accept']): { key: MessageKeyType, max?: number } | null => {
+const rejectReason = (file: File, accept: NonNullable<Props['accept']>): { key: MessageKeyType, max?: number } | null => {
   if (!MEDIA_MIME_TYPES.includes(file.type)) return { key: 'media.uploader.errors.invalidType' }
-  if (accept === 'image' && !isImageMime(file.type)) return { key: 'media.uploader.errors.onlyImages' }
-  if (accept === 'document' && isImageMime(file.type)) return { key: 'media.uploader.errors.onlyDocuments' }
-  if (isImageMime(file.type) && file.size > MAX_RAW_IMAGE_BYTES) return { key: 'media.uploader.errors.tooLarge', max: MAX_RAW_IMAGE_MB }
-  if (!isImageMime(file.type) && file.size > MAX_MEDIA_BYTES) return { key: 'media.uploader.errors.tooLarge', max: MAX_MB }
+  const type = mediaTypeOf(file.type)
+  if (accept !== 'any' && accept !== type) return { key: ONLY[accept] }
+  if (type === 'image' && file.size > MAX_RAW_IMAGE_BYTES) return { key: 'media.uploader.errors.tooLarge', max: MAX_RAW_IMAGE_MB }
+  if (type === 'video' && file.size > MAX_VIDEO_BYTES) return { key: 'media.uploader.errors.videoTooLarge', max: MAX_VIDEO_MB }
+  if (type === 'document' && file.size > MAX_MEDIA_BYTES) return { key: 'media.uploader.errors.tooLarge', max: MAX_MB }
   return null
 }
 
@@ -135,7 +150,8 @@ const MediaUploader = ({ defaultFolder, accept = 'any', onUploaded }: Props) => 
         progress: 0,
         error: null,
         hash: null,
-        existing: null
+        existing: null,
+        video: null
       }]
     })
     setRejected(errors)
@@ -143,11 +159,17 @@ const MediaUploader = ({ defaultFolder, accept = 'any', onUploaded }: Props) => 
     added.forEach(item => void check(item))
   }
 
-  // A failed lookup never blocks an upload: the file just goes up as new.
+  // A failed lookup never blocks an upload: the file just goes up as new. A video that can't stream is turned away here.
   const check = async (item: QueueItemType) => {
+    const probe = isVideoMime(item.file.type) ? await probeVideo(item.file).catch(() => null) : null
+    if (isVideoMime(item.file.type) && probe?.fastStart !== true) {
+      remove(item.key)
+      setRejected(current => [...current, t('media.uploader.rejected', { name: item.file.name, reason: t(probe ? 'media.uploader.errors.notFastStart' : 'media.uploader.errors.unreadableVideo') })])
+      return
+    }
     const hash = await sha256Hex(item.file).catch(() => null)
     const existing = hash ? await actions.findMediaByHash(hash).catch(() => null) : null
-    patch(item.key, { hash, existing, status: existing ? 'duplicate' : 'ready' })
+    patch(item.key, { hash, existing, status: existing ? 'duplicate' : 'ready', video: probe && { width: probe.width, height: probe.height, duration: probe.duration } })
   }
 
   const keepExisting = (item: QueueItemType) => {
@@ -172,8 +194,10 @@ const MediaUploader = ({ defaultFolder, accept = 'any', onUploaded }: Props) => 
   const uploadOne = async (item: QueueItemType, accessToken: string): Promise<MediaItemType | null> => {
     patch(item.key, { status: 'uploading', progress: 0, error: null })
     try {
-      const processed = await processSafely(item.file)
-      if (processed.blob.size > MAX_MEDIA_BYTES) throw new ReadableError(t('media.uploader.errors.tooLargeCompressed', { max: MAX_MB }))
+      const processed = isVideoMime(item.file.type)
+        ? { blob: item.file, mime: item.file.type, width: item.video?.width ?? null, height: item.video?.height ?? null, blurDataUrl: null }
+        : await processSafely(item.file)
+      if (processed.blob.size > maxBytesFor(processed.mime)) throw new ReadableError(t('media.uploader.errors.tooLargeCompressed', { max: MAX_MB }))
 
       const path = buildMediaPath(folder, processed.mime)
       await uploadToStorage({ supabase, path, blob: processed.blob, accessToken, onProgress: progress => patch(item.key, { progress }) })
@@ -189,9 +213,10 @@ const MediaUploader = ({ defaultFolder, accept = 'any', onUploaded }: Props) => 
         width: processed.width,
         height: processed.height,
         blurDataUrl: processed.blurDataUrl,
-        hash: item.hash
+        hash: item.hash,
+        duration: item.video?.duration ?? null
       })
-      if (!result.ok) throw new ReadableError(translate(result.error, { max: MAX_MB }))
+      if (!result.ok) throw new ReadableError(translate(result.error, { max: maxBytesFor(processed.mime) / 1024 / 1024 }))
 
       patch(item.key, { status: 'done', progress: 1 })
       return result.item
@@ -263,7 +288,7 @@ const MediaUploader = ({ defaultFolder, accept = 'any', onUploaded }: Props) => 
         <CustomButton type='button' variant='secondary' size='sm' onClick={() => inputRef.current?.click()}>
           {t('media.uploader.choose')}
         </CustomButton>
-        <p className='MediaUploader__Hint'>{t('media.uploader.hint', { max: MAX_MB, imageMax: MAX_RAW_IMAGE_MB })}</p>
+        <p className='MediaUploader__Hint'>{t('media.uploader.hint', { max: MAX_MB, imageMax: MAX_RAW_IMAGE_MB, videoMax: MAX_VIDEO_MB })}</p>
         <input
           ref={inputRef}
           type='file'
@@ -308,7 +333,7 @@ const MediaUploader = ({ defaultFolder, accept = 'any', onUploaded }: Props) => 
                     {item.previewUrl
                       // Local blob: previews can't go through the image optimizer.
                       ? <Image src={item.previewUrl} alt='' fill sizes='96px' unoptimized className='MediaUploader__Thumb' />
-                      : <i className='pi pi-file-pdf MediaUploader__PdfIcon' aria-hidden='true' />}
+                      : <i className={PREVIEW_ICON[mediaTypeOf(item.file.type)]} aria-hidden='true' />}
                   </div>
                   <div className='MediaUploader__Body'>
                     <p className='MediaUploader__Name'>{item.file.name} · {formatBytes(item.file.size)}</p>

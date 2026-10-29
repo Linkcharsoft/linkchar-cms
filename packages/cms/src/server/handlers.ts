@@ -1,9 +1,8 @@
 import { draftMode } from 'next/headers'
-import { panelPaths } from '../core/paths'
+import { emailLinkTarget, isEmailLinkType, panelPaths } from '../core/paths'
 import { safePreviewPath } from '../core/preview'
 import { canPreview } from './auth'
 import type { CmsContextType } from './context'
-import type { EmailOtpType } from '@supabase/supabase-js'
 
 // Reasons the sign-in screen explains; anything else reads as a deactivated user.
 export const SIGN_OUT_REASONS = ['inactivo', 'sesion'] as const
@@ -11,19 +10,17 @@ export const SIGN_OUT_REASONS = ['inactivo', 'sesion'] as const
 // Relative on purpose: behind a proxy (Amplify) request.url carries the internal host, e.g. localhost:3000.
 const redirectTo = (path: string) => new Response(null, { status: 303, headers: { Location: path } })
 
-// Landing point of the invite and recovery emails. Fixed targets per type: no `next` param, so no open redirect.
+// The email link handler projects generated before 0.13.0 (the page with a button replaced it: linkchar-cms routes).
 export const confirmEmailLink = async (ctx: CmsContextType, request: Request) => {
   const paths = panelPaths(ctx.config)
-  const targets: Partial<Record<EmailOtpType, string>> = { invite: paths.acceptInvite, recovery: paths.passwordReset }
   const { searchParams } = new URL(request.url)
   const tokenHash = searchParams.get('token_hash')
-  const type = searchParams.get('type') as EmailOtpType | null
-  const target = type ? targets[type] : undefined
+  const type = searchParams.get('type')
 
-  if (!tokenHash || !type || !target) return redirectTo(`${paths.login}?error=link-invalido`)
+  if (!tokenHash || !isEmailLinkType(type)) return redirectTo(`${paths.login}?error=link-invalido`)
 
   const { error } = await ctx.db.auth.verifyOtp({ type, token_hash: tokenHash })
-  return redirectTo(error ? `${paths.login}?error=link-vencido` : target)
+  return redirectTo(error ? `${paths.login}?error=link-vencido` : emailLinkTarget(ctx.config, type))
 }
 
 // requireRole() lands here when the session can't be used: signing out first avoids a proxy ↔ layout redirect loop.

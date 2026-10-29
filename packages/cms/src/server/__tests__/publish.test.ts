@@ -2,7 +2,7 @@ import cmsConfig from '@playground/cms.config'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { withDefaults } from '../../core/defaults'
 import { mockBuild } from '../../publish/mock'
-import { applyBuildEvent, getPendingChanges, getPendingCounts, getPublishHistory, getPublishStatus, publishChanges, retryPublish, triggerBuild } from '../publish'
+import { applyBuildEvent, getPendingChanges, getPendingCounts, getPublishCircuit, getPublishHistory, getPublishStatus, publishChanges, retryPublish, triggerBuild } from '../publish'
 import { createFakeDb, fakeContext, signIn } from './fakeSupabase'
 import type { PublishTargetType } from '../../publish/types'
 import type { CmsContextType, DataRecord } from '../context'
@@ -412,5 +412,22 @@ describe('getPublishHistory', () => {
       requestedBy: 'Ana', errorCode: 'hook_refused', errorDetail: '503',
       items: [{ id: ID(1), action: 'publish', title: 'Casa' }, { id: ID(8), action: 'unpublish', title: null }]
     })])
+  })
+
+  it('marks the publishes of the simulated build', async () => {
+    db.tables.publish_log.push(logRow(1, { build_status: 'success', job_id: 'mock-1700000000' }), logRow(2, { build_status: 'success', job_id: '42' }))
+    expect((await getPublishHistory(ctx)).map(record => [record.id, record.simulated])).toEqual([[1, true], [2, false]])
+  })
+})
+
+describe('getPublishCircuit', () => {
+  it('counts a success only when a real build reported it', async () => {
+    expect(await getPublishCircuit(ctx)).toBe('unused')
+    db.tables.publish_log.push(logRow(1, { build_status: 'success', job_id: 'mock-1' }), logRow(2, { build_status: 'failed', error_code: 'target_missing' }))
+    expect(await getPublishCircuit(ctx)).toBe('unconfirmed')
+    db.tables.publish_log.push(logRow(3, { build_status: 'success', job_id: null }))
+    expect(await getPublishCircuit(ctx)).toBe('unconfirmed')
+    db.tables.publish_log.push(logRow(4, { build_status: 'success', job_id: '42' }))
+    expect(await getPublishCircuit(ctx)).toBe('confirmed')
   })
 })

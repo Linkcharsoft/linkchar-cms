@@ -16,7 +16,7 @@ let usage: Record<string, unknown[]>
 
 const file = (n: number, extra: Record<string, unknown> = {}) => ({
   id: ID(n), path: `blog/2026/${ID(n)}.webp`, filename: `foto-${n}.webp`, folder: 'blog', alt: {}, caption: {}, mime: 'image/webp', size: 100,
-  width: 10, height: 10, focal_x: null, focal_y: null, blur_data_url: null, created_at: `2026-10-0${n}T00:00:00Z`, created_by: null,
+  width: 10, height: 10, focal_x: null, focal_y: null, blur_data_url: null, duration: null, poster_id: null, created_at: `2026-10-0${n}T00:00:00Z`, created_by: null,
   updated_at: `2026-10-0${n}T00:00:00Z`, deleted_at: null, ...extra
 })
 
@@ -112,7 +112,7 @@ describe('trash and purge', () => {
 
   it('keeps a file in use out of the trash and says where it is used', async () => {
     usage[ID(1)] = [inPost]
-    expect(await trashMedia(ctx, ID(1))).toEqual({ ok: false, usage: [{ documentId: ID(50), label: 'Blog › Casa', href: `/dashboard/colecciones/posts/${ID(50)}`, onlyPublished: false, trashed: false }] })
+    expect(await trashMedia(ctx, ID(1))).toEqual({ ok: false, usage: [{ kind: 'document', documentId: ID(50), label: 'Blog › Casa', href: `/dashboard/colecciones/posts/${ID(50)}`, onlyPublished: false, trashed: false }] })
     expect(await trashMedia(ctx, ID(2))).toEqual({ ok: true })
   })
 
@@ -158,9 +158,47 @@ describe('describeUsage', () => {
       { document_id: ID(62), type: 'posts', data: { title: { es: 'Vieja' } }, keys: ['cover'], published: false, trashed: true }
     ]
     expect(describeUsage(ctx, rows)).toEqual([
-      { documentId: ID(60), label: 'Inicio › Portada', href: '/dashboard/paginas/home#hero', onlyPublished: false, trashed: false },
-      { documentId: ID(62), label: 'Blog › Vieja', href: '/dashboard/papelera', onlyPublished: false, trashed: true },
-      { documentId: ID(61), label: 'Datos del sitio', href: '/dashboard/sitio/settings', onlyPublished: true, trashed: false }
+      { kind: 'document', documentId: ID(60), label: 'Inicio › Portada', href: '/dashboard/paginas/home#hero', onlyPublished: false, trashed: false },
+      { kind: 'document', documentId: ID(62), label: 'Blog › Vieja', href: '/dashboard/papelera', onlyPublished: false, trashed: true },
+      { kind: 'document', documentId: ID(61), label: 'Datos del sitio', href: '/dashboard/sitio/settings', onlyPublished: true, trashed: false }
     ])
+  })
+})
+
+describe('videos', () => {
+  const video = (extra: Partial<RegisterMediaInputType> = {}): RegisterMediaInputType => upload({
+    path: buildMediaPath('blog', 'video/mp4'), filename: 'clip.mp4', alt: {}, mime: 'video/mp4', size: 11 * 1024 * 1024, width: 1280, height: 720, duration: 12.5, ...extra
+  })
+
+  it('registers a video with its size and duration, within its own cap above the one for images', async () => {
+    const result = await registerMedia(ctx, video())
+    expect(result).toMatchObject({ ok: true, item: { mime: 'video/mp4', width: 1280, height: 720, duration: 12.5, posterId: null, posterUrl: null } })
+    expect(await registerMedia(ctx, video({ size: 26 * 1024 * 1024 }))).toEqual({ ok: false, error: 'errors.media.tooLarge' })
+    expect(await registerMedia(ctx, video({ duration: -1 }))).toEqual({ ok: false, error: 'errors.media.invalidDimensions' })
+    expect(await registerMedia(ctx, upload({ size: 11 * 1024 * 1024 }))).toEqual({ ok: false, error: 'errors.media.tooLarge' })
+  })
+
+  it('takes an image of the library as the poster, never a PDF, and lists it with the video', async () => {
+    db.tables.media.push(file(4, { path: `blog/2026/${ID(4)}.mp4`, mime: 'video/mp4', duration: 3 }), file(5, { path: `blog/2026/${ID(5)}.pdf`, mime: 'application/pdf' }))
+    const texts = { alt: {}, caption: {}, folder: 'blog', focalX: null, focalY: null }
+    expect(await updateMedia(ctx, ID(4), { ...texts, posterId: ID(5) })).toEqual({ ok: false, error: 'errors.media.invalidPoster' })
+    expect(await updateMedia(ctx, ID(4), { ...texts, posterId: ID(1) })).toMatchObject({ ok: true, item: { posterId: ID(1), posterUrl: `http://127.0.0.1:54421/storage/v1/object/public/media/blog/2026/${ID(1)}.webp` } })
+
+    const videos = await listMedia(ctx, { type: 'video' })
+    expect(videos.items.map(item => [item.id, item.posterUrl])).toEqual([[ID(4), `http://127.0.0.1:54421/storage/v1/object/public/media/blog/2026/${ID(1)}.webp`]])
+    expect((await listMedia(ctx, { type: 'image' })).items.map(item => item.id)).toEqual([ID(2), ID(1)])
+
+    expect(await updateMedia(ctx, ID(4), { ...texts, posterId: null })).toMatchObject({ ok: true, item: { posterId: null } })
+    expect(await updateMedia(ctx, ID(4), { ...texts })).toMatchObject({ ok: true, item: { posterId: null } })
+  })
+
+  it('keeps the poster of a live video out of the trash and names the video', async () => {
+    db.tables.media.push(file(4, { path: `blog/2026/${ID(4)}.mp4`, filename: 'clip.mp4', mime: 'video/mp4', poster_id: ID(2) }))
+    expect(await trashMedia(ctx, ID(2))).toEqual({
+      ok: false,
+      usage: [{ kind: 'poster', documentId: ID(4), label: 'Portada del video "clip.mp4"', href: '/dashboard/media', onlyPublished: false, trashed: false }]
+    })
+    expect(await trashMedia(ctx, ID(4))).toEqual({ ok: true })
+    expect(await trashMedia(ctx, ID(2))).toEqual({ ok: true })
   })
 })

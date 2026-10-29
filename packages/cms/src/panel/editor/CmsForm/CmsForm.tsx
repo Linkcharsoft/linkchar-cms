@@ -8,6 +8,7 @@ import { classNames } from 'primereact/utils'
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { documentTitle, getEntry } from '../../../core/entries'
 import { languageName } from '../../../core/i18n/translator'
+import { isVideoMime } from '../../../core/media'
 import { changedKeys, pickKeys, rebase, sameContent } from '../../../core/merge'
 import { countByLocale, missingContent } from '../../../core/missing'
 import { pageSections } from '../../../core/pages'
@@ -122,6 +123,16 @@ const CmsForm = ({
     onSubmit: () => undefined
   })
 
+  const bar = useRef<HTMLDivElement>(null)
+  // The outline and the preview pane stick under the bar, whose height follows the title and the actions.
+  useEffect(() => {
+    const element = bar.current
+    if (!element || typeof ResizeObserver === 'undefined') return
+    const observer = new ResizeObserver(() => element.parentElement?.style.setProperty('--cms-editor-bar-height', `${element.offsetHeight}px`))
+    observer.observe(element)
+    return () => observer.disconnect()
+  }, [])
+
   const latestValues = useRef(formik.values)
   useEffect(() => {
     latestValues.current = formik.values
@@ -189,7 +200,10 @@ const CmsForm = ({
 
   useEffect(() => {
     let cancelled = false
-    missingContent(config, fields, formik.values, { mediaAlt: id => media[id]?.alt }).then(found => {
+    missingContent(config, fields, formik.values, {
+      mediaAlt: id => media[id]?.alt,
+      mediaPoster: id => (media[id] ? isVideoMime(media[id].mime) && !media[id].posterId : undefined)
+    }).then(found => {
       if (!cancelled) setMissing(found)
     })
     return () => {
@@ -295,7 +309,7 @@ const CmsForm = ({
 
   const multilingual = config.locales.length > 1
   const missingLabel = (item: MissingContentType) => {
-    const name = item.kind === 'alt' ? t('validation.altOf', { field: label(item.field) }) : label(item.field)
+    const name = item.kind === 'alt' ? t('validation.altOf', { field: label(item.field) }) : item.kind === 'poster' ? t('validation.posterOf', { field: label(item.field) }) : label(item.field)
     return multilingual && item.locale && item.locale !== locale ? `${name} (${languageName(item.locale, config.panelLocale)})` : name
   }
   const known = missing ?? []
@@ -325,7 +339,7 @@ const CmsForm = ({
   return (
     <FormikProvider value={formik}>
       <div className='CmsForm'>
-        <div className='CmsForm__Bar'>
+        <div className='CmsForm__Bar' ref={bar}>
           <DashboardPageHeader
             size='editor'
             className='CmsForm__Header'

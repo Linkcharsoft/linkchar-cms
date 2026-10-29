@@ -1,4 +1,4 @@
-import { imageProps, JsonLd, RichText } from '@linkcharsoft/cms/site'
+import { imageProps, JsonLd, RichText, Video } from '@linkcharsoft/cms/site'
 import Image from 'next/image'
 import { notFound } from 'next/navigation'
 import { cms } from '@/cms/server'
@@ -24,7 +24,7 @@ export const projectMetadata = async (locale: LocaleType, params: SlugParamsType
 const ProjectScreen = async ({ locale, params }: Props) => {
   const project = await readProject(locale, params)
   if (!project) notFound()
-  const { title, summary, cover, photos, body } = project.content
+  const { title, summary, cover, photos, body, video } = project.content
 
   return (
     <SiteFrame locale={locale} urls={project.urls}>
@@ -34,6 +34,7 @@ const ProjectScreen = async ({ locale, params }: Props) => {
         {summary && <p>{summary}</p>}
         {cover?.width && cover.height && <Image {...imageProps(cover, { sizes: '100vw' })} priority />}
         <RichText value={body} />
+        {video && <Video video={video} className='Project__Video' />}
         <ul>
           {photos.filter(photo => photo.width && photo.height).map(photo => (
             <li key={photo.id}><Image {...imageProps(photo, { sizes: '(min-width: 768px) 33vw, 100vw' })} /></li>

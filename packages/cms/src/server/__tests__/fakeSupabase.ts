@@ -62,7 +62,7 @@ const DEFAULTS: Record<string, (db: FakeDbType) => Row> = {
   }),
   document_versions: db => ({ id: crypto.randomUUID(), created_at: new Date().toISOString(), created_by: db.user?.id ?? null }),
   activity_log: db => ({ id: db.tables.activity_log.length + 1, user_id: db.user?.id ?? null, document_id: null, details: {}, created_at: new Date().toISOString() }),
-  media: () => ({ id: crypto.randomUUID(), filename: '', folder: '', alt: {}, caption: {}, hash: null, deleted_at: null, created_at: new Date().toISOString() }),
+  media: () => ({ id: crypto.randomUUID(), filename: '', folder: '', alt: {}, caption: {}, hash: null, duration: null, poster_id: null, deleted_at: null, created_at: new Date().toISOString() }),
   publish_log: db => ({
     id: Math.max(0, ...db.tables.publish_log.map(row => row.id as number)) + 1, requested_by: null, requested_at: new Date().toISOString(),
     documents_count: 0, removed_count: 0, items: [], build_status: 'pending', job_id: null, finished_at: null, error_code: null,
@@ -119,7 +119,10 @@ class Query implements PromiseLike<Result> {
   eq (column: string, value: unknown) { this.filters.push(row => same(read(row, column), value)); return this }
   neq (column: string, value: unknown) { this.filters.push(row => !same(read(row, column), value)); return this }
   is (column: string, value: null) { this.filters.push(row => read(row, column) === value); return this }
-  not (column: string, operator: 'is', value: null) { this.filters.push(row => read(row, column) !== value); return this }
+  not (column: string, operator: 'is' | 'like', value: string | null) {
+    this.filters.push(row => (operator === 'is' ? read(row, column) !== value : !likeToRegExp(String(value), '').test(String(read(row, column) ?? ''))))
+    return this
+  }
   contains (column: string, value: Record<string, unknown>) {
     this.filters.push(row => {
       const current = read(row, column) as Record<string, unknown> | null

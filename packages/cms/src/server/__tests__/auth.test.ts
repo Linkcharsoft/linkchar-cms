@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { assignableRoles, canManageUser, canPublish, needsSecondFactor, userStatus } from '../../core/roles'
 import { openedFromEmailLink, requireRole } from '../auth'
 import { CmsRedirect } from '../context'
+import { confirmLink } from '../session'
 import { createFakeDb, fakeContext, signIn } from './fakeSupabase'
 import type { FakeDbType } from './fakeSupabase'
 
@@ -63,6 +64,23 @@ describe('openedFromEmailLink', () => {
     expect(await openedFromEmailLink(ctx)).toBe(false)
     db.claims = { amr: [{ method: 'password', timestamp: now }] }
     expect(await openedFromEmailLink(ctx)).toBe(false)
+  })
+})
+
+describe('confirmLink', () => {
+  it('spends the token only when the button sends it, and lands on the form of its type', async () => {
+    const calls: unknown[] = []
+    db.authApi.verifyOtp = async (...args: unknown[]) => { calls.push(args[0]); return { data: {}, error: null } }
+    expect(await confirmLink(fakeContext(db), { tokenHash: 'abc', type: 'invite' })).toEqual({ redirectTo: '/dashboard/invitacion' })
+    expect(await confirmLink(fakeContext(db), { tokenHash: 'abc', type: 'recovery' })).toEqual({ redirectTo: '/dashboard/restablecer-contrasena' })
+    expect(calls).toEqual([{ type: 'invite', token_hash: 'abc' }, { type: 'recovery', token_hash: 'abc' }])
+  })
+
+  it('explains a broken or spent link without touching Supabase', async () => {
+    db.authApi.verifyOtp = async () => ({ data: {}, error: { code: 'otp_expired' } })
+    expect(await confirmLink(fakeContext(db), { tokenHash: '', type: 'invite' })).toEqual({ error: 'auth.urlErrors.link-invalido' })
+    expect(await confirmLink(fakeContext(db), { tokenHash: 'abc', type: 'signup' })).toEqual({ error: 'auth.urlErrors.link-invalido' })
+    expect(await confirmLink(fakeContext(db), { tokenHash: 'abc', type: 'invite' })).toEqual({ error: 'auth.urlErrors.link-vencido' })
   })
 })
 

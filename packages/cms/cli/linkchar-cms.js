@@ -6,9 +6,10 @@ import { parseArgs } from 'node:util'
 import { findBrandIcon } from '../next/index.js'
 import { createSuperadmin, readEnvFile } from './admin.js'
 import { authChecks, environmentChecks } from './doctor.js'
-import { importSettings, runImport } from './import.js'
+import { importSettings, readPasswordFromStdin, runImport, summaryLines } from './import.js'
 import { initProject, nextSteps, normalizeBasePath } from './init.js'
 import { CliError, isUpToDate, syncMigrations } from './migrations.js'
+import { amplifyTrigger, describePing, pingSettings, runPing } from './publish.js'
 import { checkProxy, loadConfig, syncRoutes } from './routes.js'
 import { syncTemplates, translatorOf } from './templates.js'
 
@@ -24,7 +25,8 @@ const USAGE = `Usage:
   linkchar-cms templates [--config cms.config.ts] [--dir supabase] [--check]
   linkchar-cms admin --email ana@acme.com [--password …] [--name "Ana"] [--env-file .env.local]
   linkchar-cms doctor [--config cms.config.ts] [--src src] [--dir supabase] [--env-file .env.local]
-  linkchar-cms import <script.ts> --email ana@acme.com [--otp 123456] [--no-publish] [--config cms.config.ts] [--env-file .env.local]
+  linkchar-cms import <script.ts> --email ana@acme.com [--password-stdin] [--otp 123456] [--no-publish] [--no-create] [--config cms.config.ts] [--env-file .env.local]
+  linkchar-cms publish:ping [--timeout 20] [--env-file .env.local]
 
   --dir     The project's Supabase folder (default: ./supabase)
   --config  The project's CMS config (default: ./cms.config.ts)
@@ -34,9 +36,12 @@ const USAGE = `Usage:
   init writes the files a project owns (cms.config.ts, src/cms, the panel and site layouts) where none exist,
   then runs templates, routes and migrations sync, and lists what is left to wire by hand.
   admin makes the first superadmin with SUPABASE_SECRET_KEY: created with --password, else invited by email.
-  doctor checks routes, the panel icon, migrations, templates, variables, Supabase, the package registry and the ports.
-  import runs the script's default export with a session signed in as --email (password in CMS_IMPORT_PASSWORD):
-  cms.media(), cms.upsert() and cms.publish(); --no-publish makes cms.publish() report without publishing.`
+  doctor checks routes, the panel icon, migrations (files and applied), templates, variables, Supabase, the publish circuit, the package registry and the ports.
+  import runs the script's default export with a session signed in as --email (password in CMS_IMPORT_PASSWORD,
+  --password or --password-stdin): cms.media(), cms.upsert(), cms.transform() and cms.publish(); --no-publish makes
+  cms.publish() report without publishing, --no-create makes cms.upsert() fail instead of creating a document.
+  publish:ping verifies the publish circuit end to end: it logs an empty publish, fires CMS_BUILD_HOOK_URL and waits
+  (--timeout minutes) for the site to report the build back. It costs one Amplify build and takes the 30-minute lock.`
 
 /** @type {Record<SyncChangeType['status'] | RouteChangeType['status'] | TemplateChangeType['status'], string>} */
 const SYMBOLS = { added: '+', updated: '~', removed: '-', differs: '!', stale: '!', same: '=', kept: '=' }
@@ -199,14 +204,31 @@ const doctor = async ({ config, src, dir, 'env-file': envFile }) => {
   return checks.some(check => check.level === 'fail') ? 1 : 0
 }
 
-/** @param {string | undefined} script @param {{ config: string, email?: string, password?: string, otp?: string, publish: boolean, 'env-file': string }} options */
-const importContent = async (script, { config, email, password, otp, publish, 'env-file': envFile }) => {
+/**
+ * @param {string | undefined} script
+ * @param {{ config: string, email?: string, password?: string, 'password-stdin': boolean, otp?: string, publish: boolean, create: boolean, 'env-file': string }} options
+ */
+const importContent = async (script, { config, email, password, 'password-stdin': passwordStdin, otp, publish, create, 'env-file': envFile }) => {
   if (!script) throw new CliError('Usage: linkchar-cms import <script.ts> --email ana@acme.com')
-  const settings = importSettings({ ...(await readEnvFile(resolve(envFile))), ...process.env }, { email, password, otp })
-  const build = await runImport({ script: resolve(script), configFile: resolve(config), root: resolve('.'), settings, publish })
+  if (passwordStdin && password) throw new CliError('Pass --password or --password-stdin, not both.')
+  const secret = passwordStdin ? await readPasswordFromStdin(process.stdin) : password
+  const settings = importSettings({ ...(await readEnvFile(resolve(envFile))), ...process.env }, { email, password: secret, otp })
+  const { build, summary } = await runImport({ script: resolve(script), configFile: resolve(config), root: resolve('.'), settings, publish, create })
   const builds = { amplify: 'publishing triggers the Amplify build', mock: 'publishing ran the mock build', none: 'no build hook (CMS_BUILD_HOOK_URL): retry the build from Publicar' }
   console.log(`Import done as ${settings.email} at ${settings.supabase.url}${publish ? `; ${builds[build]}` : '; nothing published (--no-publish)'}.`)
+  for (const line of summaryLines(summary)) console.log(line)
   return 0
+}
+
+/** @param {{ timeout: string, 'env-file': string }} options */
+const publishPing = async ({ timeout, 'env-file': envFile }) => {
+  const settings = pingSettings({ ...(await readEnvFile(resolve(envFile))), ...process.env })
+  const minutes = Number(timeout)
+  if (!Number.isFinite(minutes) || minutes <= 0) throw new CliError('--timeout takes the minutes to wait for the site, e.g. --timeout 20.')
+  console.log(`Verifying the publish circuit of ${settings.url} through ${settings.hookUrl} (up to ${minutes} min)…`)
+  const result = await runPing({ settings, trigger: await amplifyTrigger(settings), timeoutMs: minutes * 60_000 })
+  console.log(describePing(result))
+  return result.ok ? 0 : 1
 }
 
 const main = async () => {
@@ -221,9 +243,12 @@ const main = async () => {
       name: { type: 'string' },
       email: { type: 'string' },
       password: { type: 'string' },
+      'password-stdin': { type: 'boolean', default: false },
       otp: { type: 'string' },
       publish: { type: 'boolean', default: true },
+      create: { type: 'boolean', default: true },
       'env-file': { type: 'string', default: '.env.local' },
+      timeout: { type: 'string', default: '20' },
       'base-path': { type: 'string', default: '/dashboard' },
       locales: { type: 'string', default: 'es' },
       'panel-locale': { type: 'string', default: 'es' },
@@ -237,6 +262,7 @@ const main = async () => {
   if (command === 'admin') return admin(values)
   if (command === 'doctor') return doctor(values)
   if (positionals[0] === 'import') return importContent(positionals[1], values)
+  if (command === 'publish:ping') return publishPing(values)
   if (command === 'migrations sync') return migrations(values)
   if (command === 'routes') return routes(values)
   if (command === 'templates') return templates(values)

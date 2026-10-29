@@ -119,6 +119,16 @@ describe('findBrandIcon', () => {
     expect(findBrandIcon(root)).toEqual({ url: '/favicon192.png', file: 'public/favicon192.png' })
   })
 
+  it('looks under public/seo/ after public/', () => {
+    add('public/seo/favicon.png', png(32))
+    add('public/seo/favicon192.png', png(192))
+    expect(findBrandIcon(root)).toEqual({ url: '/seo/favicon192.png', file: 'public/seo/favicon192.png' })
+    add('public/seo/icon.svg')
+    expect(findBrandIcon(root)).toEqual({ url: '/seo/icon.svg', file: 'public/seo/icon.svg' })
+    add('public/favicon.png', png(16))
+    expect(findBrandIcon(root)).toEqual({ url: '/favicon.png', file: 'public/favicon.png' })
+  })
+
   it('falls back to favicon.ico, and to nothing', () => {
     expect(findBrandIcon(root)).toBeNull()
     add('app/favicon.ico')
