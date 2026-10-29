@@ -25,13 +25,15 @@ const USAGE = `Usage:
   linkchar-cms templates [--config cms.config.ts] [--dir supabase] [--check]
   linkchar-cms admin --email ana@acme.com [--password …] [--name "Ana"] [--env-file .env.local]
   linkchar-cms doctor [--config cms.config.ts] [--src src] [--dir supabase] [--env-file .env.local]
-  linkchar-cms import <script.ts> --email ana@acme.com [--password-stdin] [--otp 123456] [--no-publish] [--no-create] [--config cms.config.ts] [--env-file .env.local]
+  linkchar-cms import <script.ts> --email ana@acme.com [--password …] [--password-stdin] [--otp 123456] [--no-publish] [--no-create] [--config cms.config.ts] [--env-file .env.local]
   linkchar-cms publish:ping [--timeout 20] [--env-file .env.local]
 
   --dir     The project's Supabase folder (default: ./supabase)
   --config  The project's CMS config (default: ./cms.config.ts)
   --src     Folder with app/ and cms/ (default: ./src when it exists, else the project root)
   --check   Change nothing; exit with 1 when the project is behind the package
+  --env-file  The env file to read (default: .env.local, then .env, as Next does); the environment wins over it
+  --help    This text
 
   init writes the files a project owns (cms.config.ts, src/cms, the panel and site layouts) where none exist,
   then runs templates, routes and migrations sync, and lists what is left to wire by hand.
@@ -209,7 +211,7 @@ const doctor = async ({ config, src, dir, 'env-file': envFile }) => {
  * @param {{ config: string, email?: string, password?: string, 'password-stdin': boolean, otp?: string, publish: boolean, create: boolean, 'env-file'?: string }} options
  */
 const importContent = async (script, { config, email, password, 'password-stdin': passwordStdin, otp, publish, create, 'env-file': envFile }) => {
-  if (!script) throw new CliError('Usage: linkchar-cms import <script.ts> --email ana@acme.com')
+  if (!script) throw new CliError('Usage: linkchar-cms import <script.ts> --email ana@acme.com [--password-stdin] [--no-publish] [--no-create] [--env-file .env.local]; linkchar-cms --help lists every option.')
   if (passwordStdin && password) throw new CliError('Pass --password or --password-stdin, not both.')
   const secret = passwordStdin ? await readPasswordFromStdin(process.stdin) : password
   const { env, label } = await readProjectEnv(envFile)
@@ -260,6 +262,10 @@ const main = async () => {
   })
 
   const command = positionals.join(' ')
+  if (values.help) {
+    console.log(USAGE)
+    return 0
+  }
   if (command === 'init') return init(values)
   if (command === 'admin') return admin(values)
   if (command === 'doctor') return doctor(values)
