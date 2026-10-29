@@ -3,7 +3,7 @@ import { sanitizeHref } from '../core/richText/nodes'
 import { resolveContent } from '../core/translations'
 import { entryPath } from '../core/urls'
 import { dataFields } from '../core/walk'
-import type { SiteFileType, SiteImageType, SiteLinkType, SiteValuesOf } from './types'
+import type { SiteFileType, SiteImageType, SiteLinkType, SiteValuesOf, SiteVideoType } from './types'
 import type { CmsConfigType } from '../core/config'
 import type { DataField, FieldsRecord } from '../core/fields'
 import type { MediaItemType } from '../core/media'
@@ -49,6 +49,20 @@ export const siteImage = (ctx: ResolveContextType, item: MediaItemType): SiteIma
 const siteFile = (item: MediaItemType): SiteFileType => ({ id: item.id, src: item.url, filename: item.filename, mime: item.mime, size: item.size })
 
 const mediaOf = ({ refs }: ResolveContextType, id: unknown) => (typeof id === 'string' ? refs.media.get(id) : undefined)
+
+export const siteVideo = (ctx: ResolveContextType, item: MediaItemType): SiteVideoType => {
+  const poster = mediaOf(ctx, item.posterId)
+  return {
+    id: item.id,
+    src: item.url,
+    mime: item.mime,
+    size: item.size,
+    width: item.width,
+    height: item.height,
+    duration: item.duration,
+    poster: poster ? siteImage(ctx, poster) : null
+  }
+}
 
 // The URL of a page or document of the site in the locale being read; '' when it is not on the site.
 const entryHref = ({ config, refs, locale }: ResolveContextType, value: DataRecord) => {
@@ -126,6 +140,10 @@ const resolveField = (ctx: ResolveContextType, field: DataField, value: unknown)
     case 'file': {
       const item = mediaOf(ctx, value)
       return item ? siteFile(item) : null
+    }
+    case 'videoFile': {
+      const item = mediaOf(ctx, value)
+      return item ? siteVideo(ctx, item) : null
     }
     case 'gallery':
       return (Array.isArray(value) ? value : []).flatMap(id => {
