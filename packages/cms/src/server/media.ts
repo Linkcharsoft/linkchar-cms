@@ -1,6 +1,6 @@
-import { textContext } from '../core/config'
+import { textContext, translatorFor } from '../core/config'
 import { getEntry } from '../core/entries'
-import { isImageMime, isPathInFolder, MAX_MEDIA_BYTES, MEDIA_BUCKET, MEDIA_MIME_TYPES, mediaItemFrom } from '../core/media'
+import { isImageMime, isPathInFolder, isVideoMime, maxBytesFor, MEDIA_BUCKET, MEDIA_MIME_TYPES, mediaItemFrom } from '../core/media'
 import { pageSections } from '../core/pages'
 import { panelPaths } from '../core/paths'
 import { resolveText } from '../core/text'
@@ -11,14 +11,14 @@ import { titleOf } from './documents'
 import type { CmsClientType, CmsContextType } from './context'
 import type { Database } from './database'
 import type { MessageKeyType } from '../core/i18n/types'
-import type { MediaItemType } from '../core/media'
+import type { MediaItemType, MediaTypeType } from '../core/media'
 import type { LocalizedTextType } from '../core/text'
 
 export type MediaRowType = Database['public']['Tables']['media']['Row']
 
 export interface MediaQueryType {
   folder?: string
-  type?: 'image' | 'document'
+  type?: MediaTypeType
   search?: string
   trash?: boolean
   page?: number
@@ -33,6 +33,14 @@ const TEXT_MAX = 300
 export { mediaItemFrom } from '../core/media'
 
 export const toMediaItem = (ctx: CmsContextType, row: MediaRowType) => mediaItemFrom(ctx.supabaseUrl, row)
+
+// Items with the URL of their poster, so a grid or a field shows a video by its image.
+const withPosters = async (ctx: CmsContextType, rows: MediaRowType[], client: CmsClientType = ctx.db): Promise<MediaItemType[]> => {
+  const posterIds = [...new Set(rows.flatMap(row => (row.poster_id ? [row.poster_id] : [])))]
+  const { data } = posterIds.length > 0 ? await client.from('media').select('id, path').in('id', posterIds).is('deleted_at', null) : { data: [] }
+  const paths = new Map((data ?? []).map(row => [row.id, row.path]))
+  return rows.map(row => mediaItemFrom(ctx.supabaseUrl, row, row.poster_id ? paths.get(row.poster_id) ?? null : null))
+}
 
 // How a file is named in summaries: its alt text in the default locale, else its filename.
 export const mediaName = (ctx: CmsContextType, item: MediaItemType) => item.alt[ctx.config.defaultLocale] || item.filename
@@ -49,6 +57,7 @@ export const listMedia = async (ctx: CmsContextType, query: MediaQueryType = {})
   if (query.folder) request = request.eq('folder', query.folder)
   if (query.type === 'image') request = request.like('mime', 'image/%')
   if (query.type === 'document') request = request.eq('mime', 'application/pdf')
+  if (query.type === 'video') request = request.like('mime', 'video/%')
   const { defaultLocale, locales } = ctx.config
   if (query.missingAlt && query.missingAlt !== defaultLocale && locales.includes(query.missingAlt)) {
     // Saving drops blank texts, so a missing alt text is an absent key.
@@ -63,13 +72,13 @@ export const listMedia = async (ctx: CmsContextType, query: MediaQueryType = {})
     .order(query.trash ? 'deleted_at' : 'created_at', { ascending: false })
     .range(from, from + MEDIA_PAGE_SIZE - 1)
 
-  return { items: (data ?? []).map(row => toMediaItem(ctx, row)), total: count ?? 0, page }
+  return { items: await withPosters(ctx, data ?? []), total: count ?? 0, page }
 }
 
 export const getMediaByIds = async (ctx: CmsContextType, ids: string[]): Promise<Record<string, MediaItemType>> => {
   if (ids.length === 0) return {}
   const { data } = await ctx.db.from('media').select('*').in('id', ids)
-  return Object.fromEntries((data ?? []).map(row => [row.id, toMediaItem(ctx, row)]))
+  return Object.fromEntries((await withPosters(ctx, data ?? [])).map(item => [item.id, item]))
 }
 
 // One row of media_usage(): a draft or a published copy that holds the file.
@@ -83,6 +92,8 @@ export interface UsageRowType {
 }
 
 export interface MediaUsageType {
+  // A document that holds the file, or the video it is the poster of.
+  kind: 'document' | 'poster'
   documentId: string
   // "Inicio › Portada", "Blog › Mi artículo".
   label: string
@@ -116,6 +127,7 @@ export const describeUsage = (ctx: CmsContextType, rows: UsageRowType[]): MediaU
     const place = placeOf(ctx, row)
     if (!place) continue
     byDocument.set(row.document_id, {
+      kind: 'document',
       documentId: row.document_id,
       label: place.label,
       href: row.trashed ? panelPaths(ctx.config).trash : place.href,
@@ -126,12 +138,32 @@ export const describeUsage = (ctx: CmsContextType, rows: UsageRowType[]): MediaU
   return [...byDocument.values()]
 }
 
-// Drafts and published copies that hold each file, by media id.
+// The live videos an image is the poster of: in use like a document, the database refuses to trash it too.
+const posterUsage = async (ctx: CmsContextType, ids: string[], client: CmsClientType): Promise<{ posterId: string, usage: MediaUsageType }[]> => {
+  const { data } = await client.from('media').select('id, filename, alt, poster_id').in('poster_id', ids).is('deleted_at', null)
+  const { t } = translatorFor(ctx.config)
+  return (data ?? []).map(row => ({
+    posterId: row.poster_id!,
+    usage: {
+      kind: 'poster',
+      documentId: row.id,
+      label: t('media.details.posterOf', { name: asRecord(row.alt)[ctx.config.defaultLocale] as string || row.filename }),
+      href: panelPaths(ctx.config).media,
+      onlyPublished: false,
+      trashed: false
+    }
+  }))
+}
+
+// Drafts and published copies that hold each file, and the videos it is the poster of, by media id.
 export const getMediaUsage = async (ctx: CmsContextType, ids: string[], client: CmsClientType = ctx.db): Promise<Record<string, MediaUsageType[]>> => {
   if (ids.length === 0) return {}
-  const { data } = await client.rpc('media_usage', { ids })
+  const [{ data }, posters] = await Promise.all([client.rpc('media_usage', { ids }), posterUsage(ctx, ids, client)])
   const rows = (data ?? []) as (UsageRowType & { media_id: string })[]
-  return Object.fromEntries(ids.map(id => [id, describeUsage(ctx, rows.filter(row => row.media_id === id))]))
+  return Object.fromEntries(ids.map(id => [id, [
+    ...describeUsage(ctx, rows.filter(row => row.media_id === id)),
+    ...posters.filter(poster => poster.posterId === id).map(poster => poster.usage)
+  ]]))
 }
 
 // SQL can't delete Storage objects, so expired trash is purged lazily when the library is opened.
@@ -170,6 +202,8 @@ export interface RegisterMediaInputType {
   blurDataUrl: string | null
   // SHA-256 of the file as uploaded; optional so older clients keep working.
   hash?: string | null
+  // Videos: seconds, when the browser or the import could read them.
+  duration?: number | null
 }
 
 const HASH = /^[0-9a-f]{64}$/
@@ -180,6 +214,8 @@ export interface UpdateMediaInputType {
   folder: string
   focalX: number | null
   focalY: number | null
+  // Videos: an image of the library shown before it plays; left out, the poster stays as it is.
+  posterId?: string | null
 }
 
 export type MediaResultType = { ok: true, item: MediaItemType } | { ok: false, error: MessageKeyType }
@@ -190,6 +226,8 @@ const isRatio = (value: number | null) => value === null || (Number.isFinite(val
 
 const isDimension = (value: number | null) => value === null || (Number.isInteger(value) && value > 0 && value <= 20000)
 
+const isDuration = (value: number | null | undefined) => value === null || value === undefined || (Number.isFinite(value) && value >= 0 && value <= 86400)
+
 const clean = (value: unknown, max: number) => (typeof value === 'string' ? value.trim().slice(0, max) : '')
 
 // Only the configured locales, trimmed; empty ones are left out so "missing" stays easy to tell.
@@ -199,9 +237,9 @@ const cleanTexts = (ctx: CmsContextType, value: unknown): LocalizedTextType =>
 const registerProblem = (ctx: CmsContextType, input: RegisterMediaInputType, alt: LocalizedTextType): MessageKeyType | null => {
   if (!isFolder(ctx, input.folder) || !isPathInFolder(input.path, input.folder)) return 'errors.media.invalidFolder'
   if (!MEDIA_MIME_TYPES.includes(input.mime)) return 'errors.media.invalidType'
-  if (!Number.isInteger(input.size) || input.size <= 0 || input.size > MAX_MEDIA_BYTES) return 'errors.media.tooLarge'
+  if (!Number.isInteger(input.size) || input.size <= 0 || input.size > maxBytesFor(input.mime)) return 'errors.media.tooLarge'
   if (isImageMime(input.mime) && !alt[ctx.config.defaultLocale]) return 'errors.media.altRequired'
-  if (!isDimension(input.width) || !isDimension(input.height)) return 'errors.media.invalidDimensions'
+  if (!isDimension(input.width) || !isDimension(input.height) || !isDuration(input.duration)) return 'errors.media.invalidDimensions'
   if (input.blurDataUrl && (!input.blurDataUrl.startsWith('data:image/') || input.blurDataUrl.length > 4000)) return 'errors.media.invalidPreview'
   return null
 }
@@ -211,6 +249,7 @@ export const registerMedia = async (ctx: CmsContextType, input: RegisterMediaInp
   await requireRole(ctx, 'editor')
   const alt = cleanTexts(ctx, input.alt)
   const image = isImageMime(input.mime)
+  const video = isVideoMime(input.mime)
   const problem = registerProblem(ctx, input, alt)
 
   if (!problem) {
@@ -222,9 +261,10 @@ export const registerMedia = async (ctx: CmsContextType, input: RegisterMediaInp
       caption: cleanTexts(ctx, input.caption),
       mime: input.mime,
       size: input.size,
-      width: image ? input.width : null,
-      height: image ? input.height : null,
+      width: image || video ? input.width : null,
+      height: image || video ? input.height : null,
       blur_data_url: image ? input.blurDataUrl : null,
+      duration: video ? input.duration ?? null : null,
       hash: typeof input.hash === 'string' && HASH.test(input.hash) ? input.hash : null
     }).select('*').single()
 
@@ -250,26 +290,34 @@ export const findMediaByHash = async (ctx: CmsContextType, hash: string): Promis
   return data ? toMediaItem(ctx, data) : null
 }
 
+const isLibraryImage = async (ctx: CmsContextType, id: string) => {
+  const { data } = await ctx.db.from('media').select('mime').eq('id', id).is('deleted_at', null).maybeSingle()
+  return !!data && isImageMime(data.mime)
+}
+
 export const updateMedia = async (ctx: CmsContextType, id: string, input: UpdateMediaInputType): Promise<MediaResultType> => {
   await requireRole(ctx, 'editor')
-  const { data: current } = await ctx.db.from('media').select('mime').eq('id', id).maybeSingle()
+  const { data: current } = await ctx.db.from('media').select('mime, poster_id').eq('id', id).maybeSingle()
   if (!current) return { ok: false, error: 'errors.media.gone' }
 
   const alt = cleanTexts(ctx, input.alt)
   if (isImageMime(current.mime) && !alt[ctx.config.defaultLocale]) return { ok: false, error: 'errors.media.altRequired' }
   if (!isFolder(ctx, input.folder)) return { ok: false, error: 'errors.media.invalidFolder' }
   if (!isRatio(input.focalX) || !isRatio(input.focalY)) return { ok: false, error: 'errors.media.invalidFocalPoint' }
+  const posterId = isVideoMime(current.mime) && input.posterId !== undefined ? input.posterId : current.poster_id
+  if (posterId && posterId !== current.poster_id && !(await isLibraryImage(ctx, posterId))) return { ok: false, error: 'errors.media.invalidPoster' }
 
   const { data, error } = await ctx.db.from('media').update({
     alt,
     caption: cleanTexts(ctx, input.caption),
     folder: input.folder,
     focal_x: input.focalX,
-    focal_y: input.focalY
+    focal_y: input.focalY,
+    poster_id: posterId
   }).eq('id', id).select('*').single()
 
   if (error || !data) return { ok: false, error: 'errors.media.updateFailed' }
-  return { ok: true, item: toMediaItem(ctx, data) }
+  return { ok: true, item: (await withPosters(ctx, [data]))[0] }
 }
 
 export type MediaRemovalResultType = { ok: true } | { ok: false, usage: MediaUsageType[] }
