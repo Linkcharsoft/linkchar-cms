@@ -19,6 +19,14 @@ const restore = async (draft: Row, live: Row & { paths?: unknown }) => {
   await admin.from('published_documents').update({ data: live.data, slug: live.slug, slugs: live.slugs, ...(live.paths ? { paths: live.paths } : {}) }).eq('id', live.id)
 }
 
+test('tells which build it serves, for the panel to confirm a deploy', async ({ request }) => {
+  const response = await request.get('/api/cms/build-status')
+  expect(response.ok()).toBe(true)
+  expect((await response.json()).stamp).toMatch(/^[0-9a-z.]+$/)
+  expect(response.headers()['cache-control']).toContain('no-store')
+  expect((await request.post('/api/cms/build-status', { data: {} })).status()).toBe(404)
+})
+
 const publishAll = async (page: Page) => {
   await signIn(page, QA.super.email)
   await page.goto('/dashboard/publicar')
