@@ -2,7 +2,7 @@ import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { amplifyCacheCheck, authChecks, configPorts, environmentChecks, excludesPackageFromQuarantine, parseExcludedRanges, portChecks, postcssCheck, tablesCheck } from '../doctor.js'
+import { amplifyCacheCheck, authChecks, configPorts, environmentChecks, excludesPackageFromQuarantine, parseExcludedRanges, portChecks, postcssCheck, publishCircuitCheck, tablesCheck } from '../doctor.js'
 
 const NETSH = `
 Protocol tcp Port Exclusion Ranges
@@ -73,10 +73,11 @@ enroll_enabled = false
 
 describe('environmentChecks', () => {
   const env = { NEXT_PUBLIC_SUPABASE_URL: 'http://127.0.0.1:44421', NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: 'pk', SUPABASE_SECRET_KEY: 'sk', NODE_AUTH_TOKEN: 'x' }
-  const answer = (admins: unknown[], refused: Record<string, { status: number, code: string }> = {}) => (async (url: string) => {
+  const answer = (admins: unknown[], refused: Record<string, { status: number, code: string }> = {}, publishes: { any: boolean, confirmed: boolean } = { any: false, confirmed: false }) => (async (url: string) => {
     const table = /\/rest\/v1\/(\w+)\?select=\*&limit=0$/.exec(url)?.[1]
     if (table && refused[table]) return Response.json({ code: refused[table].code, message: '' }, { status: refused[table].status })
     if (table) return Response.json([])
+    if (url.includes('/rest/v1/publish_log')) return Response.json((url.includes('build_status=eq.success') ? publishes.confirmed : publishes.any) ? [{ id: 1 }] : [])
     return url.includes('/rest/v1/profiles') ? Response.json(admins) : new Response('{}')
   }) as typeof fetch
 
@@ -120,6 +121,18 @@ describe('environmentChecks', () => {
     expect(amplifyCacheCheck('frontend:\n  cache:\n    paths:\n      - node_modules/**/*\n')).toBeNull()
     expect((await levels({}, { 'amplify.yml': keeps })).filter(check => check.level === 'warn').map(check => check.text)).toEqual([expect.stringContaining('amplify.yml keeps .next/cache')])
     expect((await levels({}, { 'amplify.yml': drops })).filter(check => check.level !== 'ok')).toEqual([])
+  })
+
+  it('warns while no real build confirmed a publish', async () => {
+    const texts = async (publishes: { any: boolean, confirmed: boolean }) => (await levels({ fetch: answer([{ id: 'u1' }], {}, publishes) })).filter(check => check.level !== 'ok').map(check => check.text)
+    expect(await texts({ any: false, confirmed: false })).toEqual([])
+    expect(await texts({ any: true, confirmed: false })).toEqual([expect.stringContaining('linkchar-cms publish:ping')])
+    expect(await texts({ any: true, confirmed: true })).toEqual([])
+    expect((await levels({ fetch: answer([{ id: 'u1' }], {}, { any: true, confirmed: true }) })).map(check => check.text)).toContain('The site confirmed a publish')
+    const urls: string[] = []
+    const query = (async (url: string) => { urls.push(url); return Response.json([{ id: 7 }]) }) as unknown as typeof fetch
+    await publishCircuitCheck(query, 'http://db', { apikey: 'sk' })
+    expect(urls[1]).toBe('http://db/rest/v1/publish_log?select=id&build_status=eq.success&job_id=not.is.null&job_id=not.like.mock-*&limit=1')
   })
 
   it('tells missing grants of the secret key apart from missing migrations', async () => {

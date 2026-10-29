@@ -19,6 +19,14 @@ const DOCUMENT_STATUSES: readonly DocumentStatusType[] = ['hidden', 'new', 'publ
 export const isDocumentStatus = (value: unknown): value is DocumentStatusType =>
   typeof value === 'string' && (DOCUMENT_STATUSES as readonly string[]).includes(value)
 
+// Job ids of the simulated build: its publishes never built a site.
+export const MOCK_JOB_PREFIX = 'mock-'
+
+export const isSimulatedJob = (jobId: string | null | undefined) => !!jobId && jobId.startsWith(MOCK_JOB_PREFIX)
+
+// What the publish log says about the site's build circuit: never used, never confirmed by a real build, or confirmed.
+export type PublishCircuitType = 'unused' | 'unconfirmed' | 'confirmed'
+
 // Build events are delivered best effort: past this, the panel stops waiting and no event is matched to it.
 export const BUILD_CONFIRMATION_TIMEOUT_MS = 30 * 60 * 1000
 

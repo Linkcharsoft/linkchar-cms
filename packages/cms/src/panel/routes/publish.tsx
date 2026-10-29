@@ -17,7 +17,7 @@ export const publishRoute = (cms: CmsServerType) => {
 
   const Page = async ({ searchParams }: Props) => {
     const [{ profile }, { doc }] = await Promise.all([cms.queries.requireRole(), searchParams])
-    const [changes, history] = await Promise.all([cms.queries.getPendingChanges(), cms.queries.getPublishHistory()])
+    const [changes, history, circuit] = await Promise.all([cms.queries.getPendingChanges(), cms.queries.getPublishHistory(), cms.queries.getPublishCircuit()])
 
     return (
       <main id='main' className='flex-1'>
@@ -27,6 +27,7 @@ export const publishRoute = (cms: CmsServerType) => {
             changes={changes}
             history={history}
             canPublish={canPublish(profile)}
+            circuit={circuit}
             highlight={typeof doc === 'string' ? doc : undefined}
             activityHref={hasRole(profile.role, 'admin') ? `${panelPaths(cms.config).activity}?accion=publishing` : undefined}
           />

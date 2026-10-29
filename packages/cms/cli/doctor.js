@@ -89,6 +89,22 @@ export const amplifyCacheCheck = text => (/\.next\/cache/.test(text) && !/fetch-
   ? { level: 'warn', text: 'amplify.yml keeps .next/cache between builds, fetch-cache included: add "rm -rf .next/cache/fetch-cache" to preBuild, or the cache grows with every build' }
   : null)
 
+/**
+ * Whether a real build ever reported a publish back; the simulated build's successes don't count.
+ * @param {typeof fetch} get @param {string} url @param {Record<string, string>} headers @returns {Promise<CheckType | null>}
+ */
+export const publishCircuitCheck = async (get, url, headers) => {
+  /** @param {string} query */
+  const count = async query => {
+    const body = await (await get(`${url}/rest/v1/publish_log?select=id&${query}`, { headers })).json().catch(() => null)
+    return Array.isArray(body) ? body.length : 0
+  }
+  if (await count('limit=1') === 0) return null
+  return await count('build_status=eq.success&job_id=not.is.null&job_id=not.like.mock-*&limit=1') > 0
+    ? { level: 'ok', text: 'The site confirmed a publish' }
+    : { level: 'warn', text: 'No publish has been confirmed by the site yet: the successes in the log are simulated or unconfirmed. Check the circuit with linkchar-cms publish:ping' }
+}
+
 export const PACKAGE_RELATIONS = ['profiles', 'documents', 'published_documents', 'document_status', 'document_versions', 'redirects', 'media', 'activity_log', 'publish_log']
 
 /** @param {Response} response @returns {Promise<string | null>} the PostgREST or Postgres error code */
@@ -166,6 +182,8 @@ export const environmentChecks = async ({ root, supabaseDir, env, envFile = '.en
         checks.push((await admins.json()).length > 0
           ? { level: 'ok', text: 'There is a superadmin' }
           : { level: 'fail', text: 'No superadmin yet: linkchar-cms admin --email …' })
+        const circuit = await publishCircuitCheck(get, url, headers)
+        if (circuit) checks.push(circuit)
       }
     } catch (error) {
       checks.push({ level: 'fail', text: `Supabase does not answer at ${url} (${error instanceof Error ? error.message : error}): supabase start?` })

@@ -119,7 +119,10 @@ class Query implements PromiseLike<Result> {
   eq (column: string, value: unknown) { this.filters.push(row => same(read(row, column), value)); return this }
   neq (column: string, value: unknown) { this.filters.push(row => !same(read(row, column), value)); return this }
   is (column: string, value: null) { this.filters.push(row => read(row, column) === value); return this }
-  not (column: string, operator: 'is', value: null) { this.filters.push(row => read(row, column) !== value); return this }
+  not (column: string, operator: 'is' | 'like', value: string | null) {
+    this.filters.push(row => (operator === 'is' ? read(row, column) !== value : !likeToRegExp(String(value), '').test(String(read(row, column) ?? ''))))
+    return this
+  }
   contains (column: string, value: Record<string, unknown>) {
     this.filters.push(row => {
       const current = read(row, column) as Record<string, unknown> | null

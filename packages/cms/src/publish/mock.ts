@@ -1,3 +1,4 @@
+import { MOCK_JOB_PREFIX } from '../core/publish'
 import type { PublishTargetType } from './types'
 import type { BuildEventStatusType } from '../core/publish'
 
@@ -17,7 +18,7 @@ export const mockBuild = ({ result = 'success', seconds = 15, allowRemote = fals
   localOnly: !allowRemote,
 
   trigger: async ({ report, logger }) => {
-    const jobId = `mock-${Date.now()}`
+    const jobId = `${MOCK_JOB_PREFIX}${Date.now()}`
     const send = (status: BuildEventStatusType) =>
       report({ jobId, status }).catch(error => logger.error('[mock-build] report failed:', error))
 

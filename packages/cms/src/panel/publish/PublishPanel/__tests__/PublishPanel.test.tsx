@@ -44,6 +44,7 @@ const record: PublishRecordType = {
   errorCode: 'hook_refused',
   errorDetail: 'HTTP 403',
   retryOf: null,
+  simulated: false,
   items: [{ id: 'a', title: null, action: 'publish' }]
 }
 
@@ -170,5 +171,21 @@ describe('PublishPanel', () => {
     const building = { ...unconfirmed, requestedAt: new Date(Date.now() - 7 * 60_000).toISOString() }
     renderPanel(<PublishPanel changes={[]} history={[building]} canPublish />)
     expect(screen.getByText('Publicando · hace 7 min')).toBeTruthy()
+  })
+
+  it('marks simulated publishes and tells publishers when no real build ever reported back', () => {
+    const simulated = { ...record, buildStatus: 'success' as const, errorCode: null, errorDetail: null, simulated: true }
+    renderPanel(<PublishPanel changes={[]} history={[simulated]} canPublish circuit='unconfirmed' />)
+    expect(screen.getByText('Simulada')).toBeTruthy()
+    expect(screen.getByText(/Ninguna publicación fue confirmada por el sitio todavía/)).toBeTruthy()
+    cleanup()
+
+    renderPanel(<PublishPanel changes={[]} history={[simulated]} canPublish={false} circuit='unconfirmed' />)
+    expect(screen.queryByText(/Ninguna publicación fue confirmada/)).toBeNull()
+    cleanup()
+
+    renderPanel(<PublishPanel changes={[]} history={[{ ...simulated, simulated: false }]} canPublish circuit='confirmed' />)
+    expect(screen.queryByText('Simulada')).toBeNull()
+    expect(screen.queryByText(/Ninguna publicación fue confirmada/)).toBeNull()
   })
 })
