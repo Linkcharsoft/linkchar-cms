@@ -191,12 +191,12 @@ describe('linkchar-cms import', () => {
       '}'
     ].join('\n'))
 
-    const output = execFileSync(process.execPath, [fileURLToPath(new URL('../../../cli/linkchar-cms.js', import.meta.url)), 'import', script, '--email', 'qa-super@local.test', '--no-publish'], {
+    const output = execFileSync(process.execPath, [fileURLToPath(new URL('../../../cli/linkchar-cms.js', import.meta.url)), 'import', script, '--email', 'qa-super@local.test', '--no-publish', '--password-stdin'], {
       cwd: fileURLToPath(new URL('../../../../../apps/playground', import.meta.url)),
       encoding: 'utf8',
+      input: 'QaLocal12345\n',
       env: {
         ...process.env,
-        CMS_IMPORT_PASSWORD: 'QaLocal12345',
         NEXT_PUBLIC_SUPABASE_URL: supabase.url,
         NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: supabase.publishableKey,
         SUPABASE_SECRET_KEY: supabase.secretKey

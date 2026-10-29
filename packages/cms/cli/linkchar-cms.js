@@ -6,7 +6,7 @@ import { parseArgs } from 'node:util'
 import { findBrandIcon } from '../next/index.js'
 import { createSuperadmin, readEnvFile } from './admin.js'
 import { authChecks, environmentChecks } from './doctor.js'
-import { importSettings, runImport, summaryLines } from './import.js'
+import { importSettings, readPasswordFromStdin, runImport, summaryLines } from './import.js'
 import { initProject, nextSteps, normalizeBasePath } from './init.js'
 import { CliError, isUpToDate, syncMigrations } from './migrations.js'
 import { checkProxy, loadConfig, syncRoutes } from './routes.js'
@@ -24,7 +24,7 @@ const USAGE = `Usage:
   linkchar-cms templates [--config cms.config.ts] [--dir supabase] [--check]
   linkchar-cms admin --email ana@acme.com [--password …] [--name "Ana"] [--env-file .env.local]
   linkchar-cms doctor [--config cms.config.ts] [--src src] [--dir supabase] [--env-file .env.local]
-  linkchar-cms import <script.ts> --email ana@acme.com [--otp 123456] [--no-publish] [--no-create] [--config cms.config.ts] [--env-file .env.local]
+  linkchar-cms import <script.ts> --email ana@acme.com [--password-stdin] [--otp 123456] [--no-publish] [--no-create] [--config cms.config.ts] [--env-file .env.local]
 
   --dir     The project's Supabase folder (default: ./supabase)
   --config  The project's CMS config (default: ./cms.config.ts)
@@ -35,9 +35,9 @@ const USAGE = `Usage:
   then runs templates, routes and migrations sync, and lists what is left to wire by hand.
   admin makes the first superadmin with SUPABASE_SECRET_KEY: created with --password, else invited by email.
   doctor checks routes, the panel icon, migrations, templates, variables, Supabase, the package registry and the ports.
-  import runs the script's default export with a session signed in as --email (password in CMS_IMPORT_PASSWORD):
-  cms.media(), cms.upsert(), cms.transform() and cms.publish(); --no-publish makes cms.publish() report without
-  publishing, --no-create makes cms.upsert() fail instead of creating a document.`
+  import runs the script's default export with a session signed in as --email (password in CMS_IMPORT_PASSWORD,
+  --password or --password-stdin): cms.media(), cms.upsert(), cms.transform() and cms.publish(); --no-publish makes
+  cms.publish() report without publishing, --no-create makes cms.upsert() fail instead of creating a document.`
 
 /** @type {Record<SyncChangeType['status'] | RouteChangeType['status'] | TemplateChangeType['status'], string>} */
 const SYMBOLS = { added: '+', updated: '~', removed: '-', differs: '!', stale: '!', same: '=', kept: '=' }
@@ -202,11 +202,13 @@ const doctor = async ({ config, src, dir, 'env-file': envFile }) => {
 
 /**
  * @param {string | undefined} script
- * @param {{ config: string, email?: string, password?: string, otp?: string, publish: boolean, create: boolean, 'env-file': string }} options
+ * @param {{ config: string, email?: string, password?: string, 'password-stdin': boolean, otp?: string, publish: boolean, create: boolean, 'env-file': string }} options
  */
-const importContent = async (script, { config, email, password, otp, publish, create, 'env-file': envFile }) => {
+const importContent = async (script, { config, email, password, 'password-stdin': passwordStdin, otp, publish, create, 'env-file': envFile }) => {
   if (!script) throw new CliError('Usage: linkchar-cms import <script.ts> --email ana@acme.com')
-  const settings = importSettings({ ...(await readEnvFile(resolve(envFile))), ...process.env }, { email, password, otp })
+  if (passwordStdin && password) throw new CliError('Pass --password or --password-stdin, not both.')
+  const secret = passwordStdin ? await readPasswordFromStdin(process.stdin) : password
+  const settings = importSettings({ ...(await readEnvFile(resolve(envFile))), ...process.env }, { email, password: secret, otp })
   const { build, summary } = await runImport({ script: resolve(script), configFile: resolve(config), root: resolve('.'), settings, publish, create })
   const builds = { amplify: 'publishing triggers the Amplify build', mock: 'publishing ran the mock build', none: 'no build hook (CMS_BUILD_HOOK_URL): retry the build from Publicar' }
   console.log(`Import done as ${settings.email} at ${settings.supabase.url}${publish ? `; ${builds[build]}` : '; nothing published (--no-publish)'}.`)
@@ -226,6 +228,7 @@ const main = async () => {
       name: { type: 'string' },
       email: { type: 'string' },
       password: { type: 'string' },
+      'password-stdin': { type: 'boolean', default: false },
       otp: { type: 'string' },
       publish: { type: 'boolean', default: true },
       create: { type: 'boolean', default: true },

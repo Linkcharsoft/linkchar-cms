@@ -1,5 +1,6 @@
+import { Readable } from 'node:stream'
 import { describe, expect, it } from 'vitest'
-import { importSettings, summaryLines } from '../import.js'
+import { importSettings, readPasswordFromStdin, summaryLines } from '../import.js'
 
 const supabase = {
   NEXT_PUBLIC_SUPABASE_URL: 'http://127.0.0.1:44421',
@@ -26,9 +27,17 @@ describe('importSettings', () => {
   })
 
   it('names what is missing', () => {
-    expect(() => importSettings(supabase, { email: 'ana@acme.com' })).toThrow('CMS_IMPORT_PASSWORD')
+    expect(() => importSettings(supabase, { email: 'ana@acme.com' })).toThrow('CMS_IMPORT_PASSWORD (or --password, or --password-stdin)')
     expect(() => importSettings({ CMS_IMPORT_EMAIL: 'a@b.co', CMS_IMPORT_PASSWORD: 'p' }, {}))
       .toThrow('Missing NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY, SUPABASE_SECRET_KEY')
+  })
+})
+
+describe('readPasswordFromStdin', () => {
+  it('takes the first line and nothing else', async () => {
+    expect(await readPasswordFromStdin(Readable.from(['secr', 'eto\n', 'ignored\n']))).toBe('secreto')
+    expect(await readPasswordFromStdin(Readable.from(['sin salto']))).toBe('sin salto')
+    await expect(readPasswordFromStdin(Readable.from(['\n']))).rejects.toThrow('--password-stdin got nothing')
   })
 })
 

@@ -24,7 +24,7 @@ const LOCAL = /^https?:\/\/(127\.0\.0\.1|localhost)(:\d+)?$/
 export const importSettings = (env, { email, password, otp }) => {
   const user = email ?? env.CMS_IMPORT_EMAIL
   const secret = password ?? env.CMS_IMPORT_PASSWORD
-  if (!user || !secret) throw new CliError('The import signs in as a panel user: pass --email and set CMS_IMPORT_PASSWORD (or --password).')
+  if (!user || !secret) throw new CliError('The import signs in as a panel user: pass --email and set CMS_IMPORT_PASSWORD (or --password, or --password-stdin).')
 
   const url = env.NEXT_PUBLIC_SUPABASE_URL
   const publishableKey = env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
@@ -39,6 +39,19 @@ export const importSettings = (env, { email, password, otp }) => {
     : LOCAL.test(url) ? /** @type {const} */ ({ kind: 'mock' }) : /** @type {const} */ ({ kind: 'none' })
 
   return { email: user, password: secret, otp, supabase: { url, publishableKey, secretKey }, build }
+}
+
+/**
+ * The first line of stdin, for --password-stdin: `printf '%s' "$PASSWORD" | linkchar-cms import …`.
+ * @param {AsyncIterable<string | Buffer>} stream
+ * @returns {Promise<string>}
+ */
+export const readPasswordFromStdin = async stream => {
+  let text = ''
+  for await (const chunk of stream) text += chunk
+  const password = text.split(/\r?\n/)[0]
+  if (!password) throw new CliError('--password-stdin got nothing: pipe the password into the command.')
+  return password
 }
 
 /**
