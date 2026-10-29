@@ -135,15 +135,15 @@ const hasPackagesToken = async env => {
 
 /**
  * Environment checks the other commands don't cover: variables, Supabase, the package registry and the ports.
- * @param {{ root: string, supabaseDir: string, env: Record<string, string | undefined>, siteUrl: string | null, fetch?: typeof fetch }} options
+ * @param {{ root: string, supabaseDir: string, env: Record<string, string | undefined>, envFile?: string, siteUrl: string | null, fetch?: typeof fetch }} options
  * @returns {Promise<CheckType[]>}
  */
-export const environmentChecks = async ({ root, supabaseDir, env, siteUrl, fetch: get = fetch }) => {
+export const environmentChecks = async ({ root, supabaseDir, env, envFile = '.env.local', siteUrl, fetch: get = fetch }) => {
   /** @type {CheckType[]} */
   const checks = []
   const missing = ['NEXT_PUBLIC_SUPABASE_URL', 'NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY', 'SUPABASE_SECRET_KEY'].filter(key => !env[key])
   checks.push(missing.length > 0
-    ? { level: 'fail', text: `Missing ${missing.join(', ')} in the environment or .env.local` }
+    ? { level: 'fail', text: `Missing ${missing.join(', ')} in the environment or ${envFile} (another file: --env-file)` }
     : { level: 'ok', text: 'Supabase variables are set' })
   checks.push(siteUrl
     ? { level: 'ok', text: `site.url is ${siteUrl}` }

@@ -98,7 +98,7 @@ describe('environmentChecks', () => {
 
   it('names what is missing and the command that fixes it', async () => {
     expect((await levels({ env: { NODE_AUTH_TOKEN: 'x' }, siteUrl: null })).map(check => check.text)).toEqual([
-      'Missing NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY, SUPABASE_SECRET_KEY in the environment or .env.local',
+      'Missing NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY, SUPABASE_SECRET_KEY in the environment or .env.local (another file: --env-file)',
       'site.url is empty: the sitemap throws and canonical URLs stay relative (set NEXT_PUBLIC_SITE_URL)'
     ])
     expect((await levels({ fetch: answer([], { profiles: { status: 404, code: 'PGRST205' } }) })).find(check => check.level === 'fail')?.text)
@@ -106,6 +106,10 @@ describe('environmentChecks', () => {
     expect((await levels({ fetch: answer([]) })).find(check => check.level === 'fail')?.text).toBe('No superadmin yet: linkchar-cms admin --email …')
     expect((await levels({ fetch: (async () => { throw new Error('ECONNREFUSED') }) as typeof fetch })).find(check => check.level === 'fail')?.text)
       .toContain('ECONNREFUSED')
+  })
+
+  it('names the env file it read', async () => {
+    expect((await levels({ env: { NODE_AUTH_TOKEN: 'x' }, envFile: '.env.remote' }))[0].text).toContain('in the environment or .env.remote')
   })
 
   it('warns while amplify.yml keeps the fetch cache of the previous build', async () => {
