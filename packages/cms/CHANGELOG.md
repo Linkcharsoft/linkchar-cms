@@ -1,5 +1,25 @@
 # @linkcharsoft/cms
 
+## 0.18.0
+
+### Minor Changes
+
+- 355959e: A built publish the site serves is confirmed however late the log is read. The panel used to ask the site for the stamp only during the 30 minutes after the build and then closed the publish as "Sin confirmar", so a publish made at the end of the day and read the next morning showed the warning and offered a retry while the site was already serving it; `doctor` and `publish:ping` confirmed it instead. The rule is now one pure function in the core, `settlePublishRows(rows, servedStamp, now)` (with `needsSiteStamp`): built publishes whose stamp the site serves are confirmed first, then the open ones nothing confirmed in 30 minutes are closed. The server applies it in `settlePublishes`, which replaces `confirmBuiltPublishes` and `closeStalePublishes`; the CLI loads it with jiti instead of keeping its own copy, and reuses `consoleUrlOf` for the Amplify link. The server also logs a publish log read PostgREST refuses instead of reading it as empty.
+  
+  To update a project: nothing; publishes already closed as unconfirmed stay so. Code that imported `confirmBuiltPublishes` or `closeStalePublishes` calls `settlePublishes(ctx, rows)`.
+
+### Patch Changes
+
+- 68d0454: The header keeps refreshing while a publish reads "Publicando · desplegando", so it clears on its own once the site serves the build; it used to stop polling at the end of the build and stayed on "desplegando" until the next navigation or save on every screen but Publicar.
+  
+  To update a project: nothing.
+- 62f8eb3: The dry run of an import gives what it would create a placeholder UUID instead of `dry-run-<entry>-N`. A new collection document is validated before the plan, and the media and relation fields take only UUIDs, so a first seed that linked a file it uploads or a document it creates in the same run (`cover: { es: file.id }`, `category: category.id`) failed with "Archivo inválido" or "Referencia inválida" before showing anything. The plan is unchanged; `summary().created[].id` and the ids `upsert()` and `media()` answer are UUIDs nothing is stored under.
+  
+  To update a project: nothing, unless a script told the placeholders apart by their `dry-run-` prefix; `created: true` and `summary().dryRun` say the same.
+- 101defe: `amplify().trigger` records no job from the hook's answer: Amplify's incoming webhook never returns one, and `build:report --start` records the job from inside the build. `publish:ping` no longer reads `CMS_BUILD_WEBHOOK_SECRET`, which it never used.
+  
+  To update a project: nothing.
+
 ## 0.17.2
 
 ### Patch Changes
