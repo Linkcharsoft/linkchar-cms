@@ -1,6 +1,7 @@
 import { existsSync } from 'node:fs'
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
+import { parse } from 'yaml'
 
 export const KEEPALIVE_FILE = '.github/workflows/supabase-keepalive.yml'
 
@@ -22,12 +23,39 @@ export const keepaliveWorkflow = () => [
   '    runs-on: ubuntu-latest',
   '    timeout-minutes: 5',
   '    steps:',
-  '      - run: curl -fsS "${{ vars.SUPABASE_URL }}/rest/v1/published_documents?select=id&limit=1" -H "apikey: ${{ vars.SUPABASE_PUBLISHABLE_KEY }}" -H "Authorization: Bearer ${{ vars.SUPABASE_PUBLISHABLE_KEY }}"',
+  // A folded scalar: a plain one would read the ": " inside the headers as a mapping and GitHub would refuse the file.
+  '      - run: >-',
+  '          curl -fsS "${{ vars.SUPABASE_URL }}/rest/v1/published_documents?select=id&limit=1"',
+  '          -H "apikey: ${{ vars.SUPABASE_PUBLISHABLE_KEY }}"',
+  '          -H "Authorization: Bearer ${{ vars.SUPABASE_PUBLISHABLE_KEY }}"',
   ''
 ].join('\n')
 
 /**
- * @typedef {{ file: string, status: 'added' | 'updated' | 'same' | 'kept' }} KeepaliveChangeType
+ * What keeps a keepalive workflow from running: it does not parse, has no schedule or dispatch, or no job with steps.
+ * @param {string} text
+ * @returns {string[]}
+ */
+export const keepaliveProblems = text => {
+  /** @type {Record<string, any>} */
+  let doc
+  try {
+    doc = parse(text)
+  } catch (error) {
+    return [`not valid YAML (${error instanceof Error ? error.message.split('\n')[0] : error})`]
+  }
+  if (!doc || typeof doc !== 'object') return ['not a workflow']
+  const problems = []
+  const on = doc.on ?? doc[/** @type {never} */ (true)]
+  if (!Array.isArray(on?.schedule) || on.schedule.length === 0) problems.push('no schedule (on.schedule)')
+  if (!on || !('workflow_dispatch' in on)) problems.push('no manual run (on.workflow_dispatch)')
+  const jobs = Object.values(doc.jobs ?? {})
+  if (!jobs.some(job => Array.isArray(job?.steps) && job.steps.length > 0)) problems.push('no job with steps')
+  return problems
+}
+
+/**
+ * @typedef {{ file: string, status: 'added' | 'updated' | 'same' | 'kept', problems: string[] }} KeepaliveChangeType
  */
 
 /**
@@ -40,11 +68,11 @@ export const syncKeepalive = async ({ root, write = true }) => {
   const path = join(root, KEEPALIVE_FILE)
   const wanted = keepaliveWorkflow()
   const current = existsSync(path) ? await readFile(path, 'utf8') : null
-  if (current === wanted) return { file: KEEPALIVE_FILE, status: 'same' }
-  if (current !== null && !current.startsWith(KEEPALIVE_MARKER)) return { file: KEEPALIVE_FILE, status: 'kept' }
+  if (current === wanted) return { file: KEEPALIVE_FILE, status: 'same', problems: keepaliveProblems(current) }
+  if (current !== null && !current.startsWith(KEEPALIVE_MARKER)) return { file: KEEPALIVE_FILE, status: 'kept', problems: keepaliveProblems(current) }
   if (write) {
     await mkdir(dirname(path), { recursive: true })
     await writeFile(path, wanted)
   }
-  return { file: KEEPALIVE_FILE, status: current === null ? 'added' : 'updated' }
+  return { file: KEEPALIVE_FILE, status: current === null ? 'added' : 'updated', problems: keepaliveProblems(wanted) }
 }

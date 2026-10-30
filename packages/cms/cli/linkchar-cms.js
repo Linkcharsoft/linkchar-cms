@@ -92,13 +92,14 @@ const routes = async ({ config, src, check }) => {
   print('Panel routes', changes, check)
   const keepalive = await syncKeepalive({ root: resolve('.'), write: !check })
   print('Supabase keepalive workflow', [keepalive], check)
+  if (keepalive.problems.length > 0) console.warn(`  ! ${keepalive.file} will not run on GitHub: ${keepalive.problems.join(', ')}`)
 
   const proxy = await checkProxy({ sourceDir, basePath: loaded.basePath })
   if (proxy !== 'ok') {
     console.warn(`\n${proxy === 'missing' ? 'There is no proxy.ts' : 'proxy.ts does not match the panel'}: it needs`)
     console.warn(`  export const proxy = cms.proxy\n  export const config = { matcher: ['${loaded.basePath}/:path*'] }`)
   }
-  const behind = [...changes, keepalive].some(change => change.status === 'added' || change.status === 'updated' || change.status === 'removed')
+  const behind = [...changes, keepalive].some(change => change.status === 'added' || change.status === 'updated' || change.status === 'removed') || keepalive.problems.length > 0
   if (!check && changes.some(change => change.status === 'removed')) console.log('\nA removed route leaves .next/types behind: run next typegen (or next build) before the next type-check.')
   return check && (behind || proxy !== 'ok') ? 1 : 0
 }

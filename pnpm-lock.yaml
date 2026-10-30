@@ -347,6 +347,9 @@ importers:
       tailwind-merge:
         specifier: 2.6.1
         version: 2.6.1
+      yaml:
+        specifier: 2.9.1
+        version: 2.9.1
     devDependencies:
       '@supabase/ssr':
         specifier: 0.12.7
