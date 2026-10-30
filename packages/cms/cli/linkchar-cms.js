@@ -47,13 +47,15 @@ const USAGE = `Usage:
   import runs the script's default export with a session signed in as --email (password in CMS_IMPORT_PASSWORD,
   --password or --password-stdin): cms.media(), cms.upsert(), cms.transform() and cms.publish(). It first runs the
   script dry, prints what would change (each document and its fields) and asks before writing; --yes skips the question
-  (CI), --dry-run stops after the plan. A Supabase that is not local takes --allow-remote. --no-publish makes
+  (CI), --dry-run stops after the plan and needs no --allow-remote (it only reads). Writing to a Supabase that is not
+  local takes --allow-remote. --no-publish makes
   cms.publish() report without publishing, --no-create makes cms.upsert() fail instead of creating a document.
   publish:ping verifies the publish circuit end to end: it logs an empty publish, fires CMS_BUILD_HOOK_URL and waits
   (--timeout minutes) for the build to report itself and the site to serve it. It costs one Amplify build and takes the 30-minute lock.
   build:report runs inside the site's build (amplify.yml) with the build's own variables: --start in preBuild takes the
-  open publish, --ok and --failed close the build --start claimed. With a preview branch, CMS_BUILD_BRANCH names the
-  branch that builds publishes. Without an open publish it does nothing, and it never fails the build.`
+  open publish of its own branch (the panel records it), --ok and --failed close the build --start claimed. A publish
+  without a branch (a local panel, publish:ping) goes to the build of CMS_BUILD_BRANCH, main by default. Without an
+  open publish it does nothing, and it never fails the build.`
 
 /** @type {Record<SyncChangeType['status'] | RouteChangeType['status'] | TemplateChangeType['status'], string>} */
 const SYMBOLS = { added: '+', updated: '~', removed: '-', differs: '!', stale: '!', same: '=', kept: '=' }
@@ -239,7 +241,10 @@ const importContent = async (script, { config, email, password, 'password-stdin'
 
   const plan = await run(true)
   for (const line of planLines(plan.summary, url)) console.log(line)
-  if (dryRun) return 0
+  if (dryRun) {
+    console.log('Nothing was written (--dry-run).')
+    return 0
+  }
   if (plan.summary.changed.length + plan.summary.created.length + plan.summary.media === 0) return 0
   if (!yes) {
     if (passwordStdin) throw new CliError('With --password-stdin there is no terminal to ask on: pass --yes to write the plan above.')
