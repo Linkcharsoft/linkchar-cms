@@ -44,8 +44,8 @@ export const amplify = ({ hookUrl, webhookSecret, timeoutMs = 10_000 }: AmplifyO
     try {
       const response = await fetch(hookUrl, { method: 'POST', signal: AbortSignal.timeout(timeoutMs) })
       if (!response.ok) return { ok: false, code: 'hook_refused', detail: String(response.status) }
-      const body = await response.json().catch(() => null) as { jobId?: unknown } | null
-      return { ok: true, jobId: typeof body?.jobId === 'string' ? body.jobId : null }
+      // The hook answers no job: build:report --start records it from inside the build.
+      return { ok: true, jobId: null }
     } catch (error) {
       logger.error('[publish] build hook failed:', error instanceof Error ? error.message : error)
       return { ok: false, code: 'hook_unreachable' }
