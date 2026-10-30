@@ -89,6 +89,54 @@ export const keepaliveCheck = async root => {
     : { level: 'fail', text: `.github/workflows/supabase-keepalive.yml will not run on GitHub: ${problems.join(', ')}. linkchar-cms routes rewrites the one the package wrote` }
 }
 
+export const KEEPALIVE_WORKFLOW_NAME = 'Supabase keepalive'
+
+// Four days: the cron runs every three, so a healthy workflow always has a green run inside the window.
+const KEEPALIVE_WINDOW_MS = 4 * 24 * 60 * 60 * 1000
+
+/**
+ * @typedef {(args: string[]) => Promise<string>} GhType `gh` with the given arguments, resolving to its stdout
+ * @typedef {{ databaseId: number, status: string, conclusion: string | null, createdAt: string, url: string }} RunType
+ */
+
+/**
+ * Whether the keepalive workflow ran green lately, through `gh` (its own login or GITHUB_TOKEN); null when `gh` is
+ * missing, signed out or not in a GitHub repository, so the file check above is all doctor can say.
+ * @param {GhType} gh @param {() => number} [now] @returns {Promise<CheckType | null>}
+ */
+export const keepaliveRunCheck = async (gh, now = Date.now) => {
+  /** @type {RunType[]} */
+  let runs
+  try {
+    runs = JSON.parse(await gh(['run', 'list', '--workflow', KEEPALIVE_WORKFLOW_NAME, '--limit', '10', '--json', 'databaseId,status,conclusion,createdAt,url']))
+  } catch {
+    return null
+  }
+  if (!Array.isArray(runs)) return null
+  const recent = runs.filter(run => now() - Date.parse(run.createdAt) <= KEEPALIVE_WINDOW_MS)
+  const green = recent.find(run => run.conclusion === 'success')
+  if (green) return { level: 'ok', text: `The keepalive ran green ${Math.round((now() - Date.parse(green.createdAt)) / 3_600_000)} h ago (${green.url})` }
+  if (runs.length === 0) return { level: 'warn', text: `The keepalive workflow never ran: run it once by hand (gh workflow run "${KEEPALIVE_WORKFLOW_NAME}") or wait for its cron` }
+  const [latest] = runs
+  const why = latest.status === 'completed' ? latest.conclusion ?? 'no conclusion' : latest.status
+  const note = await runAnnotation(gh, latest)
+  return { level: 'warn', text: `The keepalive has no green run in 4 days: the latest ended ${why}${note ? ` ("${note}")` : ''}. ${latest.url}` }
+}
+
+/** @param {GhType} gh @param {RunType} run @returns {Promise<string | null>} the first annotation of the run's first job */
+const runAnnotation = async (gh, run) => {
+  try {
+    const { jobs } = JSON.parse(await gh(['run', 'view', String(run.databaseId), '--json', 'jobs']))
+    const job = Array.isArray(jobs) ? jobs[0] : null
+    if (!job?.databaseId) return null
+    const annotations = JSON.parse(await gh(['api', `repos/{owner}/{repo}/check-runs/${job.databaseId}/annotations`]))
+    const message = Array.isArray(annotations) ? annotations[0]?.message : null
+    return typeof message === 'string' ? message.split('\n')[0].trim() : null
+  } catch {
+    return null
+  }
+}
+
 /** @param {string} text pnpm-workspace.yaml */
 export const excludesPackageFromQuarantine = text => /minimumReleaseAgeExclude:[\s\S]*?-\s*['"]?@linkcharsoft\/cms['"]?/.test(text)
 
@@ -184,6 +232,9 @@ export const tablesCheck = failed => {
 const run = promisify(execFile)
 const shell = promisify(exec)
 
+/** @param {string} root @returns {GhType} */
+const ghIn = root => async args => (await run('gh', args, { cwd: root, env: process.env })).stdout
+
 /** @returns {Promise<RangeType[] | null>} */
 const windowsExcludedRanges = async () => {
   try {
@@ -207,10 +258,10 @@ const hasPackagesToken = async env => {
 
 /**
  * Environment checks the other commands don't cover: variables, Supabase, the package registry and the ports.
- * @param {{ root: string, supabaseDir: string, env: Record<string, string | undefined>, envFile?: string, siteUrl: string | null, fetch?: typeof fetch }} options envFile names the env file(s) read, for the messages
+ * @param {{ root: string, supabaseDir: string, env: Record<string, string | undefined>, envFile?: string, siteUrl: string | null, fetch?: typeof fetch, gh?: GhType }} options envFile names the env file(s) read, for the messages
  * @returns {Promise<CheckType[]>}
  */
-export const environmentChecks = async ({ root, supabaseDir, env, envFile = '.env.local', siteUrl, fetch: get = fetch }) => {
+export const environmentChecks = async ({ root, supabaseDir, env, envFile = '.env.local', siteUrl, fetch: get = fetch, gh = ghIn(root) }) => {
   /** @type {CheckType[]} */
   const checks = []
   const missing = ['NEXT_PUBLIC_SUPABASE_URL', 'NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY', 'SUPABASE_SECRET_KEY'].filter(key => !env[key])
@@ -249,7 +300,12 @@ export const environmentChecks = async ({ root, supabaseDir, env, envFile = '.en
 
   const token = await hasPackagesToken(env)
   if (token === false) checks.push({ level: 'warn', text: 'No GitHub Packages token in the npm/pnpm user config: installing @linkcharsoft/cms will fail with 401' })
-  checks.push(await keepaliveCheck(root))
+  const keepalive = await keepaliveCheck(root)
+  checks.push(keepalive)
+  if (keepalive.level === 'ok') {
+    const ran = await keepaliveRunCheck(gh)
+    if (ran) checks.push(ran)
+  }
   const workspace = join(root, 'pnpm-workspace.yaml')
   if (existsSync(workspace) && !excludesPackageFromQuarantine(await readFile(workspace, 'utf8'))) {
     checks.push({ level: 'warn', text: 'pnpm-workspace.yaml lacks minimumReleaseAgeExclude: [\'@linkcharsoft/cms\']: a version released today will not install' })
