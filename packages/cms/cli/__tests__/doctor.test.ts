@@ -185,7 +185,7 @@ describe('environmentChecks', () => {
     const urls: string[] = []
     const query = (async (url: string) => { urls.push(url); return Response.json([{ id: 7 }]) }) as unknown as typeof fetch
     await publishCircuitCheck(query, 'http://db', { apikey: 'sk' })
-    expect(urls[1]).toBe('http://db/rest/v1/publish_log?select=id,build_status,job_id,build_stamp,built_at,requested_at&build_status=in.(pending,building,built)&order=requested_at.asc')
+    expect(urls[1]).toBe('http://db/rest/v1/publish_log?select=id,build_status,job_id,build_stamp,built_at,requested_at,error_code&build_status=in.(pending,building,built)&order=requested_at.asc')
     expect(urls[2]).toBe('http://db/rest/v1/publish_log?select=id,job_id&build_status=eq.success&job_id=not.is.null&job_id=not.like.mock-*&order=requested_at.desc&limit=1')
   })
 

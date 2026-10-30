@@ -3,7 +3,7 @@ import { describePing, describeSettled, maskHookUrl, pingSettings, runPing, sett
 
 type RowType = { id: number, build_status: string, job_id: string | null, error_code: string | null, error_detail: string | null, requested_at: string, build_stamp?: string | null, built_at?: string | null, app_id?: string | null, branch?: string | null, region?: string | null }
 
-const settings = { url: 'http://127.0.0.1:44421', secretKey: 'sk', hookUrl: 'https://hooks.example', webhookSecret: 's', siteUrl: 'https://acme.com' }
+const settings = { url: 'http://127.0.0.1:44421', secretKey: 'sk', hookUrl: 'https://hooks.example', siteUrl: 'https://acme.com' }
 
 // A publish_log behind PostgREST: the latest row, the insert and the patches the ping sends.
 const fakeLog = (rows: RowType[] = [], now = () => 1_000_000) => {
@@ -34,8 +34,8 @@ const fakeLog = (rows: RowType[] = [], now = () => 1_000_000) => {
 
 describe('pingSettings', () => {
   it('needs the secret key and the build hook', () => {
-    expect(pingSettings({ NEXT_PUBLIC_SUPABASE_URL: 'http://db/', SUPABASE_SECRET_KEY: 'sk', CMS_BUILD_HOOK_URL: 'https://hook', CMS_BUILD_WEBHOOK_SECRET: 's', NEXT_PUBLIC_SITE_URL: 'https://acme.com/' }))
-      .toEqual({ url: 'http://db', secretKey: 'sk', hookUrl: 'https://hook', webhookSecret: 's', siteUrl: 'https://acme.com' })
+    expect(pingSettings({ NEXT_PUBLIC_SUPABASE_URL: 'http://db/', SUPABASE_SECRET_KEY: 'sk', CMS_BUILD_HOOK_URL: 'https://hook', NEXT_PUBLIC_SITE_URL: 'https://acme.com/' }))
+      .toEqual({ url: 'http://db', secretKey: 'sk', hookUrl: 'https://hook', siteUrl: 'https://acme.com' })
     expect(pingSettings({ NEXT_PUBLIC_SUPABASE_URL: 'http://db', SUPABASE_SECRET_KEY: 'sk', CMS_BUILD_HOOK_URL: 'https://hook' }, '.env', 'https://site.test').siteUrl).toBe('https://site.test')
     expect(pingSettings({ NEXT_PUBLIC_SUPABASE_URL: 'http://db', SUPABASE_SECRET_KEY: 'sk', CMS_BUILD_HOOK_URL: 'https://hook' }).siteUrl).toBeNull()
     expect(() => pingSettings({ NEXT_PUBLIC_SUPABASE_URL: 'http://db', SUPABASE_SECRET_KEY: 'sk' })).toThrow('CMS_BUILD_HOOK_URL')

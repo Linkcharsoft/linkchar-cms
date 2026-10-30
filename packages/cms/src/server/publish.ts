@@ -3,7 +3,7 @@ import { withDefaults } from '../core/defaults'
 import { entryIds, getEntry } from '../core/entries'
 import { changedSections } from '../core/pages'
 import { panelPaths } from '../core/paths'
-import { amplifyConsoleUrl, BUILD_CONFIRMATION_TIMEOUT_MS, isSimulatedJob, MOCK_JOB_PREFIX, publishDisplayStatus } from '../core/publish'
+import { amplifyConsoleUrl, BUILD_CONFIRMATION_TIMEOUT_MS, isSimulatedJob, MOCK_JOB_PREFIX, needsSiteStamp, OPEN_BUILD_STATUSES, publishDisplayStatus, settlePublishRows } from '../core/publish'
 import { unfreedConflicts } from '../core/publishSelection'
 import { documentReferences } from '../core/references'
 import { referenceWarnings, relationIssue, relationName } from '../core/relations'
@@ -19,7 +19,7 @@ import { describeUsage } from './media'
 import type { CmsContextType } from './context'
 import type { MissingItemType } from './incomplete'
 import type { MessageKeyType } from '../core/i18n/types'
-import type { BuildErrorCodeType, BuildEventStatusType, BuildEventType, BuildStatusType, PublishCircuitType } from '../core/publish'
+import type { BuildErrorCodeType, BuildEventStatusType, BuildEventType, BuildStatusType, PublishCircuitType, SettleRowType } from '../core/publish'
 import type { SelectionDependencyType, UrlConflictType } from '../core/publishSelection'
 import type { DocumentStatusType } from '../core/status'
 
@@ -274,38 +274,40 @@ const siteStamp = async (ctx: CmsContextType) => {
   }
 }
 
-const timingOf = (row: BuiltRowType) => ({ buildStatus: row.build_status as BuildStatusType, requestedAt: row.requested_at, builtAt: row.built_at, errorCode: row.error_code as BuildErrorCodeType | null | undefined })
+const timingOf = (row: BuiltRowType): SettleRowType => ({
+  id: row.id, buildStatus: row.build_status as BuildStatusType, requestedAt: row.requested_at, builtAt: row.built_at, buildStamp: row.build_stamp,
+  errorCode: row.error_code as BuildErrorCodeType | null | undefined
+})
 
-// An open publish nothing confirmed in time is closed in the log; the panel keeps reading it as "sin confirmar".
-export const closeStalePublishes = async (ctx: CmsContextType, rows: BuiltRowType[]) => {
-  const now = ctx.now().getTime()
-  for (const row of rows.filter(row => ['pending', 'building', 'built'].includes(row.build_status) && publishDisplayStatus(timingOf(row), now) === 'unconfirmed')) {
+// A read error is never fatal for the panel, but a filter PostgREST refuses must not read as an empty log in silence.
+const readFailed = (ctx: CmsContextType, error: { code?: string, message: string } | null) => {
+  if (error) ctx.logger.error('[publish] publish log read failed:', error.code ?? error.message)
+}
+
+// Built publishes the site serves are confirmed, however late the log is read; open ones nothing confirmed in time are
+// closed as "sin confirmar". The same rule settles the log from doctor and publish:ping (settlePublishRows).
+export const settlePublishes = async (ctx: CmsContextType, rows: BuiltRowType[]) => {
+  const timing = rows.map(timingOf)
+  const served = needsSiteStamp(timing) ? await siteStamp(ctx) : null
+  const { confirm, close } = settlePublishRows(timing, served, ctx.now().getTime())
+  for (const row of rows.filter(row => confirm.includes(row.id))) {
+    const finished = ctx.now().toISOString()
+    await setBuildStatus(ctx, row.id, { build_status: 'success', finished_at: finished }, 'built')
+    Object.assign(row, { build_status: 'success', finished_at: finished })
+  }
+  for (const row of rows.filter(row => close.includes(row.id))) {
     const finished = ctx.now().toISOString()
     await setBuildStatus(ctx, row.id, { build_status: 'failed', error_code: 'unconfirmed', error_detail: null, finished_at: finished }, row.build_status as BuildStatusType)
     Object.assign(row, { build_status: 'failed', error_code: 'unconfirmed', finished_at: finished })
   }
 }
 
-// A built publish is confirmed when the site serves the stamp its build reported: the deploy finished.
-export const confirmBuiltPublishes = async (ctx: CmsContextType, rows: BuiltRowType[]) => {
-  const now = ctx.now().getTime()
-  const deploying = rows.filter(row => row.build_status === 'built' && row.build_stamp && publishDisplayStatus(timingOf(row), now) === 'deploying')
-  if (deploying.length === 0) return
-  const stamp = await siteStamp(ctx)
-  if (!stamp) return
-  for (const row of deploying.filter(row => row.build_stamp === stamp)) {
-    const finished = ctx.now().toISOString()
-    await setBuildStatus(ctx, row.id, { build_status: 'success', finished_at: finished }, 'built')
-    Object.assign(row, { build_status: 'success', finished_at: finished })
-  }
-}
-
 export const getPublishHistory = async (ctx: CmsContextType, limit = 10): Promise<PublishRecordType[]> => {
-  const { data } = await ctx.db.from('publish_log').select('*').order('requested_at', { ascending: false }).limit(limit)
+  const { data, error } = await ctx.db.from('publish_log').select('*').order('requested_at', { ascending: false }).limit(limit)
+  readFailed(ctx, error)
 
   const rows = data ?? []
-  await confirmBuiltPublishes(ctx, rows)
-  await closeStalePublishes(ctx, rows)
+  await settlePublishes(ctx, rows)
   const itemsOf = (items: unknown) => (Array.isArray(items) ? items : []) as LogItemType[]
   const ids = [...new Set(rows.flatMap(row => itemsOf(row.items)).map(item => item.id))]
 
@@ -338,13 +340,15 @@ export const getLatestPublish = async (ctx: CmsContextType) => (await getPublish
 
 // A success with a real job id means the site's build reported back once; the simulated build's never count.
 export const getPublishCircuit = async (ctx: CmsContextType): Promise<PublishCircuitType> => {
-  const { data: any } = await ctx.db.from('publish_log').select('id').limit(1)
+  const { data: any, error: anyError } = await ctx.db.from('publish_log').select('id').limit(1)
+  readFailed(ctx, anyError)
   if (!any?.length) return 'unused'
-  const { data: open } = await ctx.db.from('publish_log').select('id, build_status, build_stamp, built_at, requested_at, error_code').in('build_status', ['pending', 'building', 'built'])
-  await confirmBuiltPublishes(ctx, open ?? [])
-  await closeStalePublishes(ctx, open ?? [])
-  const { data: confirmed } = await ctx.db.from('publish_log').select('id')
+  const { data: open, error: openError } = await ctx.db.from('publish_log').select('id, build_status, build_stamp, built_at, requested_at, error_code').in('build_status', [...OPEN_BUILD_STATUSES])
+  readFailed(ctx, openError)
+  await settlePublishes(ctx, open ?? [])
+  const { data: confirmed, error: confirmedError } = await ctx.db.from('publish_log').select('id')
     .eq('build_status', 'success').not('job_id', 'is', null).not('job_id', 'like', `${MOCK_JOB_PREFIX}%`).limit(1)
+  readFailed(ctx, confirmedError)
   return confirmed?.length ? 'confirmed' : 'unconfirmed'
 }
 
@@ -372,13 +376,16 @@ const FAILURE_CODES: Partial<Record<BuildEventStatusType, BuildErrorCodeType>> =
 // back must not take the next publish's events.
 export const applyBuildEvent = async (ctx: CmsContextType, { jobId, status }: BuildEventType) => {
   const admin = ctx.admin()
-  let { data: row } = await admin.from('publish_log').select('id').eq('job_id', jobId).maybeSingle()
+  const byJob = await admin.from('publish_log').select('id').eq('job_id', jobId).maybeSingle()
+  readFailed(ctx, byJob.error)
+  let row = byJob.data
 
   if (!row) {
     const since = new Date(ctx.now().getTime() - BUILD_CONFIRMATION_TIMEOUT_MS).toISOString()
-    const { data: open } = await admin.from('publish_log').select('id')
+    const { data: open, error: openError } = await admin.from('publish_log').select('id')
       .in('build_status', ['pending', 'building']).is('job_id', null).gte('requested_at', since)
       .order('requested_at').limit(1).maybeSingle()
+    readFailed(ctx, openError)
     row = open
   }
 
@@ -500,8 +507,9 @@ export const retryPublish = async (ctx: CmsContextType, publishId: number): Prom
   const { profile } = await requireRole(ctx, 'editor')
   if (!canPublish(profile)) return { ok: false, error: 'errors.publish.forbidden' }
 
-  const { data: failed } = await ctx.db.from('publish_log').select('id, build_status, requested_at, built_at, error_code, documents_count, removed_count, items')
+  const { data: failed, error: readError } = await ctx.db.from('publish_log').select('id, build_status, requested_at, built_at, error_code, documents_count, removed_count, items')
     .order('requested_at', { ascending: false }).limit(1).maybeSingle()
+  readFailed(ctx, readError)
   const displayed = failed ? publishDisplayStatus({ buildStatus: failed.build_status as BuildStatusType, requestedAt: failed.requested_at, builtAt: failed.built_at, errorCode: failed.error_code as BuildErrorCodeType | null }, ctx.now().getTime()) : null
   const retryable = (displayed === 'failed' && failed?.error_code !== 'target_missing') || displayed === 'unconfirmed'
   if (!failed || failed.id !== publishId || !retryable) return { ok: false, error: 'errors.publish.stale' }
