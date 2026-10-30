@@ -75,7 +75,8 @@
     "primeicons": "7.0.0",
     "primelocale": "2.6.0",
     "primereact": "10.9.9",
-    "tailwind-merge": "2.6.1"
+    "tailwind-merge": "2.6.1",
+    "yaml": "2.9.1"
   },
   "devDependencies": {
     "@supabase/ssr": "0.12.7",

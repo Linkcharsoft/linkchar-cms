@@ -4,7 +4,7 @@ import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { promisify } from 'node:util'
 import { consoleUrlOf } from './build.js'
-import { KEEPALIVE_FILE } from './keepalive.js'
+import { KEEPALIVE_FILE, keepaliveProblems } from './keepalive.js'
 import { isLocalSupabaseUrl } from './local.js'
 import { migrationVersions, PACKAGE_SUPABASE } from './migrations.js'
 import { describeSettled, settlePublishLog } from './publish.js'
@@ -77,6 +77,16 @@ export const authChecks = text => {
     checks.push({ level: 'warn', text: 'Password rules are looser than the panel says (10 characters, letters and digits): minimum_password_length = 10 and password_requirements = "letters_digits" under [auth]' })
   }
   return checks
+}
+
+/** @param {string} root @returns {Promise<CheckType>} */
+export const keepaliveCheck = async root => {
+  const path = join(root, KEEPALIVE_FILE)
+  if (!existsSync(path)) return { level: 'warn', text: 'No .github/workflows/supabase-keepalive.yml: a free Supabase project pauses after a week without requests, and then there is no panel and no build. linkchar-cms routes writes it (it reads the repository variables SUPABASE_URL and SUPABASE_PUBLISHABLE_KEY)' }
+  const problems = keepaliveProblems(await readFile(path, 'utf8'))
+  return problems.length === 0
+    ? { level: 'ok', text: 'The Supabase keepalive workflow is in place and parses (.github/workflows/supabase-keepalive.yml)' }
+    : { level: 'fail', text: `.github/workflows/supabase-keepalive.yml will not run on GitHub: ${problems.join(', ')}. linkchar-cms routes rewrites the one the package wrote` }
 }
 
 /** @param {string} text pnpm-workspace.yaml */
@@ -239,9 +249,7 @@ export const environmentChecks = async ({ root, supabaseDir, env, envFile = '.en
 
   const token = await hasPackagesToken(env)
   if (token === false) checks.push({ level: 'warn', text: 'No GitHub Packages token in the npm/pnpm user config: installing @linkcharsoft/cms will fail with 401' })
-  checks.push(existsSync(join(root, KEEPALIVE_FILE))
-    ? { level: 'ok', text: 'The Supabase keepalive workflow is in place (.github/workflows/supabase-keepalive.yml)' }
-    : { level: 'warn', text: 'No .github/workflows/supabase-keepalive.yml: a free Supabase project pauses after a week without requests, and then there is no panel and no build. linkchar-cms routes writes it (it reads the repository variables SUPABASE_URL and SUPABASE_PUBLISHABLE_KEY)' })
+  checks.push(await keepaliveCheck(root))
   const workspace = join(root, 'pnpm-workspace.yaml')
   if (existsSync(workspace) && !excludesPackageFromQuarantine(await readFile(workspace, 'utf8'))) {
     checks.push({ level: 'warn', text: 'pnpm-workspace.yaml lacks minimumReleaseAgeExclude: [\'@linkcharsoft/cms\']: a version released today will not install' })

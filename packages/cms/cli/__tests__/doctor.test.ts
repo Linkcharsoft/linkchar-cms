@@ -116,9 +116,11 @@ describe('environmentChecks', () => {
       .toContain('ECONNREFUSED')
   })
 
-  it('warns while the Supabase keepalive workflow is missing', async () => {
+  it('warns while the Supabase keepalive workflow is missing, and fails when the file would not run', async () => {
     expect((await levels({}, { [KEEPALIVE_FILE]: null })).filter(check => check.level === 'warn').map(check => check.text)).toEqual([expect.stringContaining('supabase-keepalive.yml')])
-    expect((await levels({})).map(check => check.text)).toContainEqual(expect.stringContaining('keepalive workflow is in place'))
+    expect((await levels({})).map(check => check.text)).toContainEqual(expect.stringContaining('keepalive workflow is in place and parses'))
+    const broken = 'on:\n  schedule:\n    - cron: "0 0 * * *"\njobs:\n  ping:\n    steps:\n      - run: curl -H "apikey: x" https://db\n'
+    expect((await levels({}, { [KEEPALIVE_FILE]: broken })).filter(check => check.level === 'fail').map(check => check.text)).toEqual([expect.stringContaining('will not run on GitHub: not valid YAML')])
   })
 
   it('names the env file it read', async () => {
