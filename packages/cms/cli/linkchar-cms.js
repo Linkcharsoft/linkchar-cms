@@ -4,7 +4,7 @@ import { readFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 import { parseArgs } from 'node:util'
 import { findBrandIcon } from '../next/index.js'
-import { createSuperadmin, readProjectEnv } from './admin.js'
+import { applyProjectEnv, createSuperadmin, readProjectEnv } from './admin.js'
 import { buildIdentity, describeBuildReport, reportSettings, runBuildReport } from './build.js'
 import { authChecks, environmentChecks } from './doctor.js'
 import { askYesNo, importSettings, planLines, readPasswordFromStdin, runImport, summaryLines } from './import.js'
@@ -172,6 +172,8 @@ const doctor = async ({ config, src, dir, 'env-file': envFile }) => {
   /** @type {import('./doctor.js').CheckType[]} */
   const checks = []
   const supabaseDir = resolve(dir)
+  const { env, label, fromFile } = await readProjectEnv(envFile)
+  applyProjectEnv(fromFile)
   /** @type {import('./routes.js').RoutesConfigType | null} */
   let loaded = null
   try {
@@ -206,7 +208,6 @@ const doctor = async ({ config, src, dir, 'env-file': envFile }) => {
     checks.push({ level: 'fail', text: `There is no ${dir}/config.toml: supabase init` })
   }
 
-  const { env, label } = await readProjectEnv(envFile)
   const siteUrl = loaded?.site?.url ?? null
   checks.push(...await environmentChecks({ root: resolve('.'), supabaseDir, env, envFile: label, siteUrl }))
 
@@ -223,7 +224,8 @@ const importContent = async (script, { config, email, password, 'password-stdin'
   if (!script) throw new CliError('Usage: linkchar-cms import <script.ts> --email ana@acme.com [--password-stdin] [--dry-run] [--yes] [--allow-remote] [--no-publish] [--no-create] [--env-file .env.local]; linkchar-cms --help lists every option.')
   if (passwordStdin && password) throw new CliError('Pass --password or --password-stdin, not both.')
   const secret = passwordStdin ? await readPasswordFromStdin(process.stdin) : password
-  const { env, label } = await readProjectEnv(envFile)
+  const { env, label, fromFile } = await readProjectEnv(envFile)
+  applyProjectEnv(fromFile)
   const settings = importSettings(env, { email, password: secret, otp }, label)
   const { url } = settings.supabase
   if (!dryRun && !allowRemote && !isLocalSupabaseUrl(url)) {
@@ -252,12 +254,13 @@ const importContent = async (script, { config, email, password, 'password-stdin'
 
 /** @param {{ timeout: string, config: string, 'env-file'?: string }} options */
 const publishPing = async ({ timeout, config, 'env-file': envFile }) => {
-  const { env, label } = await readProjectEnv(envFile)
+  const { env, label, fromFile } = await readProjectEnv(envFile)
+  applyProjectEnv(fromFile)
   const loaded = existsSync(resolve(config)) ? await loadConfig(resolve(config)).catch(() => null) : null
   const settings = pingSettings(env, label, loaded?.site?.url ?? env.NEXT_PUBLIC_SITE_URL ?? null)
   const minutes = Number(timeout)
   if (!Number.isFinite(minutes) || minutes <= 0) throw new CliError('--timeout takes the minutes to wait for the site, e.g. --timeout 20.')
-  console.log(`Verifying the publish circuit of ${settings.url} through ${maskHookUrl(settings.hookUrl)} (up to ${minutes} min)…`)
+  console.log(`Verifying the publish circuit of ${settings.url} through ${maskHookUrl(settings.hookUrl)}, confirming against ${settings.siteUrl ?? 'no site URL (set site.url)'} (up to ${minutes} min)…`)
   const result = await runPing({ settings, trigger: await amplifyTrigger(settings), timeoutMs: minutes * 60_000 })
   console.log(describePing(result))
   return result.ok ? 0 : 1

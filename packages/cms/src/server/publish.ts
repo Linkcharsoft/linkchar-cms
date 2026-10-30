@@ -256,7 +256,7 @@ export const getPendingCount = async (ctx: CmsContextType) => {
 
 type LogItemType = { id: string, type: string, action: 'publish' | 'unpublish' }
 
-type BuiltRowType = { id: number, build_status: string, build_stamp: string | null, built_at: string | null, requested_at: string }
+type BuiltRowType = { id: number, build_status: string, build_stamp: string | null, built_at: string | null, requested_at: string, error_code?: string | null }
 
 const SITE_STAMP_TIMEOUT_MS = 5000
 
@@ -274,7 +274,17 @@ const siteStamp = async (ctx: CmsContextType) => {
   }
 }
 
-const timingOf = (row: BuiltRowType) => ({ buildStatus: row.build_status as BuildStatusType, requestedAt: row.requested_at, builtAt: row.built_at })
+const timingOf = (row: BuiltRowType) => ({ buildStatus: row.build_status as BuildStatusType, requestedAt: row.requested_at, builtAt: row.built_at, errorCode: row.error_code as BuildErrorCodeType | null | undefined })
+
+// An open publish nothing confirmed in time is closed in the log; the panel keeps reading it as "sin confirmar".
+export const closeStalePublishes = async (ctx: CmsContextType, rows: BuiltRowType[]) => {
+  const now = ctx.now().getTime()
+  for (const row of rows.filter(row => ['pending', 'building', 'built'].includes(row.build_status) && publishDisplayStatus(timingOf(row), now) === 'unconfirmed')) {
+    const finished = ctx.now().toISOString()
+    await setBuildStatus(ctx, row.id, { build_status: 'failed', error_code: 'unconfirmed', error_detail: null, finished_at: finished }, row.build_status as BuildStatusType)
+    Object.assign(row, { build_status: 'failed', error_code: 'unconfirmed', finished_at: finished })
+  }
+}
 
 // A built publish is confirmed when the site serves the stamp its build reported: the deploy finished.
 export const confirmBuiltPublishes = async (ctx: CmsContextType, rows: BuiltRowType[]) => {
@@ -295,6 +305,7 @@ export const getPublishHistory = async (ctx: CmsContextType, limit = 10): Promis
 
   const rows = data ?? []
   await confirmBuiltPublishes(ctx, rows)
+  await closeStalePublishes(ctx, rows)
   const itemsOf = (items: unknown) => (Array.isArray(items) ? items : []) as LogItemType[]
   const ids = [...new Set(rows.flatMap(row => itemsOf(row.items)).map(item => item.id))]
 
@@ -329,8 +340,9 @@ export const getLatestPublish = async (ctx: CmsContextType) => (await getPublish
 export const getPublishCircuit = async (ctx: CmsContextType): Promise<PublishCircuitType> => {
   const { data: any } = await ctx.db.from('publish_log').select('id').limit(1)
   if (!any?.length) return 'unused'
-  const { data: built } = await ctx.db.from('publish_log').select('id, build_status, build_stamp, built_at, requested_at').eq('build_status', 'built')
-  await confirmBuiltPublishes(ctx, built ?? [])
+  const { data: open } = await ctx.db.from('publish_log').select('id, build_status, build_stamp, built_at, requested_at, error_code').in('build_status', ['pending', 'building', 'built'])
+  await confirmBuiltPublishes(ctx, open ?? [])
+  await closeStalePublishes(ctx, open ?? [])
   const { data: confirmed } = await ctx.db.from('publish_log').select('id')
     .eq('build_status', 'success').not('job_id', 'is', null).not('job_id', 'like', `${MOCK_JOB_PREFIX}%`).limit(1)
   return confirmed?.length ? 'confirmed' : 'unconfirmed'
@@ -484,7 +496,7 @@ export const retryPublish = async (ctx: CmsContextType, publishId: number): Prom
 
   const { data: failed } = await ctx.db.from('publish_log').select('id, build_status, requested_at, built_at, error_code, documents_count, removed_count, items')
     .order('requested_at', { ascending: false }).limit(1).maybeSingle()
-  const displayed = failed ? publishDisplayStatus({ buildStatus: failed.build_status as BuildStatusType, requestedAt: failed.requested_at, builtAt: failed.built_at }, ctx.now().getTime()) : null
+  const displayed = failed ? publishDisplayStatus({ buildStatus: failed.build_status as BuildStatusType, requestedAt: failed.requested_at, builtAt: failed.built_at, errorCode: failed.error_code as BuildErrorCodeType | null }, ctx.now().getTime()) : null
   const retryable = (displayed === 'failed' && failed?.error_code !== 'target_missing') || displayed === 'unconfirmed'
   if (!failed || failed.id !== publishId || !retryable) return { ok: false, error: 'errors.publish.stale' }
 

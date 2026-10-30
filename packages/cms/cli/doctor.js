@@ -6,6 +6,7 @@ import { promisify } from 'node:util'
 import { consoleUrlOf } from './build.js'
 import { isLocalSupabaseUrl } from './local.js'
 import { migrationVersions, PACKAGE_SUPABASE } from './migrations.js'
+import { describeSettled, settlePublishLog } from './publish.js'
 
 /**
  * @typedef {{ level: 'ok' | 'warn' | 'fail', text: string }} CheckType
@@ -108,21 +109,24 @@ export const amplifyReportCheck = text => {
 }
 
 /**
- * Whether a real build ever reported a publish back; the simulated build's successes don't count.
- * @param {typeof fetch} get @param {string} url @param {Record<string, string>} headers @returns {Promise<CheckType | null>}
+ * Whether a real build ever reported a publish back; the simulated build's successes don't count. First the open rows
+ * are settled as the panel would (built ones confirmed by the stamp the site serves, stale ones closed).
+ * @param {typeof fetch} get @param {string} url @param {Record<string, string>} headers @param {string | null} [siteUrl] @returns {Promise<CheckType[]>}
  */
-export const publishCircuitCheck = async (get, url, headers) => {
+export const publishCircuitCheck = async (get, url, headers, siteUrl = null) => {
   /** @param {string} query */
-  const count = async query => {
-    const body = await (await get(`${url}/rest/v1/publish_log?select=id&${query}`, { headers })).json().catch(() => null)
-    return Array.isArray(body) ? body.length : 0
+  const rows = async query => {
+    const body = await (await get(`${url}/rest/v1/publish_log?${query}`, { headers })).json().catch(() => null)
+    return Array.isArray(body) ? body : []
   }
-  if (await count('limit=1') === 0) return null
-  if (await count('build_status=eq.success&job_id=not.is.null&job_id=not.like.mock-*&limit=1') > 0) return { level: 'ok', text: 'The site confirmed a publish' }
-  const body = await (await get(`${url}/rest/v1/publish_log?select=id,build_status,job_id,app_id,branch,region&order=requested_at.desc&limit=1`, { headers })).json().catch(() => null)
-  const latest = Array.isArray(body) ? body[0] : null
+  if ((await rows('select=id&limit=1')).length === 0) return []
+  /** @type {CheckType[]} */
+  const checks = describeSettled(await settlePublishLog({ url, secretKey: headers.apikey, siteUrl, fetch: get })).map(text => ({ level: 'ok', text }))
+  const [confirmed] = await rows('select=id,job_id&build_status=eq.success&job_id=not.is.null&job_id=not.like.mock-*&order=requested_at.desc&limit=1')
+  if (confirmed) return [...checks, { level: 'ok', text: `The site confirmed publish #${confirmed.id} (job ${confirmed.job_id}) in the log at ${url}` }]
+  const [latest] = await rows('select=id,build_status,job_id,app_id,branch,region&order=requested_at.desc&limit=1')
   const where = latest ? consoleUrlOf(latest) : null
-  return { level: 'warn', text: `No publish has been confirmed by the site yet: the successes in the log are simulated or unconfirmed. amplify.yml must run linkchar-cms build:report (checked below); verify the circuit with linkchar-cms publish:ping${where ? `. The latest build: ${where}` : ''}` }
+  return [...checks, { level: 'warn', text: `No publish in the log at ${url} has been confirmed by the site yet: its successes are simulated or unconfirmed. amplify.yml must run linkchar-cms build:report (checked below); verify the circuit with linkchar-cms publish:ping${where ? `. The latest build: ${where}` : ''}` }]
 }
 
 /**
@@ -203,7 +207,7 @@ export const environmentChecks = async ({ root, supabaseDir, env, envFile = '.en
     ? { level: 'fail', text: `Missing ${missing.join(', ')} in the environment or ${envFile} (--env-file picks another file)` }
     : { level: 'ok', text: 'Supabase variables are set' })
   checks.push(siteUrl
-    ? { level: 'ok', text: `site.url is ${siteUrl}` }
+    ? { level: 'ok', text: `site.url is ${siteUrl} (the build stamp is asked at ${siteUrl.replace(/\/$/, '')}/api/cms/build-status)` }
     : { level: 'fail', text: 'site.url is empty: the sitemap throws and canonical URLs stay relative (set NEXT_PUBLIC_SITE_URL)' })
 
   const url = env.NEXT_PUBLIC_SUPABASE_URL
@@ -223,8 +227,7 @@ export const environmentChecks = async ({ root, supabaseDir, env, envFile = '.en
         checks.push((await admins.json()).length > 0
           ? { level: 'ok', text: 'There is a superadmin' }
           : { level: 'fail', text: 'No superadmin yet: linkchar-cms admin --email …' })
-        const circuit = isLocalSupabaseUrl(url) ? null : await publishCircuitCheck(get, url, headers)
-        if (circuit) checks.push(circuit)
+        if (!isLocalSupabaseUrl(url)) checks.push(...await publishCircuitCheck(get, url, headers, siteUrl))
         const expected = [...new Set([...await migrationVersions(join(PACKAGE_SUPABASE, 'migrations')), ...await migrationVersions(join(supabaseDir, 'migrations'))])].sort()
         checks.push(await appliedMigrationsCheck(get, url, headers, expected))
       }

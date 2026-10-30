@@ -37,7 +37,7 @@ export const DEFAULT_ENV_FILES = ['.env.local', '.env']
 /**
  * The project's environment for a command: the env file(s) under process.env, and a label of what was read for the messages.
  * @param {string | undefined} envFile @param {string} [root]
- * @returns {Promise<{ env: Record<string, string | undefined>, label: string }>}
+ * @returns {Promise<{ env: Record<string, string | undefined>, label: string, fromFile: Record<string, string | undefined> }>}
  */
 export const readProjectEnv = async (envFile, root = process.cwd()) => {
   const files = envFile ? [envFile] : DEFAULT_ENV_FILES
@@ -46,7 +46,15 @@ export const readProjectEnv = async (envFile, root = process.cwd()) => {
   let env = {}
   for (const file of [...found].reverse()) env = { ...env, ...(await readEnvFile(resolve(root, file))) }
   const label = envFile ?? (found.length > 0 ? found.join(' and ') : `${DEFAULT_ENV_FILES.join(' or ')} (neither exists)`)
-  return { env: { ...env, ...process.env }, label }
+  return { env: { ...env, ...process.env }, label, fromFile: env }
+}
+
+// cms.config.ts reads process.env when it loads (site.url from DOMAIN or NEXT_PUBLIC_SITE_URL): the env file reaches it.
+/** @param {Record<string, string | undefined>} fromFile */
+export const applyProjectEnv = fromFile => {
+  for (const [key, value] of Object.entries(fromFile)) {
+    if (value !== undefined && process.env[key] === undefined) process.env[key] = value
+  }
 }
 
 /** @param {AdminClientType} client @param {string} email */

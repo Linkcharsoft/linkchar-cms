@@ -91,7 +91,8 @@ const core = {
       hook_refused: 'The service that updates the site refused the request.',
       hook_unreachable: 'We could not start updating the site.',
       build_failed: 'Updating the site failed.',
-      build_cancelled: 'Updating the site was cancelled before it finished.'
+      build_cancelled: 'Updating the site was cancelled before it finished.',
+      unconfirmed: 'The site did not confirm the update within 30 minutes.'
     },
     media: {
       altRequired: 'Images need an alternative text.',

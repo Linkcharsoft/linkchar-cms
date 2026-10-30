@@ -8,7 +8,7 @@ import { CliError } from './migrations.js'
  * @typedef {(ctx: TriggerContextType) => Promise<{ ok: true, jobId: string | null } | { ok: false, code: string, detail?: string }>} TriggerType
  * @typedef {{ build_status: string, job_id: string | null, error_code: string | null, error_detail: string | null, requested_at: string, build_stamp?: string | null, app_id?: string | null, branch?: string | null, region?: string | null }} LogRowType
  * @typedef {'no_start' | 'no_end' | 'no_deploy' | 'no_site'} UnconfirmedStageType
- * @typedef {{ ok: true, id: number, jobId: string | null, minutes: number } | { ok: false, id: number, code: string, detail: string | null, minutes: number, stage?: UnconfirmedStageType, consoleUrl?: string | null, siteUrl?: string | null }} PingResultType
+ * @typedef {{ ok: true, id: number, jobId: string | null, minutes: number, confirmedBy: 'ping' | 'panel' | 'webhook' } | { ok: false, id: number, code: string, detail: string | null, minutes: number, stage?: UnconfirmedStageType, consoleUrl?: string | null, siteUrl?: string | null }} PingResultType
  */
 
 // Mirrors BUILD_CONFIRMATION_TIMEOUT_MS in src/core/publish.ts: past it a publish stops blocking the next one.
@@ -68,6 +68,43 @@ const siteStamp = async (get, siteUrl) => {
 const consoleUrl = ({ region, app_id: appId, branch, job_id: jobId }) =>
   (region && appId && branch && jobId ? `https://${region}.console.aws.amazon.com/amplify/apps/${appId}/branches/${encodeURIComponent(branch)}/deployments/${jobId}` : null)
 
+/**
+ * Settles the open rows of the publish log the way the panel does when it reads it: a built publish whose stamp the
+ * site serves becomes success; one nothing confirmed in 30 minutes is closed as failed/unconfirmed.
+ * @param {{ url: string, secretKey: string, siteUrl: string | null, fetch?: typeof fetch, now?: () => number }} options
+ * @returns {Promise<{ confirmed: number[], closed: number[] }>}
+ */
+export const settlePublishLog = async ({ url, secretKey, siteUrl, fetch: get = fetch, now = Date.now }) => {
+  const headers = { apikey: secretKey, Authorization: `Bearer ${secretKey}`, 'content-type': 'application/json' }
+  /** @param {string} query @param {RequestInit} [init] */
+  const rest = async (query, init) => {
+    const response = await get(`${url}/rest/v1/publish_log${query}`, { ...init, headers })
+    const body = await response.json().catch(() => null)
+    if (!response.ok) throw new CliError(`Supabase refused the publish log (HTTP ${response.status}${body?.message ? `: ${body.message}` : ''}).`)
+    return body
+  }
+  const rows = /** @type {(LogRowType & { id: number, built_at: string | null })[]} */ (await rest('?select=id,build_status,job_id,build_stamp,built_at,requested_at&build_status=in.(pending,building,built)&order=requested_at.asc')) ?? []
+  const result = { confirmed: /** @type {number[]} */ ([]), closed: /** @type {number[]} */ ([]) }
+  const served = rows.some(row => row.build_status === 'built' && row.build_stamp) && siteUrl ? await siteStamp(get, siteUrl) : null
+  for (const row of rows) {
+    const since = row.build_status === 'built' ? Date.parse(row.built_at ?? row.requested_at) : Date.parse(row.requested_at)
+    if (row.build_status === 'built' && row.build_stamp && served === row.build_stamp) {
+      await rest(`?id=eq.${row.id}&build_status=eq.built`, { method: 'PATCH', body: JSON.stringify({ build_status: 'success', finished_at: new Date(now()).toISOString() }) })
+      result.confirmed.push(row.id)
+    } else if (now() - since > BUILDING_LOCK_MS) {
+      await rest(`?id=eq.${row.id}&build_status=eq.${row.build_status}`, { method: 'PATCH', body: JSON.stringify({ build_status: 'failed', error_code: 'unconfirmed', error_detail: null, finished_at: new Date(now()).toISOString() }) })
+      result.closed.push(row.id)
+    }
+  }
+  return result
+}
+
+/** @param {{ confirmed: number[], closed: number[] }} settled @returns {string[]} */
+export const describeSettled = ({ confirmed, closed }) => [
+  ...(confirmed.length > 0 ? [`The site serves the build of publish${confirmed.length === 1 ? '' : 'es'} #${confirmed.join(', #')}: confirmed.`] : []),
+  ...(closed.length > 0 ? [`Publish${closed.length === 1 ? '' : 'es'} #${closed.join(', #')} got no confirmation in 30 minutes: closed as "sin confirmar".`] : [])
+]
+
 /** @param {PingSettingsType} settings @returns {Promise<TriggerType>} the package's Amplify target, loaded from its TypeScript */
 export const amplifyTrigger = async ({ hookUrl, webhookSecret }) => {
   const { createJiti } = await import('jiti')
@@ -100,9 +137,10 @@ export const runPing = async ({ settings, trigger, timeoutMs, intervalMs = 15_00
   }
   const minutesSince = (/** @type {number} */ start) => Math.round((now() - start) / 60_000)
 
+  for (const line of describeSettled(await settlePublishLog({ url, secretKey, siteUrl, fetch: get, now }))) log(line)
   const [latest] = /** @type {(LogRowType & { id: number })[]} */ (await rest('?select=id,build_status,requested_at&order=requested_at.desc&limit=1')) ?? []
-  if (latest && ['pending', 'building'].includes(latest.build_status) && now() - Date.parse(latest.requested_at) < BUILDING_LOCK_MS) {
-    throw new CliError(`Publish #${latest.id} is still building (${minutesSince(Date.parse(latest.requested_at))} min ago): wait for it, or for the 30-minute timeout, and run this again.`)
+  if (latest && ['pending', 'building', 'built'].includes(latest.build_status)) {
+    throw new CliError(`Publish #${latest.id} is still ${latest.build_status === 'built' ? 'deploying' : 'building'} (${minutesSince(Date.parse(latest.requested_at))} min ago): wait for it, or for the 30-minute timeout, and run this again.`)
   }
 
   const [row] = /** @type {{ id: number }[]} */ (await rest('', { method: 'POST', headers: { Prefer: 'return=representation' }, body: JSON.stringify({ documents_count: 0, removed_count: 0, items: [] }) }))
@@ -124,7 +162,7 @@ export const runPing = async ({ settings, trigger, timeoutMs, intervalMs = 15_00
     return { ok: false, id, code: result.code, detail: result.detail ?? null, minutes: 0 }
   }
   await patch({ build_status: 'building', ...(result.jobId ? { job_id: result.jobId } : {}) }, 'pending')
-  log(`Hook accepted${result.jobId ? ` (job ${result.jobId})` : ''}. Waiting for the build to report…`)
+  log(`Hook accepted${result.jobId ? ` (job ${result.jobId})` : ''}. Waiting for the build to report (preBuild installs first, usually 2–4 min)…`)
 
   let seen = `building ${result.jobId ?? ''}`
   /** @type {LogRowType | null} */
@@ -138,12 +176,18 @@ export const runPing = async ({ settings, trigger, timeoutMs, intervalMs = 15_00
       seen = state
       log(`#${id}: ${current.build_status}${current.job_id ? ` (job ${current.job_id})` : ''}${current.build_status === 'built' ? `, stamp ${current.build_stamp}: waiting for the site to serve it` : ''} after ${minutesSince(started)} min`)
     }
-    if (current.build_status === 'success') return { ok: true, id, jobId: current.job_id, minutes: minutesSince(started) }
+    if (current.build_status === 'success') {
+      // Marked by someone else (the panel of a site on the same Supabase, a webhook): only what this site serves counts.
+      if (!current.build_stamp) return { ok: true, id, jobId: current.job_id, minutes: minutesSince(started), confirmedBy: 'webhook' }
+      const serving = siteUrl ? await siteStamp(get, siteUrl) : null
+      if (serving === current.build_stamp) return { ok: true, id, jobId: current.job_id, minutes: minutesSince(started), confirmedBy: 'panel' }
+      return { ok: false, id, code: 'confirmed_elsewhere', detail: serving, minutes: minutesSince(started), siteUrl, consoleUrl: consoleUrl(current) }
+    }
     if (current.build_status === 'failed') return { ok: false, id, code: current.error_code ?? 'build_failed', detail: current.error_detail, minutes: minutesSince(started) }
     if (current.build_status === 'built' && current.build_stamp && siteUrl && await siteStamp(get, siteUrl) === current.build_stamp) {
       await patch({ build_status: 'success', finished_at: finished() }, 'built')
       log(`#${id}: success, the site serves ${current.build_stamp} after ${minutesSince(started)} min`)
-      return { ok: true, id, jobId: current.job_id, minutes: minutesSince(started) }
+      return { ok: true, id, jobId: current.job_id, minutes: minutesSince(started), confirmedBy: 'ping' }
     }
   }
   const stage = !current?.job_id && current?.build_status !== 'built' ? 'no_start' : current?.build_status !== 'built' ? 'no_end' : siteUrl ? 'no_deploy' : 'no_site'
@@ -152,7 +196,13 @@ export const runPing = async ({ settings, trigger, timeoutMs, intervalMs = 15_00
 
 /** @param {PingResultType} result @returns {string} */
 export const describePing = result => {
-  if (result.ok) return `The site confirmed the build of publish #${result.id} in ${result.minutes} min${result.jobId ? ` (job ${result.jobId})` : ''}: the publish circuit works.`
+  if (result.ok) {
+    const by = result.confirmedBy === 'panel' ? ' (marked by the panel; the site serves it)' : result.confirmedBy === 'webhook' ? ' (reported by the webhook)' : ''
+    return `The site confirmed the build of publish #${result.id} in ${result.minutes} min${result.jobId ? ` (job ${result.jobId})` : ''}${by}: the publish circuit works.`
+  }
+  if (result.code === 'confirmed_elsewhere') {
+    return `Publish #${result.id} was marked success by another reader, but ${result.siteUrl ?? 'the site'} serves ${result.detail ?? 'no build stamp'}: another site on the same Supabase (a preview branch?) confirmed it. Set CMS_BUILD_BRANCH in Amplify so only the branch the hook builds reports${result.consoleUrl ? `, and check the build: ${result.consoleUrl}` : ''}.`
+  }
   if (result.code === 'unconfirmed') {
     const where = result.consoleUrl ? ` The build: ${result.consoleUrl}.` : ''
     const stays = `Publish #${result.id} stays "sin confirmar".`

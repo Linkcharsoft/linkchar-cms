@@ -1,6 +1,6 @@
-import { mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { dirname, join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { AMPLIFY_BUILD_LINE, AMPLIFY_START_LINE, amplifyCacheCheck, amplifyReportCheck, appliedMigrationsCheck, authChecks, configPorts, environmentChecks, excludesPackageFromQuarantine, parseExcludedRanges, portChecks, postcssCheck, publishCircuitCheck, tablesCheck } from '../doctor.js'
 import { migrationVersions, PACKAGE_SUPABASE } from '../migrations.js'
@@ -83,10 +83,14 @@ describe('environmentChecks', () => {
     return url.includes('/rest/v1/profiles') ? Response.json(admins) : new Response('{}')
   }) as typeof fetch
 
-  const levels = async (options: Partial<Parameters<typeof environmentChecks>[0]>, files: Record<string, string> = {}) => {
+  const levels = async (options: Partial<Parameters<typeof environmentChecks>[0]>, files: Record<string, string | null> = {}) => {
     const root = await mkdtemp(join(tmpdir(), 'cms-doctor-'))
     try {
-      for (const [name, text] of Object.entries(files)) await writeFile(join(root, name), text)
+      for (const [name, text] of Object.entries(files)) {
+        if (text === null) continue
+        await mkdir(dirname(join(root, name)), { recursive: true })
+        await writeFile(join(root, name), text)
+      }
       return await environmentChecks({ root, supabaseDir: join(root, 'supabase'), env, siteUrl: 'https://acme.com', fetch: answer([{ id: 'u1' }]), ...options })
     } finally {
       await rm(root, { recursive: true, force: true })
@@ -100,7 +104,7 @@ describe('environmentChecks', () => {
   })
 
   it('names what is missing and the command that fixes it', async () => {
-    expect((await levels({ env: { NODE_AUTH_TOKEN: 'x' }, siteUrl: null })).map(check => check.text)).toEqual([
+    expect((await levels({ env: { NODE_AUTH_TOKEN: 'x' }, siteUrl: null })).filter(check => check.level !== 'ok').map(check => check.text)).toEqual([
       'Missing NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY, SUPABASE_SECRET_KEY in the environment or .env.local (--env-file picks another file)',
       'site.url is empty: the sitemap throws and canonical URLs stay relative (set NEXT_PUBLIC_SITE_URL)'
     ])
@@ -144,14 +148,15 @@ describe('environmentChecks', () => {
     expect(await texts({ any: false, confirmed: false })).toEqual([])
     expect(await texts({ any: true, confirmed: false })).toEqual([expect.stringMatching(/linkchar-cms build:report.*linkchar-cms publish:ping/)])
     expect(await texts({ any: true, confirmed: true })).toEqual([])
-    expect((await levels({ env: hosted, fetch: answer([{ id: 'u1' }], {}, { any: true, confirmed: true }) })).map(check => check.text)).toContain('The site confirmed a publish')
+    expect((await levels({ env: hosted, fetch: answer([{ id: 'u1' }], {}, { any: true, confirmed: true }) })).map(check => check.text)).toContainEqual(expect.stringContaining('The site confirmed publish #1'))
     const local = (await levels({ fetch: answer([{ id: 'u1' }], {}, { any: true, confirmed: false }) })).map(check => check.text)
     expect(local).not.toContainEqual(expect.stringContaining('publish:ping'))
-    expect(local).not.toContain('The site confirmed a publish')
+    expect(local).not.toContainEqual(expect.stringContaining('The site confirmed publish'))
     const urls: string[] = []
     const query = (async (url: string) => { urls.push(url); return Response.json([{ id: 7 }]) }) as unknown as typeof fetch
     await publishCircuitCheck(query, 'http://db', { apikey: 'sk' })
-    expect(urls[1]).toBe('http://db/rest/v1/publish_log?select=id&build_status=eq.success&job_id=not.is.null&job_id=not.like.mock-*&limit=1')
+    expect(urls[1]).toBe('http://db/rest/v1/publish_log?select=id,build_status,job_id,build_stamp,built_at,requested_at&build_status=in.(pending,building,built)&order=requested_at.asc')
+    expect(urls[2]).toBe('http://db/rest/v1/publish_log?select=id,job_id&build_status=eq.success&job_id=not.is.null&job_id=not.like.mock-*&order=requested_at.desc&limit=1')
   })
 
   it('compares the applied migrations with the package and the project', async () => {
@@ -181,7 +186,7 @@ describe('environmentChecks', () => {
     const root = await mkdtemp(join(tmpdir(), 'cms-doctor-'))
     await writeFile(join(root, 'pnpm-workspace.yaml'), 'minimumReleaseAge: 1440\n')
     const checks = await environmentChecks({ root, supabaseDir: join(root, 'supabase'), env, siteUrl: 'https://acme.com', fetch: answer([{ id: 'u1' }]) })
-    expect(checks.find(check => check.level === 'warn')?.text).toContain('minimumReleaseAgeExclude')
+    expect(checks.filter(check => check.level === 'warn').map(check => check.text)).toContainEqual(expect.stringContaining('minimumReleaseAgeExclude'))
     await rm(root, { recursive: true, force: true })
     expect(excludesPackageFromQuarantine('minimumReleaseAgeExclude:\n  - \'@linkcharsoft/cms\'\n')).toBe(true)
   })

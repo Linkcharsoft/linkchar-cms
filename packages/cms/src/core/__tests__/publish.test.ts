@@ -21,6 +21,11 @@ describe('publishDisplayStatus', () => {
     expect(publishDisplayStatus(row('building'), start + BUILD_CONFIRMATION_TIMEOUT_MS + 1)).toBe('unconfirmed')
   })
 
+  it('reads a publish closed as unconfirmed the way it read before it was closed', () => {
+    expect(publishDisplayStatus({ ...row('failed'), errorCode: 'unconfirmed' }, start + 1000)).toBe('unconfirmed')
+    expect(publishDisplayStatus({ ...row('failed'), errorCode: 'build_failed' }, start + 1000)).toBe('failed')
+  })
+
   it('waits for the deploy from the end of the build, not from the request', () => {
     const builtAt = new Date(start + 25 * 60_000).toISOString()
     expect(publishDisplayStatus(row('built', builtAt), start + 40 * 60_000)).toBe('deploying')

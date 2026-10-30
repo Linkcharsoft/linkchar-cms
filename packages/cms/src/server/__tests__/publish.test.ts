@@ -1,6 +1,7 @@
 import cmsConfig from '@playground/cms.config'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { withDefaults } from '../../core/defaults'
+import { publishDisplayStatus } from '../../core/publish'
 import { mockBuild } from '../../publish/mock'
 import { applyBuildEvent, getPendingChanges, getPendingCounts, getPublishCircuit, getPublishHistory, getPublishStatus, publishChanges, retryPublish, triggerBuild } from '../publish'
 import { createFakeDb, fakeContext, signIn } from './fakeSupabase'
@@ -450,7 +451,7 @@ describe('getPublishHistory', () => {
 
     it('stops asking the site after the deploy timeout, and never asks for a build without a stamp', async () => {
       const fetch = site('d1.main.7')
-      expect((await getPublishHistory({ ...ctx, fetch, now: () => new Date(NOW + 31 * MINUTE) }))[0].buildStatus).toBe('built')
+      expect((await getPublishHistory({ ...ctx, fetch, now: () => new Date(NOW + 31 * MINUTE) }))[0]).toMatchObject({ buildStatus: 'failed', errorCode: 'unconfirmed' })
       db.tables.publish_log[0].build_stamp = null
       await getPublishHistory({ ...ctx, fetch })
       expect(fetch).not.toHaveBeenCalled()
@@ -459,6 +460,17 @@ describe('getPublishHistory', () => {
     it('confirms from the circuit check too, and counts the result as a real build', async () => {
       expect(await getPublishCircuit({ ...ctx, fetch: site('d1.main.7') })).toBe('confirmed')
       expect(db.tables.publish_log[0].build_status).toBe('success')
+    })
+
+    it('closes an open publish nothing confirmed in 30 minutes, which keeps reading as unconfirmed', async () => {
+      db.tables.publish_log.push(logRow(2, { build_status: 'building', requested_at: at(31) }), logRow(3, { build_status: 'building', requested_at: at(29) }))
+      db.tables.publish_log[0].built_at = at(31)
+      const records = await getPublishHistory({ ...ctx, fetch: site('other') })
+      expect(records.map(record => [record.id, record.buildStatus, record.errorCode])).toEqual([[1, 'failed', 'unconfirmed'], [3, 'building', null], [2, 'failed', 'unconfirmed']])
+      expect(publishDisplayStatus(records[0], NOW)).toBe('unconfirmed')
+      expect(db.tables.publish_log[1]).toMatchObject({ build_status: 'failed', error_code: 'unconfirmed', finished_at: at(0) })
+      expect(await getPublishCircuit({ ...ctx, fetch: site('other') })).toBe('unconfirmed')
+      expect(await retryPublish({ ...ctx, fetch: site('other') }, 2)).toEqual({ ok: false, error: 'errors.publish.stale' })
     })
 
     it('blocks the next publish while the site deploys', async () => {
