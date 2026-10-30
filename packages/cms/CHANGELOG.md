@@ -1,5 +1,28 @@
 # @linkcharsoft/cms
 
+## 0.16.0
+
+### Minor Changes
+
+- 9d1049c: `build:report --ok` and `--failed` only close the publish this build's `--start` claimed (the row with its `AWS_JOB_ID`), never "the oldest open publish": a build of another branch, or one that started before the publish existed, could take a publish that was not its own and leave the panel confirming against the wrong stamp. `CMS_BUILD_BRANCH` names the branch that builds publishes (the one the hook points at); with it set in Amplify, builds of other branches report nothing and say so in the build log. `--start` records the checked-out commit when Amplify passes `AWS_COMMIT_ID` as `HEAD` (webhook builds).
+  
+  To update a project with a preview branch on the same Supabase: set `CMS_BUILD_BRANCH` (`main`) in the Amplify app's environment variables. Nothing else.
+- 9d1049c: `linkchar-cms import` no longer replaces what editors wrote without showing it. It first runs the script dry, prints the plan (`Plan for https://…: 3 documents change, 1 created, 11 unchanged, 2 files uploaded.`, then each changed document with its fields, `~ projects "Casa Giv": title.es, gallery`, and each creation with what it looked for) and asks `Write this to <url>? [y/N]` before running the script for real; `--yes` skips the question (CI, `--password-stdin`), `--dry-run` stops after the plan, and a Supabase that is not local refuses to write without `--allow-remote`. The script runs twice, so its own output appears twice. The closing lines say what changed among what it updated (`15 updated (3 changed, 12 unchanged; 14 by key, 1 by slug)`). In the API, `createImportSession({ dryRun: true })` writes and uploads nothing: `upsert()` returns the found document's id, or a `dry-run-…` placeholder for one it would create, with `fields` (the fields that change, empty when the stored content already matches, also returned by a real upsert), and `media()` returns the library file by its bytes or a placeholder item; `summary()` adds `changed: [{ entry, id, title, fields }]`, `unchanged`, `media` and `dryRun`. Content is compared as it would be stored (normalized rich text, item keys), never by text. This comes from a seed run that silently replaced a morning of panel edits.
+  
+  To update a project: nothing in the script. The seed run against the hosted project now needs `--allow-remote`, and `--yes` in CI; code that reads `summary()` can use `changed` and `unchanged`.
+- 9d1049c: `linkchar-cms routes` (and `init`) writes `.github/workflows/supabase-keepalive.yml`: a GitHub Actions cron every three days that reads `published_documents` with the repository variables `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` (the ones the CI build already uses) and fails when the answer is not 200, so a free Supabase project never reaches the week without requests after which it pauses. The file carries the package's marker and `--check` reports it like a route; a file without the marker belongs to the project. `doctor` warns while the workflow is missing. How long ago the database was last reached is not measured: the keepalive's read leaves no trace in any table.
+  
+  To update a project: run `linkchar-cms routes` and commit the workflow; set `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` as repository variables if the CI does not have them yet.
+- 9d1049c: Whoever reads the publish log settles it, not only the panel: `doctor` and `publish:ping` confirm a `built` publish when the site serves its stamp and close every `pending`, `building` or `built` publish nothing confirmed in 30 minutes (so a publish from before the circuit no longer stays "building" forever), writing `failed` with the new `error_code` `unconfirmed`, which the panel keeps reading as "Sin confirmar" ("No recibimos la confirmación del sitio en 30 minutos.") and offers to retry; the panel does the same when it reads the log. `doctor` names the publish that confirms the circuit and the log it read (`The site confirmed publish #11 (job 123) in the log at https://…`), and says where it asks for the build stamp. `publish:ping` refuses while the latest publish is `built` (deploying), credits a confirmation only to what the site it was given serves (`marked by the panel; the site serves it`), ends with `confirmed_elsewhere` when another site on the same Supabase confirmed the row (a preview branch, pointing at `CMS_BUILD_BRANCH`), and says after "Hook accepted" that preBuild takes 2–4 minutes before the build reports. `BuildErrorCodeType` gains `unconfirmed`; `publishDisplayStatus` reads `errorCode` from the record.
+  
+  To update a project: nothing. Running `doctor --env-file .env.remote` once closes the old open publishes.
+
+### Patch Changes
+
+- 9d1049c: `doctor`, `publish:ping` and `import` hand the env file they read (`--env-file`, or `.env.local` and `.env`) to `cms.config.ts` before loading it, so `site.url` built from `DOMAIN` or `NEXT_PUBLIC_SITE_URL` is the hosted one and the build stamp is asked at the right site; variables already in the shell still win. Both commands print the URL they ask.
+  
+  To update a project: nothing; exporting `DOMAIN` in the shell before `doctor --env-file .env.remote` is no longer needed.
+
 ## 0.15.0
 
 ### Minor Changes
