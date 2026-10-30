@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto'
+import { createHash, randomUUID } from 'node:crypto'
 import { readFile } from 'node:fs/promises'
 import { basename, extname, resolve } from 'node:path'
 import { createClient } from '@supabase/supabase-js'
@@ -45,7 +45,7 @@ export interface ImportSessionOptionsType {
   publish?: boolean
   // false: upsert() only finds documents; one it cannot find throws instead of being created.
   create?: boolean
-  // true: nothing is written or uploaded; upsert() and media() report what they would do and the summary lists the changes.
+  // true: nothing is written or uploaded; upsert() and media() answer with a placeholder UUID for what they would create.
   dryRun?: boolean
   // Where relative file paths start.
   root?: string
@@ -281,8 +281,8 @@ export const createImportSession = async (options: ImportSessionOptionsType) => 
   let unchanged = 0
   let adopted = 0
   let uploads = 0
-  let planned = 0
-  const placeholder = (what: string) => `dry-run-${what}-${++planned}`
+  // A real UUID: the dry run validates the data it would save, and media and relation fields take nothing else.
+  const placeholder = () => randomUUID()
   const problems = (errors: Record<string, string>) => Object.entries(errors).map(([path, message]) => `${path} ${message}`)
 
   // The same file twice (same bytes) gives back the first upload, so an import can run again.
@@ -302,7 +302,7 @@ export const createImportSession = async (options: ImportSessionOptionsType) => 
     uploads++
     if (dryRun) {
       return {
-        id: placeholder('media'), path: '', url: '', filename: basename(path), folder, alt, caption, mime: processed.mime, size: processed.data.byteLength,
+        id: placeholder(), path: '', url: '', filename: basename(path), folder, alt, caption, mime: processed.mime, size: processed.data.byteLength,
         width: processed.width, height: processed.height, focalX: null, focalY: null, blurDataUrl: null, duration: video?.duration ?? null,
         posterId: poster ?? null, posterUrl: null, createdAt: new Date().toISOString(), deletedAt: null
       }
@@ -398,7 +398,7 @@ export const createImportSession = async (options: ImportSessionOptionsType) => 
       if (found && matchedBy) matched[matchedBy]++
       if (found) updated++
       if (found && entry.kind === 'collection' && match?.key && !found.key) adopted++
-      if (!found) creations.push({ entry: entryId, id: placeholder(entryId), lookup, existing })
+      if (!found) creations.push({ entry: entryId, id: placeholder(), lookup, existing })
       if (entry.kind === 'collection') collections.add(entryId)
       if (found) touched.add(found.id)
       const id = found?.id ?? creations.at(-1)!.id

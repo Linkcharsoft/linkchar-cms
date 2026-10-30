@@ -223,12 +223,17 @@ describe('a dry run', () => {
       expect(changed).toMatchObject({ id, created: false, fields: ['title.es', 'body.es'] })
       const fresh = await dry.upsert('posts', { data: { title: { es: 'Nuevo', en: 'New' }, slug: { es: `${slug}-new`, en: `${slug}-new` }, body: { es: paragraph('Uno'), en: paragraph('One') } } })
       expect(fresh.created).toBe(true)
-      expect(fresh.id).toMatch(/^dry-run-posts-/)
+      expect(fresh.id).toMatch(/^[0-9a-f-]{36}$/)
       const file = await dry.media({ file: 'dry.png', folder: 'blog', alt: { es: 'Seco' } })
-      expect(file.id).toMatch(/^dry-run-media-/)
+      expect(file.id).not.toBe(fresh.id)
       expect(file).toMatchObject({ mime: 'image/webp', width: 40, height: 20 })
+      // A first seed links what it creates in the same run: the placeholders must pass the fields' validation.
+      const category = await dry.upsert('categories', { data: { name: { es: 'Seca', en: 'Dry' }, slug: { es: `${slug}-cat`, en: `${slug}-cat` } } })
+      expect(category.created).toBe(true)
+      const linked = await dry.upsert('posts', { data: { title: { es: 'Enlazado', en: 'Linked' }, slug: { es: `${slug}-linked`, en: `${slug}-linked` }, body: { es: paragraph('Uno'), en: paragraph('One') }, cover: { es: file.id }, category: category.id } })
+      expect(linked).toMatchObject({ created: true, fields: expect.arrayContaining(['cover', 'category']) })
       expect(await dry.publish()).toMatchObject({ published: 0 })
-      expect(await dry.summary()).toMatchObject({ dryRun: true, updated: 2, unchanged: 1, media: 1, changed: [{ id, title: 'Seco 2', fields: ['title.es', 'body.es'] }], created: [{ entry: 'posts', lookup: `slug ${slug}-new` }] })
+      expect(await dry.summary()).toMatchObject({ dryRun: true, updated: 2, unchanged: 1, media: 1, changed: [{ id, title: 'Seco 2', fields: ['title.es', 'body.es'] }], created: [{ entry: 'posts', lookup: `slug ${slug}-new` }, { entry: 'categories', lookup: `slug ${slug}-cat` }, { entry: 'posts', lookup: `slug ${slug}-linked` }] })
     } finally {
       await dry.signOut()
     }
@@ -264,12 +269,15 @@ describe('linkchar-cms import', () => {
     const plan = cli('--dry-run')
     expect(plan).toContain(`Plan for ${supabase.url}: 0 documents change, 1 created, 0 unchanged, 0 files uploaded.`)
     expect(plan).toContain(`  + posts (slug cli-${stamp})`)
-    expect(plan).toMatch(/IMPORTED dry-run-posts-\d+ 0/)
+    const [, planned] = plan.match(/IMPORTED (\S+) 0/) ?? []
+    expect(planned).toMatch(/^[0-9a-f-]{36}$/)
     expect((await admin.from('documents').select('id').eq('slug', `cli-${stamp}`)).data).toEqual([])
     expect(() => cli()).toThrow('pass --yes')
 
     const output = cli('--yes')
-    const [, id, published] = output.match(/IMPORTED (?!dry-run)(\S+) (\d+)/) ?? []
+    // The script runs twice (dry, then real): the last line names the document that was written.
+    const [, id, published] = [...output.matchAll(/IMPORTED (\S+) (\d+)/g)].at(-1) ?? []
+    expect(id).not.toBe(planned)
     documents.push(id)
     expect(published).toBe('0')
     expect(output).toContain('nothing published (--no-publish)')
