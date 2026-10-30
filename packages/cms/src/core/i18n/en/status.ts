@@ -21,7 +21,7 @@ const status = {
   },
   publishStatusHelp: {
     building: 'The site is updating. It usually takes about 5 minutes.',
-    deploying: 'The site has been built and is being deployed. Less than a minute to go.',
+    deploying: 'The site has been built and is being deployed. It usually takes 2 or 3 more minutes; no need to retry.',
     success: 'The site already shows these changes.',
     failed: 'The site could not be updated and still shows the previous version. Retry from Publish; if it fails again, contact support.',
     unconfirmed: 'We did not get confirmation that the site was updated. Check the site: if you don\'t see the changes, contact support.'
