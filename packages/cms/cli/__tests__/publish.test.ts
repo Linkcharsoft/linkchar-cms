@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { describePing, maskHookUrl, pingSettings, runPing } from '../publish.js'
+import { describePing, describeSettled, maskHookUrl, pingSettings, runPing, settlePublishLog } from '../publish.js'
 
-type RowType = { id: number, build_status: string, job_id: string | null, error_code: string | null, error_detail: string | null, requested_at: string }
+type RowType = { id: number, build_status: string, job_id: string | null, error_code: string | null, error_detail: string | null, requested_at: string, build_stamp?: string | null, built_at?: string | null, app_id?: string | null, branch?: string | null, region?: string | null }
 
 const settings = { url: 'http://127.0.0.1:44421', secretKey: 'sk', hookUrl: 'https://hooks.example', webhookSecret: 's', siteUrl: 'https://acme.com' }
 
@@ -24,6 +24,9 @@ const fakeLog = (rows: RowType[] = [], now = () => 1_000_000) => {
       return Response.json([])
     }
     if (id) return Response.json(rows.filter(row => row.id === id))
+    if (query.includes('build_status=in.(pending,building,built)')) {
+      return Response.json(rows.filter(row => ['pending', 'building', 'built'].includes(row.build_status)).sort((a, b) => Date.parse(a.requested_at) - Date.parse(b.requested_at)))
+    }
     return Response.json([...rows].sort((a, b) => Date.parse(b.requested_at) - Date.parse(a.requested_at)).slice(0, 1))
   }) as typeof fetch
   return { rows, requests, get }
@@ -47,6 +50,32 @@ describe('pingSettings', () => {
   })
 })
 
+describe('settlePublishLog', () => {
+  const open = (id: number, build_status: string, minutesAgo: number, extra: Partial<RowType> = {}) =>
+    ({ id, build_status, job_id: null, error_code: null, error_detail: null, requested_at: new Date(1_000_000 - minutesAgo * 60_000).toISOString(), ...extra })
+
+  it('confirms a built publish the site serves and closes the ones nothing confirmed in 30 minutes', async () => {
+    const log = fakeLog([open(1, 'building', 45), open(2, 'built', 40, { job_id: '7', build_stamp: 'd1.main.7', built_at: new Date(1_000_000 - 5 * 60_000).toISOString() }), open(3, 'building', 5), open(4, 'built', 50, { build_stamp: 'old', built_at: new Date(1_000_000 - 31 * 60_000).toISOString() })])
+    const get = (async (url: string, init?: RequestInit) => (url.startsWith('https://acme.com/') ? Response.json({ stamp: 'd1.main.7' }) : log.get(url, init))) as typeof fetch
+    const settled = await settlePublishLog({ url: settings.url, secretKey: 'sk', siteUrl: 'https://acme.com', fetch: get, now: () => 1_000_000 })
+    expect(settled).toEqual({ confirmed: [2], closed: [4, 1] })
+    expect(log.rows.map(row => [row.id, row.build_status, row.error_code])).toEqual([[1, 'failed', 'unconfirmed'], [2, 'success', null], [3, 'building', null], [4, 'failed', 'unconfirmed']])
+    expect(describeSettled(settled)).toEqual(['The site serves the build of publish #2: confirmed.', 'Publishes #4, #1 got no confirmation in 30 minutes: closed as "sin confirmar".'])
+    expect(describeSettled({ confirmed: [], closed: [] })).toEqual([])
+  })
+
+  it('asks the site only when a built publish waits, and never without a site URL', async () => {
+    const asked: string[] = []
+    const log = fakeLog([open(1, 'building', 5)])
+    const get = (async (url: string, init?: RequestInit) => { asked.push(url); return log.get(url, init) }) as typeof fetch
+    await settlePublishLog({ url: settings.url, secretKey: 'sk', siteUrl: 'https://acme.com', fetch: get, now: () => 1_000_000 })
+    expect(asked.filter(url => url.includes('build-status'))).toEqual([])
+    const built = fakeLog([open(2, 'built', 5, { build_stamp: 'x', built_at: new Date(1_000_000 - 2 * 60_000).toISOString() })])
+    expect(await settlePublishLog({ url: settings.url, secretKey: 'sk', siteUrl: null, fetch: built.get, now: () => 1_000_000 })).toEqual({ confirmed: [], closed: [] })
+    expect(built.rows[0].build_status).toBe('built')
+  })
+})
+
 describe('runPing', () => {
   it('logs an empty publish, fires the hook and reports the success the webhook writes', async () => {
     let clock = 1_000_000
@@ -60,22 +89,44 @@ describe('runPing', () => {
       else if (clock >= 1_060_000) Object.assign(row, { build_status: 'building', job_id: '42' })
     }
     const result = await runPing({ settings, trigger, timeoutMs: 20 * 60_000, fetch: log.get, sleep, now: () => clock, log: line => lines.push(line) })
-    expect(result).toEqual({ ok: true, id: 1, jobId: '42', minutes: 3 })
-    expect(log.requests.slice(0, 3)).toEqual(['GET ?select=id,build_status,requested_at&order=requested_at.desc&limit=1', 'POST ', 'PATCH ?id=eq.1&build_status=eq.pending'])
+    expect(result).toEqual({ ok: true, id: 1, jobId: '42', minutes: 3, confirmedBy: 'webhook' })
+    expect(log.requests.slice(1, 4)).toEqual(['GET ?select=id,build_status,requested_at&order=requested_at.desc&limit=1', 'POST ', 'PATCH ?id=eq.1&build_status=eq.pending'])
     expect(log.rows[0]).toMatchObject({ build_status: 'success', job_id: '42' })
     expect(lines).toEqual([
       'Publish #1 logged (no documents). Triggering the build hook…',
-      'Hook accepted (job 42). Waiting for the build to report…',
+      'Hook accepted (job 42). Waiting for the build to report (preBuild installs first, usually 2–4 min)…',
       '#1: success (job 42) after 3 min'
     ])
     expect(describePing(result)).toContain('the publish circuit works')
   })
 
-  it('refuses while a publish is still building', async () => {
+  it('refuses while a publish is still building or deploying', async () => {
     const log = fakeLog([{ id: 7, build_status: 'building', job_id: '1', error_code: null, error_detail: null, requested_at: new Date(1_000_000 - 5 * 60_000).toISOString() }])
     await expect(runPing({ settings, trigger: async () => ({ ok: true, jobId: null }), timeoutMs: 1, fetch: log.get, sleep: async () => {}, now: () => 1_000_000, log: () => {} }))
       .rejects.toThrow('Publish #7 is still building (5 min ago)')
     expect(log.rows).toHaveLength(1)
+    const built = fakeLog([{ id: 8, build_status: 'built', job_id: '1', error_code: null, error_detail: null, requested_at: new Date(1_000_000 - 6 * 60_000).toISOString(), build_stamp: 'x', built_at: new Date(1_000_000 - 60_000).toISOString() }])
+    await expect(runPing({ settings: { ...settings, siteUrl: null }, trigger: async () => ({ ok: true, jobId: null }), timeoutMs: 1, fetch: built.get, sleep: async () => {}, now: () => 1_000_000, log: () => {} }))
+      .rejects.toThrow('Publish #8 is still deploying (6 min ago)')
+  })
+
+  it('refuses a success another site confirmed, and credits the panel when this site serves the build', async () => {
+    const run = async (served: string) => {
+      let clock = 1_000_000
+      const log = fakeLog([], () => clock)
+      const get = (async (url: string, init?: RequestInit) => (url.startsWith('https://acme.com/') ? Response.json({ stamp: served }) : log.get(url, init))) as typeof fetch
+      const sleep = async () => {
+        clock += 60_000
+        Object.assign(log.rows[0], { build_status: 'success', job_id: '26', build_stamp: 'd1.preview.26', app_id: 'd1', branch: 'new-landing', region: 'us-east-1' })
+      }
+      return runPing({ settings, trigger: async () => ({ ok: true, jobId: null }), timeoutMs: 5 * 60_000, intervalMs: 60_000, fetch: get, sleep, now: () => clock, log: () => {} })
+    }
+    const elsewhere = await run('d1.main.122')
+    expect(elsewhere).toMatchObject({ ok: false, code: 'confirmed_elsewhere', detail: 'd1.main.122', siteUrl: 'https://acme.com', consoleUrl: expect.stringContaining('deployments/26') })
+    expect(describePing(elsewhere)).toContain('CMS_BUILD_BRANCH')
+    const panel = await run('d1.preview.26')
+    expect(panel).toMatchObject({ ok: true, confirmedBy: 'panel' })
+    expect(describePing(panel)).toContain('marked by the panel; the site serves it')
   })
 
   it('goes past a publish that never heard back after 30 minutes', async () => {
@@ -115,7 +166,7 @@ describe('runPing', () => {
       Object.assign(log.rows[0], { build_status: 'built', job_id: '7', build_stamp: 'd1.main.7' })
     }
     const result = await runPing({ settings, trigger: async () => ({ ok: true, jobId: null }), timeoutMs: 10 * 60_000, intervalMs: 60_000, fetch: site('d1.main.7'), sleep, now: () => clock, log: line => lines.push(line) })
-    expect(result).toEqual({ ok: true, id: 1, jobId: '7', minutes: 1 })
+    expect(result).toEqual({ ok: true, id: 1, jobId: '7', minutes: 1, confirmedBy: 'ping' })
     expect(log.rows[0]).toMatchObject({ build_status: 'success' })
     expect(lines.at(-1)).toBe('#1: success, the site serves d1.main.7 after 1 min')
 

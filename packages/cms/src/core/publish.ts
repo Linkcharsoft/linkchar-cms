@@ -13,7 +13,7 @@ export interface BuildEventType {
 }
 
 // Stored in publish_log.error_code; the panel translates them (errors.build.*).
-export type BuildErrorCodeType = 'target_missing' | 'hook_refused' | 'hook_unreachable' | 'build_failed' | 'build_cancelled'
+export type BuildErrorCodeType = 'target_missing' | 'hook_refused' | 'hook_unreachable' | 'build_failed' | 'build_cancelled' | 'unconfirmed'
 
 const DOCUMENT_STATUSES: readonly DocumentStatusType[] = ['hidden', 'new', 'published', 'changed', 'unpublishing']
 
@@ -36,10 +36,13 @@ export interface PublishTimingType {
   buildStatus: BuildStatusType
   requestedAt: string
   builtAt?: string | null
+  // A publish closed as failed/unconfirmed (nothing confirmed it in time) keeps reading "sin confirmar".
+  errorCode?: BuildErrorCodeType | null
 }
 
-export const publishDisplayStatus = ({ buildStatus, requestedAt, builtAt }: PublishTimingType, now = Date.now()): PublishDisplayStatusType => {
-  if (buildStatus === 'success' || buildStatus === 'failed') return buildStatus
+export const publishDisplayStatus = ({ buildStatus, requestedAt, builtAt, errorCode }: PublishTimingType, now = Date.now()): PublishDisplayStatusType => {
+  if (buildStatus === 'failed') return errorCode === 'unconfirmed' ? 'unconfirmed' : 'failed'
+  if (buildStatus === 'success') return buildStatus
   if (buildStatus === 'built') return now - Date.parse(builtAt ?? requestedAt) > BUILD_CONFIRMATION_TIMEOUT_MS ? 'unconfirmed' : 'deploying'
   return now - Date.parse(requestedAt) > BUILD_CONFIRMATION_TIMEOUT_MS ? 'unconfirmed' : 'building'
 }

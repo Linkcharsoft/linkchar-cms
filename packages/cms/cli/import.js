@@ -1,4 +1,5 @@
 import { existsSync } from 'node:fs'
+import { createInterface } from 'node:readline/promises'
 import { fileURLToPath } from 'node:url'
 import { isLocalSupabaseUrl } from './local.js'
 import { CliError } from './migrations.js'
@@ -54,15 +55,48 @@ export const readPasswordFromStdin = async stream => {
   return password
 }
 
+/** @param {number} count @param {string} one @param {string} [many] */
+const plural = (count, one, many = `${one}s`) => `${count} ${count === 1 ? one : many}`
+
 /**
- * The lines printed after a run: how it found what it updated, what it created where documents already existed, and the hidden drafts it left alone.
+ * What the run would write, from a dry run: each document that changes with its fields, what it creates and uploads.
+ * @param {ImportSummaryType} summary
+ * @param {string} url
+ * @returns {string[]}
+ */
+export const planLines = ({ changed, created, unchanged, media }, url) => {
+  if (changed.length + created.length + media === 0) return [`Nothing to write to ${url}: every document matches the script${unchanged > 0 ? ` (${plural(unchanged, 'document')} unchanged)` : ''}.`]
+  const lines = [`Plan for ${url}: ${plural(changed.length, 'document')} change, ${created.length} created, ${unchanged} unchanged, ${plural(media, 'file')} uploaded.`]
+  for (const change of changed) lines.push(`  ~ ${change.entry} "${change.title || change.id}": ${change.fields.join(', ')}`)
+  for (const item of created) lines.push(`  + ${item.entry} (${item.lookup})`)
+  return lines
+}
+
+/**
+ * Asks on the terminal; anything but y/yes is no.
+ * @param {string} question
+ * @param {{ input?: NodeJS.ReadableStream, output?: NodeJS.WritableStream }} [streams]
+ */
+export const askYesNo = async (question, { input = process.stdin, output = process.stdout } = {}) => {
+  const rl = createInterface({ input, output })
+  try {
+    const answer = await rl.question(question)
+    return ['y', 'yes'].includes(answer.trim().toLowerCase())
+  } finally {
+    rl.close()
+  }
+}
+
+/**
+ * The lines printed after a run: how it found what it updated and what it changed, what it created where documents already existed, and the hidden drafts it left alone.
  * @param {ImportSummaryType} summary
  * @returns {string[]}
  */
-export const summaryLines = ({ created, updated, matched = { id: 0, key: 0, slug: 0 }, adopted = 0, untouched = [] }) => {
+export const summaryLines = ({ created, updated, matched = { id: 0, key: 0, slug: 0 }, adopted = 0, untouched = [], changed = [], unchanged = 0, media = 0 }) => {
   const by = Object.entries(matched).filter(([, count]) => count > 0).map(([how, count]) => `${count} by ${how}`)
   const how = [...by, ...(adopted > 0 ? [`${adopted} key${adopted === 1 ? '' : 's'} adopted`] : [])]
-  const lines = [`${updated} updated${how.length > 0 ? ` (${how.join(', ')})` : ''}, ${created.length} created.`]
+  const what = updated > 0 ? ` (${changed.length} changed, ${unchanged} unchanged${how.length > 0 ? `; ${how.join(', ')}` : ''})` : ''
+  const lines = [`${updated} updated${what}, ${created.length} created${media > 0 ? `, ${plural(media, 'file')} uploaded` : ''}.`]
   const entries = [...new Set(created.filter(item => item.existing > 0).map(item => item.entry))]
   for (const entry of entries) {
     const items = created.filter(item => item.entry === entry)
@@ -81,11 +115,12 @@ export const summaryLines = ({ created, updated, matched = { id: 0, key: 0, slug
 }
 
 /**
- * Loads the project's config and script with jiti (they import the package's TypeScript) and runs the script with a session.
- * @param {{ script: string, configFile: string, root: string, settings: ImportSettingsType, publish: boolean, create?: boolean }} options
+ * Loads the project's config and script with jiti (they import the package's TypeScript) and runs the script with a session;
+ * with dryRun the session writes nothing and the summary says what it would.
+ * @param {{ script: string, configFile: string, root: string, settings: ImportSettingsType, publish: boolean, create?: boolean, dryRun?: boolean }} options
  * @returns {Promise<{ build: ImportSettingsType['build']['kind'], summary: ImportSummaryType }>}
  */
-export const runImport = async ({ script, configFile, root, settings, publish, create = true }) => {
+export const runImport = async ({ script, configFile, root, settings, publish, create = true, dryRun = false }) => {
   if (!existsSync(script)) throw new CliError(`There is no import script at ${script}.`)
   if (!existsSync(configFile)) throw new CliError(`There is no CMS config at ${configFile}: pass --config.`)
 
@@ -112,6 +147,7 @@ export const runImport = async ({ script, configFile, root, settings, publish, c
     publishTarget,
     publish,
     create,
+    dryRun,
     root
   })
   try {

@@ -4,11 +4,13 @@ import { readFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 import { parseArgs } from 'node:util'
 import { findBrandIcon } from '../next/index.js'
-import { createSuperadmin, readProjectEnv } from './admin.js'
+import { applyProjectEnv, createSuperadmin, readProjectEnv } from './admin.js'
 import { buildIdentity, describeBuildReport, reportSettings, runBuildReport } from './build.js'
 import { authChecks, environmentChecks } from './doctor.js'
-import { importSettings, readPasswordFromStdin, runImport, summaryLines } from './import.js'
+import { askYesNo, importSettings, planLines, readPasswordFromStdin, runImport, summaryLines } from './import.js'
 import { initProject, nextSteps, normalizeBasePath } from './init.js'
+import { syncKeepalive } from './keepalive.js'
+import { isLocalSupabaseUrl } from './local.js'
 import { CliError, isUpToDate, syncMigrations } from './migrations.js'
 import { amplifyTrigger, describePing, maskHookUrl, pingSettings, runPing } from './publish.js'
 import { checkProxy, loadConfig, syncRoutes } from './routes.js'
@@ -18,15 +20,16 @@ import { syncTemplates, translatorOf } from './templates.js'
 /** @typedef {import('./routes.js').RouteChangeType} RouteChangeType */
 /** @typedef {import('./templates.js').TemplateChangeType} TemplateChangeType */
 /** @typedef {import('./init.js').InitChangeType} InitChangeType */
+/** @typedef {import('./keepalive.js').KeepaliveChangeType} KeepaliveChangeType */
 
 const USAGE = `Usage:
   linkchar-cms init --name "Acme" [--base-path /dashboard] [--locales es,en] [--panel-locale es] [--site-url http://localhost:3000]
   linkchar-cms migrations sync [--dir supabase] [--check]
-  linkchar-cms routes [--config cms.config.ts] [--src src] [--check]
+  linkchar-cms routes [--config cms.config.ts] [--src src] [--check]   (the panel routes and the Supabase keepalive workflow)
   linkchar-cms templates [--config cms.config.ts] [--dir supabase] [--check]
   linkchar-cms admin --email ana@acme.com [--password …] [--name "Ana"] [--env-file .env.local]
   linkchar-cms doctor [--config cms.config.ts] [--src src] [--dir supabase] [--env-file .env.local]
-  linkchar-cms import <script.ts> --email ana@acme.com [--password …] [--password-stdin] [--otp 123456] [--no-publish] [--no-create] [--config cms.config.ts] [--env-file .env.local]
+  linkchar-cms import <script.ts> --email ana@acme.com [--password …] [--password-stdin] [--otp 123456] [--dry-run] [--yes] [--allow-remote] [--no-publish] [--no-create] [--config cms.config.ts] [--env-file .env.local]
   linkchar-cms publish:ping [--timeout 20] [--config cms.config.ts] [--env-file .env.local]
   linkchar-cms build:report --start | --ok | --failed [--env-file .env.local]
 
@@ -42,17 +45,20 @@ const USAGE = `Usage:
   admin makes the first superadmin with SUPABASE_SECRET_KEY: created with --password, else invited by email.
   doctor checks routes, the panel icon, migrations (files and applied), templates, variables, Supabase, the publish circuit, amplify.yml, the package registry and the ports.
   import runs the script's default export with a session signed in as --email (password in CMS_IMPORT_PASSWORD,
-  --password or --password-stdin): cms.media(), cms.upsert(), cms.transform() and cms.publish(); --no-publish makes
+  --password or --password-stdin): cms.media(), cms.upsert(), cms.transform() and cms.publish(). It first runs the
+  script dry, prints what would change (each document and its fields) and asks before writing; --yes skips the question
+  (CI), --dry-run stops after the plan. A Supabase that is not local takes --allow-remote. --no-publish makes
   cms.publish() report without publishing, --no-create makes cms.upsert() fail instead of creating a document.
   publish:ping verifies the publish circuit end to end: it logs an empty publish, fires CMS_BUILD_HOOK_URL and waits
   (--timeout minutes) for the build to report itself and the site to serve it. It costs one Amplify build and takes the 30-minute lock.
   build:report runs inside the site's build (amplify.yml) with the build's own variables: --start in preBuild takes the
-  open publish, --ok and --failed close the build. Without an open publish it does nothing, and it never fails the build.`
+  open publish, --ok and --failed close the build --start claimed. With a preview branch, CMS_BUILD_BRANCH names the
+  branch that builds publishes. Without an open publish it does nothing, and it never fails the build.`
 
 /** @type {Record<SyncChangeType['status'] | RouteChangeType['status'] | TemplateChangeType['status'], string>} */
 const SYMBOLS = { added: '+', updated: '~', removed: '-', differs: '!', stale: '!', same: '=', kept: '=' }
 
-/** @param {string} title @param {(SyncChangeType | RouteChangeType | TemplateChangeType | InitChangeType)[]} changes @param {boolean} check */
+/** @param {string} title @param {(SyncChangeType | RouteChangeType | TemplateChangeType | InitChangeType | KeepaliveChangeType)[]} changes @param {boolean} check */
 const print = (title, changes, check) => {
   const shown = changes.filter(change => change.status !== 'same' && change.status !== 'kept')
   console.log(shown.length === 0 ? `${title}: up to date` : `${title}:`)
@@ -82,13 +88,15 @@ const routes = async ({ config, src, check }) => {
   const loaded = await loadConfig(configFile)
   const changes = await syncRoutes({ sourceDir, config: loaded, configFile, write: !check })
   print('Panel routes', changes, check)
+  const keepalive = await syncKeepalive({ root: resolve('.'), write: !check })
+  print('Supabase keepalive workflow', [keepalive], check)
 
   const proxy = await checkProxy({ sourceDir, basePath: loaded.basePath })
   if (proxy !== 'ok') {
     console.warn(`\n${proxy === 'missing' ? 'There is no proxy.ts' : 'proxy.ts does not match the panel'}: it needs`)
     console.warn(`  export const proxy = cms.proxy\n  export const config = { matcher: ['${loaded.basePath}/:path*'] }`)
   }
-  const behind = changes.some(change => change.status === 'added' || change.status === 'updated' || change.status === 'removed')
+  const behind = [...changes, keepalive].some(change => change.status === 'added' || change.status === 'updated' || change.status === 'removed')
   if (!check && changes.some(change => change.status === 'removed')) console.log('\nA removed route leaves .next/types behind: run next typegen (or next build) before the next type-check.')
   return check && (behind || proxy !== 'ok') ? 1 : 0
 }
@@ -168,6 +176,8 @@ const doctor = async ({ config, src, dir, 'env-file': envFile }) => {
   /** @type {import('./doctor.js').CheckType[]} */
   const checks = []
   const supabaseDir = resolve(dir)
+  const { env, label, fromFile } = await readProjectEnv(envFile)
+  applyProjectEnv(fromFile)
   /** @type {import('./routes.js').RoutesConfigType | null} */
   let loaded = null
   try {
@@ -202,7 +212,6 @@ const doctor = async ({ config, src, dir, 'env-file': envFile }) => {
     checks.push({ level: 'fail', text: `There is no ${dir}/config.toml: supabase init` })
   }
 
-  const { env, label } = await readProjectEnv(envFile)
   const siteUrl = loaded?.site?.url ?? null
   checks.push(...await environmentChecks({ root: resolve('.'), supabaseDir, env, envFile: label, siteUrl }))
 
@@ -213,15 +222,34 @@ const doctor = async ({ config, src, dir, 'env-file': envFile }) => {
 
 /**
  * @param {string | undefined} script
- * @param {{ config: string, email?: string, password?: string, 'password-stdin': boolean, otp?: string, publish: boolean, create: boolean, 'env-file'?: string }} options
+ * @param {{ config: string, email?: string, password?: string, 'password-stdin': boolean, otp?: string, publish: boolean, create: boolean, 'dry-run': boolean, yes: boolean, 'allow-remote': boolean, 'env-file'?: string }} options
  */
-const importContent = async (script, { config, email, password, 'password-stdin': passwordStdin, otp, publish, create, 'env-file': envFile }) => {
-  if (!script) throw new CliError('Usage: linkchar-cms import <script.ts> --email ana@acme.com [--password-stdin] [--no-publish] [--no-create] [--env-file .env.local]; linkchar-cms --help lists every option.')
+const importContent = async (script, { config, email, password, 'password-stdin': passwordStdin, otp, publish, create, 'dry-run': dryRun, yes, 'allow-remote': allowRemote, 'env-file': envFile }) => {
+  if (!script) throw new CliError('Usage: linkchar-cms import <script.ts> --email ana@acme.com [--password-stdin] [--dry-run] [--yes] [--allow-remote] [--no-publish] [--no-create] [--env-file .env.local]; linkchar-cms --help lists every option.')
   if (passwordStdin && password) throw new CliError('Pass --password or --password-stdin, not both.')
   const secret = passwordStdin ? await readPasswordFromStdin(process.stdin) : password
-  const { env, label } = await readProjectEnv(envFile)
+  const { env, label, fromFile } = await readProjectEnv(envFile)
+  applyProjectEnv(fromFile)
   const settings = importSettings(env, { email, password: secret, otp }, label)
-  const { build, summary } = await runImport({ script: resolve(script), configFile: resolve(config), root: resolve('.'), settings, publish, create })
+  const { url } = settings.supabase
+  if (!dryRun && !allowRemote && !isLocalSupabaseUrl(url)) {
+    throw new CliError(`${url} is not a local Supabase: an import replaces what editors wrote there. Run with --dry-run to see the plan, then --allow-remote to write it.`)
+  }
+  const run = (/** @type {boolean} */ dry) => runImport({ script: resolve(script), configFile: resolve(config), root: resolve('.'), settings, publish, create, dryRun: dry })
+
+  const plan = await run(true)
+  for (const line of planLines(plan.summary, url)) console.log(line)
+  if (dryRun) return 0
+  if (plan.summary.changed.length + plan.summary.created.length + plan.summary.media === 0) return 0
+  if (!yes) {
+    if (passwordStdin) throw new CliError('With --password-stdin there is no terminal to ask on: pass --yes to write the plan above.')
+    if (!process.stdin.isTTY) throw new CliError('No terminal to ask on: pass --yes to write the plan above.')
+    if (!await askYesNo(`Write this to ${url}? [y/N] `)) {
+      console.log('Nothing written.')
+      return 0
+    }
+  }
+  const { build, summary } = await run(false)
   const builds = { amplify: 'publishing triggers the Amplify build', mock: 'publishing ran the mock build', none: 'no build hook (CMS_BUILD_HOOK_URL): retry the build from Publicar' }
   console.log(`Import done as ${settings.email} at ${settings.supabase.url}${publish ? `; ${builds[build]}` : '; nothing published (--no-publish)'}.`)
   for (const line of summaryLines(summary)) console.log(line)
@@ -230,12 +258,13 @@ const importContent = async (script, { config, email, password, 'password-stdin'
 
 /** @param {{ timeout: string, config: string, 'env-file'?: string }} options */
 const publishPing = async ({ timeout, config, 'env-file': envFile }) => {
-  const { env, label } = await readProjectEnv(envFile)
+  const { env, label, fromFile } = await readProjectEnv(envFile)
+  applyProjectEnv(fromFile)
   const loaded = existsSync(resolve(config)) ? await loadConfig(resolve(config)).catch(() => null) : null
   const settings = pingSettings(env, label, loaded?.site?.url ?? env.NEXT_PUBLIC_SITE_URL ?? null)
   const minutes = Number(timeout)
   if (!Number.isFinite(minutes) || minutes <= 0) throw new CliError('--timeout takes the minutes to wait for the site, e.g. --timeout 20.')
-  console.log(`Verifying the publish circuit of ${settings.url} through ${maskHookUrl(settings.hookUrl)} (up to ${minutes} min)…`)
+  console.log(`Verifying the publish circuit of ${settings.url} through ${maskHookUrl(settings.hookUrl)}, confirming against ${settings.siteUrl ?? 'no site URL (set site.url)'} (up to ${minutes} min)…`)
   const result = await runPing({ settings, trigger: await amplifyTrigger(settings), timeoutMs: minutes * 60_000 })
   console.log(describePing(result))
   return result.ok ? 0 : 1
@@ -274,6 +303,9 @@ const main = async () => {
       otp: { type: 'string' },
       publish: { type: 'boolean', default: true },
       create: { type: 'boolean', default: true },
+      'dry-run': { type: 'boolean', default: false },
+      yes: { type: 'boolean', default: false },
+      'allow-remote': { type: 'boolean', default: false },
       'env-file': { type: 'string' },
       timeout: { type: 'string', default: '20' },
       start: { type: 'boolean', default: false },

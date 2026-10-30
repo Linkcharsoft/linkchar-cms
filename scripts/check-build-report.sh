@@ -35,6 +35,15 @@ expect "$(sql "select build_status || ' ' || build_stamp || ' ' || (built_at is 
 AWS_JOB_ID=2 report --ok
 expect "$(sql "select build_status from public.publish_log where id = $a")" "built" "a second --ok changes nothing"
 
+# A build no --start claimed (another branch's, or one that started before the publish existed) closes nothing.
+c=$(sql "with row as (insert into public.publish_log (documents_count, removed_count, items, build_status) values (1, 0, '[]', 'building') returning id) select id from row")
+ids+=("$c")
+AWS_JOB_ID=9 report --ok
+expect "$(sql "select build_status || ' ' || coalesce(job_id, '-') from public.publish_log where id = $c")" "building -" "--ok leaves a publish its --start did not claim alone"
+AWS_BRANCH=new-landing CMS_BUILD_BRANCH=main AWS_JOB_ID=9 report --start
+expect "$(sql "select coalesce(job_id, '-') from public.publish_log where id = $c")" "-" "another branch reports nothing with CMS_BUILD_BRANCH"
+sql "update public.publish_log set build_status = 'failed', error_code = 'build_cancelled', finished_at = now() where id = $c" >/dev/null
+
 # A build that fails closes its publish.
 b=$(sql "with row as (insert into public.publish_log (documents_count, removed_count, items, build_status) values (1, 0, '[]', 'pending') returning id) select id from row")
 ids+=("$b")
