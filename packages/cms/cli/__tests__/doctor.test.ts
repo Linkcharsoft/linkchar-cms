@@ -2,7 +2,7 @@ import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { AMPLIFY_BUILD_LINE, AMPLIFY_START_LINE, amplifyCacheCheck, amplifyReportCheck, appliedMigrationsCheck, authChecks, configPorts, environmentChecks, excludesPackageFromQuarantine, parseExcludedRanges, portChecks, postcssCheck, publishCircuitCheck, tablesCheck } from '../doctor.js'
+import { AMPLIFY_BUILD_LINE, AMPLIFY_START_LINE, amplifyCacheCheck, amplifyReportCheck, appliedMigrationsCheck, authChecks, keepaliveRunCheck, configPorts, environmentChecks, excludesPackageFromQuarantine, parseExcludedRanges, portChecks, postcssCheck, publishCircuitCheck, tablesCheck } from '../doctor.js'
 import { KEEPALIVE_FILE, keepaliveWorkflow } from '../keepalive.js'
 import { migrationVersions, PACKAGE_SUPABASE } from '../migrations.js'
 
@@ -92,7 +92,7 @@ describe('environmentChecks', () => {
         await mkdir(dirname(join(root, name)), { recursive: true })
         await writeFile(join(root, name), text)
       }
-      return await environmentChecks({ root, supabaseDir: join(root, 'supabase'), env, siteUrl: 'https://acme.com', fetch: answer([{ id: 'u1' }]), ...options })
+      return await environmentChecks({ root, supabaseDir: join(root, 'supabase'), env, siteUrl: 'https://acme.com', fetch: answer([{ id: 'u1' }]), gh: async () => { throw new Error('gh: not logged in') }, ...options })
     } finally {
       await rm(root, { recursive: true, force: true })
     }
@@ -121,6 +121,28 @@ describe('environmentChecks', () => {
     expect((await levels({})).map(check => check.text)).toContainEqual(expect.stringContaining('keepalive workflow is in place and parses'))
     const broken = 'on:\n  schedule:\n    - cron: "0 0 * * *"\njobs:\n  ping:\n    steps:\n      - run: curl -H "apikey: x" https://db\n'
     expect((await levels({}, { [KEEPALIVE_FILE]: broken })).filter(check => check.level === 'fail').map(check => check.text)).toEqual([expect.stringContaining('will not run on GitHub: not valid YAML')])
+  })
+
+  it('reads the keepalive runs through gh when it can, and says nothing without it', async () => {
+    const now = () => Date.parse('2026-10-30T12:00:00Z')
+    const run = (id: number, createdAt: string, conclusion: string | null, status = 'completed') => ({ databaseId: id, status, conclusion, createdAt, url: `https://github.com/acme/site/actions/runs/${id}` })
+    const gh = (runs: unknown[], annotation: string | null = null) => async (args: string[]) => {
+      if (args[0] === 'run' && args[1] === 'list') return JSON.stringify(runs)
+      if (args[0] === 'run' && args[1] === 'view') return JSON.stringify({ jobs: [{ databaseId: 5 }] })
+      if (args[0] === 'api') return JSON.stringify(annotation ? [{ message: annotation }] : [])
+      throw new Error(`unexpected gh ${args.join(' ')}`)
+    }
+    expect(await keepaliveRunCheck(gh([run(2, '2026-10-29T09:17:00Z', 'success'), run(1, '2026-10-26T09:17:00Z', 'success')]), now))
+      .toEqual({ level: 'ok', text: 'The keepalive ran green 27 h ago (https://github.com/acme/site/actions/runs/2)' })
+    expect(await keepaliveRunCheck(gh([run(3, '2026-10-30T11:00:00Z', 'failure'), run(2, '2026-10-24T09:17:00Z', 'success')], 'The job was not started because recent account payments have failed or your spending limit needs to be increased.'), now))
+      .toEqual({ level: 'warn', text: 'The keepalive has no green run in 4 days: the latest ended failure ("The job was not started because recent account payments have failed or your spending limit needs to be increased."). https://github.com/acme/site/actions/runs/3' })
+    expect(await keepaliveRunCheck(gh([run(4, '2026-10-30T11:00:00Z', null, 'queued')]), now)).toMatchObject({ level: 'warn', text: expect.stringContaining('the latest ended queued.') })
+    expect(await keepaliveRunCheck(gh([]), now)).toMatchObject({ level: 'warn', text: expect.stringContaining('never ran') })
+    expect(await keepaliveRunCheck(async () => { throw new Error('gh: not logged in') }, now)).toBeNull()
+    expect(await keepaliveRunCheck(async () => 'not json', now)).toBeNull()
+    const checks = await levels({ gh: gh([run(2, '2026-10-29T09:17:00Z', 'success')]) })
+    expect(checks.map(check => check.text)).toContainEqual(expect.stringContaining('The keepalive ran green'))
+    expect((await levels({}, { [KEEPALIVE_FILE]: null })).map(check => check.text)).not.toContainEqual(expect.stringContaining('keepalive ran'))
   })
 
   it('names the env file it read', async () => {
