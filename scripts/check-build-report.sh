@@ -35,14 +35,28 @@ expect "$(sql "select build_status || ' ' || build_stamp || ' ' || (built_at is 
 AWS_JOB_ID=2 report --ok
 expect "$(sql "select build_status from public.publish_log where id = $a")" "built" "a second --ok changes nothing"
 
-# A build no --start claimed (another branch's, or one that started before the publish existed) closes nothing.
+# A build no --start claimed (one that started before the publish existed) closes nothing.
 c=$(sql "with row as (insert into public.publish_log (documents_count, removed_count, items, build_status) values (1, 0, '[]', 'building') returning id) select id from row")
 ids+=("$c")
 AWS_JOB_ID=9 report --ok
 expect "$(sql "select build_status || ' ' || coalesce(job_id, '-') from public.publish_log where id = $c")" "building -" "--ok leaves a publish its --start did not claim alone"
-AWS_BRANCH=new-landing CMS_BUILD_BRANCH=main AWS_JOB_ID=9 report --start
-expect "$(sql "select coalesce(job_id, '-') from public.publish_log where id = $c")" "-" "another branch reports nothing with CMS_BUILD_BRANCH"
 sql "update public.publish_log set build_status = 'failed', error_code = 'build_cancelled', finished_at = now() where id = $c" >/dev/null
+
+# Two sites on one Supabase: each build takes the publishes of its own branch; one without a branch goes to main.
+p=$(sql "with row as (insert into public.publish_log (documents_count, removed_count, items, build_status, branch) values (1, 0, '[]', 'building', 'new-landing') returning id) select id from row")
+ids+=("$p")
+AWS_JOB_ID=11 report --start
+expect "$(sql "select coalesce(job_id, '-') from public.publish_log where id = $p")" "-" "a build of main leaves a preview's publish alone"
+AWS_BRANCH=new-landing AWS_JOB_ID=12 report --start
+expect "$(sql "select job_id || ' ' || branch from public.publish_log where id = $p")" "12 new-landing" "a build of the preview takes the preview's publish"
+sql "update public.publish_log set build_status = 'failed', error_code = 'build_cancelled', finished_at = now() where id = $p" >/dev/null
+n=$(sql "with row as (insert into public.publish_log (documents_count, removed_count, items, build_status) values (1, 0, '[]', 'building') returning id) select id from row")
+ids+=("$n")
+AWS_BRANCH=new-landing AWS_JOB_ID=13 report --start
+expect "$(sql "select coalesce(job_id, '-') from public.publish_log where id = $n")" "-" "a preview build leaves a publish without a branch alone"
+AWS_JOB_ID=14 report --start
+expect "$(sql "select job_id || ' ' || branch from public.publish_log where id = $n")" "14 main" "the main build takes a publish without a branch"
+sql "update public.publish_log set build_status = 'failed', error_code = 'build_cancelled', finished_at = now() where id = $n" >/dev/null
 
 # A build that fails closes its publish.
 b=$(sql "with row as (insert into public.publish_log (documents_count, removed_count, items, build_status) values (1, 0, '[]', 'pending') returning id) select id from row")

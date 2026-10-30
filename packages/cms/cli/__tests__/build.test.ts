@@ -25,7 +25,10 @@ const fakeLog = (rows: RowType[]) => {
     const jobId = /job_id=eq\.([^&]+)/.exec(query)?.[1]
     if (jobId) return Response.json(rows.filter(row => isOpen(row) && row.job_id === jobId).slice(0, 1))
     const since = /requested_at=gte\.([^&]+)/.exec(query)![1]
-    const open = rows.filter(row => isOpen(row) && row.job_id === null && row.requested_at >= since)
+    const only = /&branch=eq\.([^&]+)/.exec(query)?.[1]
+    const either = /&or=\(branch\.eq\."([^"]+)",branch\.is\.null\)/.exec(query)?.[1]
+    const ofBranch = (row: RowType) => (only ? row.branch === only : either ? row.branch === either || row.branch == null : true)
+    const open = rows.filter(row => isOpen(row) && row.job_id === null && row.requested_at >= since && ofBranch(row))
     return Response.json(open.sort((a, b) => a.requested_at.localeCompare(b.requested_at)).slice(0, 1))
   }) as typeof fetch
   return { rows, requests, get }
@@ -65,13 +68,24 @@ describe('runBuildReport', () => {
     expect(describeBuildReport('ok', { publishId: null, action: 'none' }, amplify)).toBe('build:report --ok: no publish claimed this build (job 7) at --start; nothing to report.')
   })
 
-  it('reports nothing from a branch other than CMS_BUILD_BRANCH', async () => {
-    const log = fakeLog([row(2)])
-    const preview = { ...amplify, branch: 'new-landing', reportBranch: 'main' }
-    for (const phase of ['start', 'ok', 'failed'] as const) expect(await report(phase, log, preview)).toEqual({ publishId: null, action: 'other_branch' })
-    expect(log.requests).toEqual([])
-    expect(describeBuildReport('start', { publishId: null, action: 'other_branch' }, preview)).toBe('build:report --start: this build is of new-landing and publishes are built from main (CMS_BUILD_BRANCH); nothing to report.')
-    expect(await report('start', log, { ...amplify, reportBranch: 'main' })).toEqual({ publishId: 2, action: 'started' })
+  it('--start claims the publishes of its own branch, and the ones without a branch only from the default branch', async () => {
+    const preview = { ...amplify, branch: 'new-landing', jobId: '8', stamp: 'd1.new-landing.8' }
+    const log = fakeLog([row(2, { branch: 'new-landing', requested_at: at(9) }), row(3, { branch: 'main', requested_at: at(8) }), row(4, { branch: null, requested_at: at(7) })])
+    expect(await report('start', log, preview)).toEqual({ publishId: 2, action: 'started' })
+    expect(log.rows[0]).toMatchObject({ job_id: '8', branch: 'new-landing' })
+    expect(await report('start', log, { ...preview, jobId: '10' })).toEqual({ publishId: null, action: 'none' })
+    expect(describeBuildReport('start', { publishId: null, action: 'none' }, preview)).toBe('build:report --start: no open publish asked for a build of new-landing (job 8); nothing to report.')
+    expect(await report('start', log)).toEqual({ publishId: 3, action: 'started' })
+    expect(await report('start', log, { ...amplify, jobId: '9' })).toEqual({ publishId: 4, action: 'started' })
+    expect(log.rows[2]).toMatchObject({ job_id: '9', branch: 'main' })
+  })
+
+  it('CMS_BUILD_BRANCH moves the publishes without a branch to another branch\'s build', async () => {
+    const log = fakeLog([row(4, { branch: null })])
+    expect(await report('start', log, { ...amplify, reportBranch: 'production' })).toEqual({ publishId: null, action: 'none' })
+    expect(await report('start', log, { ...amplify, branch: 'production', reportBranch: 'production' })).toEqual({ publishId: 4, action: 'started' })
+    const none = fakeLog([row(5, { branch: null })])
+    expect(await report('start', none, nowhere)).toEqual({ publishId: 5, action: 'started' })
   })
 
   it('--ok without a stamp closes the publish as a success, since no deploy can be confirmed', async () => {
@@ -104,7 +118,7 @@ describe('runBuildReport', () => {
     await report('start', log)
     expect(log.requests).toEqual([
       'GET ?select=id,build_status,job_id&build_status=in.(pending,building)&job_id=eq.7&limit=1',
-      `GET ?select=id,build_status,job_id&build_status=in.(pending,building)&job_id=is.null&requested_at=gte.${at(30)}&order=requested_at.asc&limit=1`
+      `GET ?select=id,build_status,job_id&build_status=in.(pending,building)&job_id=is.null&requested_at=gte.${at(30)}&or=(branch.eq."main",branch.is.null)&order=requested_at.asc&limit=1`
     ])
   })
 

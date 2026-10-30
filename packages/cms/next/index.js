@@ -121,7 +121,13 @@ export const withCms = (nextConfig = {}, options = {}) => {
   return {
     ...nextConfig,
     // Inlined, so the built site can say which build it serves (GET /api/cms/build-status).
-    env: { ...(icon ? { CMS_BRAND_ICON: `${nextConfig.basePath ?? ''}${icon.url}` } : {}), CMS_BUILD_STAMP: process.env.CMS_BUILD_STAMP, ...nextConfig.env },
+    env: {
+      ...(icon ? { CMS_BRAND_ICON: `${nextConfig.basePath ?? ''}${icon.url}` } : {}),
+      CMS_BUILD_STAMP: process.env.CMS_BUILD_STAMP,
+      // The panel records it on each publish, so only a build of the same branch takes the publish (build:report --start).
+      ...(process.env.AWS_BRANCH ? { CMS_SITE_BRANCH: process.env.AWS_BRANCH } : {}),
+      ...nextConfig.env
+    },
     transpilePackages: [...new Set([...(nextConfig.transpilePackages ?? []), '@linkcharsoft/cms'])],
     images: {
       ...images,
