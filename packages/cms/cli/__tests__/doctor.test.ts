@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { AMPLIFY_BUILD_LINE, AMPLIFY_START_LINE, amplifyCacheCheck, amplifyReportCheck, appliedMigrationsCheck, authChecks, configPorts, environmentChecks, excludesPackageFromQuarantine, parseExcludedRanges, portChecks, postcssCheck, publishCircuitCheck, tablesCheck } from '../doctor.js'
+import { KEEPALIVE_FILE, keepaliveWorkflow } from '../keepalive.js'
 import { migrationVersions, PACKAGE_SUPABASE } from '../migrations.js'
 
 const NETSH = `
@@ -86,7 +87,7 @@ describe('environmentChecks', () => {
   const levels = async (options: Partial<Parameters<typeof environmentChecks>[0]>, files: Record<string, string | null> = {}) => {
     const root = await mkdtemp(join(tmpdir(), 'cms-doctor-'))
     try {
-      for (const [name, text] of Object.entries(files)) {
+      for (const [name, text] of Object.entries({ [KEEPALIVE_FILE]: keepaliveWorkflow(), ...files })) {
         if (text === null) continue
         await mkdir(dirname(join(root, name)), { recursive: true })
         await writeFile(join(root, name), text)
@@ -113,6 +114,11 @@ describe('environmentChecks', () => {
     expect((await levels({ fetch: answer([]) })).find(check => check.level === 'fail')?.text).toBe('No superadmin yet: linkchar-cms admin --email …')
     expect((await levels({ fetch: (async () => { throw new Error('ECONNREFUSED') }) as typeof fetch })).find(check => check.level === 'fail')?.text)
       .toContain('ECONNREFUSED')
+  })
+
+  it('warns while the Supabase keepalive workflow is missing', async () => {
+    expect((await levels({}, { [KEEPALIVE_FILE]: null })).filter(check => check.level === 'warn').map(check => check.text)).toEqual([expect.stringContaining('supabase-keepalive.yml')])
+    expect((await levels({})).map(check => check.text)).toContainEqual(expect.stringContaining('keepalive workflow is in place'))
   })
 
   it('names the env file it read', async () => {

@@ -4,6 +4,7 @@ import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { promisify } from 'node:util'
 import { consoleUrlOf } from './build.js'
+import { KEEPALIVE_FILE } from './keepalive.js'
 import { isLocalSupabaseUrl } from './local.js'
 import { migrationVersions, PACKAGE_SUPABASE } from './migrations.js'
 import { describeSettled, settlePublishLog } from './publish.js'
@@ -238,6 +239,9 @@ export const environmentChecks = async ({ root, supabaseDir, env, envFile = '.en
 
   const token = await hasPackagesToken(env)
   if (token === false) checks.push({ level: 'warn', text: 'No GitHub Packages token in the npm/pnpm user config: installing @linkcharsoft/cms will fail with 401' })
+  checks.push(existsSync(join(root, KEEPALIVE_FILE))
+    ? { level: 'ok', text: 'The Supabase keepalive workflow is in place (.github/workflows/supabase-keepalive.yml)' }
+    : { level: 'warn', text: 'No .github/workflows/supabase-keepalive.yml: a free Supabase project pauses after a week without requests, and then there is no panel and no build. linkchar-cms routes writes it (it reads the repository variables SUPABASE_URL and SUPABASE_PUBLISHABLE_KEY)' })
   const workspace = join(root, 'pnpm-workspace.yaml')
   if (existsSync(workspace) && !excludesPackageFromQuarantine(await readFile(workspace, 'utf8'))) {
     checks.push({ level: 'warn', text: 'pnpm-workspace.yaml lacks minimumReleaseAgeExclude: [\'@linkcharsoft/cms\']: a version released today will not install' })

@@ -9,6 +9,7 @@ import { buildIdentity, describeBuildReport, reportSettings, runBuildReport } fr
 import { authChecks, environmentChecks } from './doctor.js'
 import { askYesNo, importSettings, planLines, readPasswordFromStdin, runImport, summaryLines } from './import.js'
 import { initProject, nextSteps, normalizeBasePath } from './init.js'
+import { syncKeepalive } from './keepalive.js'
 import { isLocalSupabaseUrl } from './local.js'
 import { CliError, isUpToDate, syncMigrations } from './migrations.js'
 import { amplifyTrigger, describePing, maskHookUrl, pingSettings, runPing } from './publish.js'
@@ -19,11 +20,12 @@ import { syncTemplates, translatorOf } from './templates.js'
 /** @typedef {import('./routes.js').RouteChangeType} RouteChangeType */
 /** @typedef {import('./templates.js').TemplateChangeType} TemplateChangeType */
 /** @typedef {import('./init.js').InitChangeType} InitChangeType */
+/** @typedef {import('./keepalive.js').KeepaliveChangeType} KeepaliveChangeType */
 
 const USAGE = `Usage:
   linkchar-cms init --name "Acme" [--base-path /dashboard] [--locales es,en] [--panel-locale es] [--site-url http://localhost:3000]
   linkchar-cms migrations sync [--dir supabase] [--check]
-  linkchar-cms routes [--config cms.config.ts] [--src src] [--check]
+  linkchar-cms routes [--config cms.config.ts] [--src src] [--check]   (the panel routes and the Supabase keepalive workflow)
   linkchar-cms templates [--config cms.config.ts] [--dir supabase] [--check]
   linkchar-cms admin --email ana@acme.com [--password …] [--name "Ana"] [--env-file .env.local]
   linkchar-cms doctor [--config cms.config.ts] [--src src] [--dir supabase] [--env-file .env.local]
@@ -56,7 +58,7 @@ const USAGE = `Usage:
 /** @type {Record<SyncChangeType['status'] | RouteChangeType['status'] | TemplateChangeType['status'], string>} */
 const SYMBOLS = { added: '+', updated: '~', removed: '-', differs: '!', stale: '!', same: '=', kept: '=' }
 
-/** @param {string} title @param {(SyncChangeType | RouteChangeType | TemplateChangeType | InitChangeType)[]} changes @param {boolean} check */
+/** @param {string} title @param {(SyncChangeType | RouteChangeType | TemplateChangeType | InitChangeType | KeepaliveChangeType)[]} changes @param {boolean} check */
 const print = (title, changes, check) => {
   const shown = changes.filter(change => change.status !== 'same' && change.status !== 'kept')
   console.log(shown.length === 0 ? `${title}: up to date` : `${title}:`)
@@ -86,13 +88,15 @@ const routes = async ({ config, src, check }) => {
   const loaded = await loadConfig(configFile)
   const changes = await syncRoutes({ sourceDir, config: loaded, configFile, write: !check })
   print('Panel routes', changes, check)
+  const keepalive = await syncKeepalive({ root: resolve('.'), write: !check })
+  print('Supabase keepalive workflow', [keepalive], check)
 
   const proxy = await checkProxy({ sourceDir, basePath: loaded.basePath })
   if (proxy !== 'ok') {
     console.warn(`\n${proxy === 'missing' ? 'There is no proxy.ts' : 'proxy.ts does not match the panel'}: it needs`)
     console.warn(`  export const proxy = cms.proxy\n  export const config = { matcher: ['${loaded.basePath}/:path*'] }`)
   }
-  const behind = changes.some(change => change.status === 'added' || change.status === 'updated' || change.status === 'removed')
+  const behind = [...changes, keepalive].some(change => change.status === 'added' || change.status === 'updated' || change.status === 'removed')
   if (!check && changes.some(change => change.status === 'removed')) console.log('\nA removed route leaves .next/types behind: run next typegen (or next build) before the next type-check.')
   return check && (behind || proxy !== 'ok') ? 1 : 0
 }
