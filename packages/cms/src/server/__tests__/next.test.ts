@@ -111,6 +111,18 @@ describe('createCmsServer', () => {
     expect((await reporting.handlers.buildStatus(webhook('Bearer x'))).status).toBe(404)
   })
 
+  it('publishes with the branch the site was built from', async () => {
+    db.tables.publish_log.push({ id: 1, requested_at: new Date().toISOString(), build_status: 'pending', job_id: null, branch: null })
+    const cms = createCmsServer({ config, supabase, publishTarget: amplify({ hookUrl: 'https://hooks.example', webhookSecret: undefined }) })
+    process.env.CMS_SITE_BRANCH = 'main'
+    try {
+      expect((await cms.context()).siteBranch).toBe('main')
+    } finally {
+      delete process.env.CMS_SITE_BRANCH
+    }
+    expect((await cms.context()).siteBranch).toBeNull()
+  })
+
   it('tells which build it serves, for the panel to confirm a deploy', async () => {
     const cms = createCmsServer({ config, supabase })
     process.env.CMS_BUILD_STAMP = 'd1.main.7'

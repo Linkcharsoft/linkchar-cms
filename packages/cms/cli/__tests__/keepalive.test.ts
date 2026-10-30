@@ -24,6 +24,8 @@ describe('syncKeepalive', () => {
     expect(text).toContain('${{ vars.SUPABASE_URL }}/rest/v1/published_documents?select=id&limit=1')
     expect(text).toContain('apikey: ${{ vars.SUPABASE_PUBLISHABLE_KEY }}')
     expect(text).toContain('curl -fsS')
+    expect(text).toContain('\npermissions: {}\n')
+    expect(text).toContain('    timeout-minutes: 5\n')
     expect(await syncKeepalive({ root })).toEqual({ file: KEEPALIVE_FILE, status: 'same' })
   })
 

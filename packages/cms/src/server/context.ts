@@ -28,6 +28,8 @@ export interface CmsContextType {
   logger: CmsLoggerType
   // Reaches the site (its build stamp); the global fetch unless a test replaces it.
   fetch?: typeof fetch
+  // The Amplify branch this site was built from (CMS_SITE_BRANCH, inlined by withCms); null outside Amplify.
+  siteBranch?: string | null
 }
 
 // Thrown by the server layer to send the user elsewhere (sign-in, the new document); the Next binding redirects.

@@ -7,7 +7,7 @@ import { CliError } from './migrations.js'
  * @typedef {{ url: string, secretKey: string }} ReportSettingsType
  * @typedef {{ jobId: string | null, appId: string | null, branch: string | null, region: string | null, commit: string | null, stamp: string | null, reportBranch: string | null }} BuildIdentityType
  * @typedef {{ id: number, build_status: string, job_id: string | null }} OpenRowType
- * @typedef {'started' | 'built' | 'succeeded' | 'failed' | 'none' | 'other_branch'} ReportActionType
+ * @typedef {'started' | 'built' | 'succeeded' | 'failed' | 'none'} ReportActionType
  * @typedef {{ publishId: number | null, action: ReportActionType }} ReportResultType
  */
 
@@ -37,8 +37,8 @@ const gitHead = () => {
 
 /**
  * Who this build is, from Amplify's build variables; the stamp is the one withCms gives the same build. A webhook build
- * gets AWS_COMMIT_ID as "HEAD", so the commit comes from the checkout then. CMS_BUILD_BRANCH names the branch that
- * builds publishes (the one the hook points at); the other branches of the app report nothing.
+ * gets AWS_COMMIT_ID as "HEAD", so the commit comes from the checkout then. CMS_BUILD_BRANCH names the branch whose
+ * build takes the publishes that carry no branch (a local panel, publish:ping); main when unset.
  * @param {Record<string, string | undefined>} [env]
  * @param {() => string | null} [head]
  * @returns {BuildIdentityType}
@@ -63,9 +63,10 @@ export const consoleUrlOf = ({ region, app_id: appId, branch, job_id: jobId }) =
 /**
  * Reports one phase of the site's build to the publish that asked for it: --start takes the open publish (by the job
  * the hook stored, else the oldest open one of the last 30 minutes), --ok leaves it built with the stamp the site
- * will serve (success right away when nothing can confirm a deploy), --failed closes it. On Amplify, --ok and --failed
- * only close the publish this build's --start claimed (same job): a build of another branch, or one that started
- * before the publish existed, must not take it. No open publish: nothing.
+ * will serve (success right away when nothing can confirm a deploy), --failed closes it. On Amplify, --start claims
+ * only the publishes of its own branch (the panel records it), and --ok and --failed only close the publish this
+ * build's --start claimed (same job): a build of another branch, or one that started before the publish existed,
+ * must not take it. No open publish: nothing.
  * @param {{ phase: ReportPhaseType, settings: ReportSettingsType, identity: BuildIdentityType, fetch?: typeof fetch, now?: () => number }} options
  * @returns {Promise<ReportResultType>}
  */
@@ -80,9 +81,14 @@ export const runBuildReport = async ({ phase, settings, identity, fetch: get = f
     return body
   }
 
-  if (identity.reportBranch && identity.branch !== identity.reportBranch) return { publishId: null, action: 'other_branch' }
-
   const open = 'build_status=in.(pending,building)'
+  // A publish carries the branch of the panel that asked for it; one without a branch (a local panel, the ping)
+  // belongs to the build of CMS_BUILD_BRANCH, main by default.
+  const branchFilter = () => {
+    if (!identity.branch) return ''
+    if (identity.branch === (identity.reportBranch ?? 'main')) return `&or=(branch.eq.${encodeURIComponent(JSON.stringify(identity.branch))},branch.is.null)`
+    return `&branch=eq.${encodeURIComponent(identity.branch)}`
+  }
   /** @returns {Promise<OpenRowType | null>} */
   const find = async () => {
     if (identity.jobId) {
@@ -90,7 +96,7 @@ export const runBuildReport = async ({ phase, settings, identity, fetch: get = f
       if (own || phase !== 'start') return own ?? null
     }
     const since = new Date(now() - OPEN_WINDOW_MS).toISOString()
-    const [oldest] = /** @type {OpenRowType[]} */ (await rest(`?select=id,build_status,job_id&${open}&job_id=is.null&requested_at=gte.${since}&order=requested_at.asc&limit=1`)) ?? []
+    const [oldest] = /** @type {OpenRowType[]} */ (await rest(`?select=id,build_status,job_id&${open}&job_id=is.null&requested_at=gte.${since}${branchFilter()}&order=requested_at.asc&limit=1`)) ?? []
     return oldest ?? null
   }
 
@@ -121,9 +127,8 @@ export const runBuildReport = async ({ phase, settings, identity, fetch: get = f
 /** @param {ReportPhaseType} phase @param {ReportResultType} result @param {BuildIdentityType} identity @returns {string} */
 export const describeBuildReport = (phase, result, identity) => {
   const job = identity.jobId ? ` (job ${identity.jobId})` : ''
-  if (result.action === 'other_branch') return `build:report --${phase}: this build is of ${identity.branch ?? 'no branch'} and publishes are built from ${identity.reportBranch} (CMS_BUILD_BRANCH); nothing to report.`
   if (result.action === 'none' && phase !== 'start' && identity.jobId) return `build:report --${phase}: no publish claimed this build${job} at --start; nothing to report.`
-  if (result.action === 'none') return `build:report --${phase}: no open publish asked for this build${job}; nothing to report.`
+  if (result.action === 'none') return `build:report --${phase}: no open publish asked for a build of ${identity.branch ?? 'this site'}${job}; nothing to report.`
   if (result.action === 'started') return `build:report: publish #${result.publishId} is being built by this build${job}.`
   if (result.action === 'failed') return `build:report: publish #${result.publishId} failed with this build${job}.`
   if (result.action === 'built') return `build:report: publish #${result.publishId} is built (stamp ${identity.stamp}); the panel confirms it once the site serves this build.`

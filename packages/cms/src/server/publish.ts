@@ -407,6 +407,12 @@ export const triggerBuild = async (ctx: CmsContextType, publishId: number): Prom
 
   if (!ctx.publishTarget) return fail('target_missing')
 
+  // Written before the hook fires: build:report --start of the same branch finds it, a preview's build leaves it alone.
+  if (ctx.siteBranch) {
+    const { error } = await ctx.admin().from('publish_log').update({ branch: ctx.siteBranch }).eq('id', publishId)
+    if (error) ctx.logger.error('[publish] branch update failed:', error.code ?? error.message)
+  }
+
   const result = await ctx.publishTarget.trigger({ report: event => applyBuildEvent(ctx, event), logger: ctx.logger })
   if (!result.ok) return fail(result.code, result.detail)
 

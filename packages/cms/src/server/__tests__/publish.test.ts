@@ -322,6 +322,15 @@ describe('triggerBuild', () => {
     expect(db.tables.publish_log[0]).toMatchObject({ build_status: 'success', job_id: 'job-2' })
   })
 
+  it('records the branch of the site that publishes, for the build of that branch to take it', async () => {
+    ctx = { ...ctx, siteBranch: 'main', publishTarget: target(async () => ({ ok: true, jobId: null })) }
+    expect(await triggerBuild(ctx, 7)).toBe('building')
+    expect(db.tables.publish_log[0]).toMatchObject({ build_status: 'building', branch: 'main' })
+    db.tables.publish_log.push(logRow(8))
+    expect(await triggerBuild({ ...ctx, siteBranch: null }, 8)).toBe('building')
+    expect(db.tables.publish_log[1].branch).toBeNull()
+  })
+
   it('runs the whole cycle with the mock build', async () => {
     vi.useFakeTimers()
     ctx.publishTarget = mockBuild({ result: 'success', seconds: 2 })

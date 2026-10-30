@@ -42,8 +42,9 @@ describe('withCms', () => {
     process.env.AWS_APP_ID = 'd1abc'
     process.env.AWS_BRANCH = 'main'
     try {
-      withCms({}, { redirects: false })
+      const config = withCms({}, { redirects: false })
       expect(process.env.CMS_BUILD_STAMP).toBe('d1abc.main.7')
+      expect(config.env).toMatchObject({ CMS_BUILD_STAMP: 'd1abc.main.7', CMS_SITE_BRANCH: 'main' })
     } finally {
       delete process.env.CMS_BUILD_STAMP
       delete process.env.AWS_JOB_ID

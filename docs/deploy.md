@@ -64,7 +64,7 @@ A project runs on two services: **Supabase** (database, auth, storage) and **Amp
 ## 2. Amplify app
 
 1. Connect the repository and the production branch.
-2. Environment variables: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SECRET_KEY`, `NEXT_PUBLIC_SITE_URL`, `CMS_BUILD_HOOK_URL` (the branch's incoming webhook), `CMS_BUILD_BRANCH` (`main`) when the app has a preview branch, and `GITHUB_PACKAGES_TOKEN` (a token with `read:packages` on Linkcharsoft) for the install.
+2. Environment variables: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SECRET_KEY`, `NEXT_PUBLIC_SITE_URL`, `CMS_BUILD_HOOK_URL` (the branch's incoming webhook), `CMS_BUILD_BRANCH` only when the hook's branch is not `main` and a panel outside Amplify publishes against the project, and `GITHUB_PACKAGES_TOKEN` (a token with `read:packages` on Linkcharsoft) for the install.
 3. Amplify gives the environment variables to the build but not to the SSR runtime: `amplify.yml` copies the ones the server reads at runtime into `.env.production` (`SUPABASE_SECRET_KEY`, `CMS_BUILD_HOOK_URL`; the `NEXT_PUBLIC_*` ones are inlined at build), writes the package token before installing, and reports the build to the panel:
 
    ```yaml

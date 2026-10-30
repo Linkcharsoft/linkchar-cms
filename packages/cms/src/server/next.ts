@@ -119,7 +119,8 @@ export const createCmsServer = ({ config, supabase, publishTarget = null, logger
     publishTarget: usablePublishTarget(),
     revalidate: (path, type) => revalidatePath(path, type),
     now: () => new Date(),
-    logger
+    logger,
+    siteBranch: process.env.CMS_SITE_BRANCH ?? null
   })
 
   // One per request: the profile read by requireRole is shared by everything that request renders.
