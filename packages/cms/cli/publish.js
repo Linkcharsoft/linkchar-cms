@@ -1,8 +1,9 @@
 import { fileURLToPath } from 'node:url'
+import { consoleUrlOf } from './build.js'
 import { CliError } from './migrations.js'
 
 /**
- * @typedef {{ url: string, secretKey: string, hookUrl: string, webhookSecret?: string, siteUrl: string | null }} PingSettingsType
+ * @typedef {{ url: string, secretKey: string, hookUrl: string, siteUrl: string | null }} PingSettingsType
  * @typedef {{ jobId: string, status: 'started' | 'succeeded' | 'failed' | 'cancelled' }} BuildEventType
  * @typedef {{ report: (event: BuildEventType) => Promise<unknown>, logger: { error: (message: string, detail?: unknown) => void } }} TriggerContextType
  * @typedef {(ctx: TriggerContextType) => Promise<{ ok: true, jobId: string | null } | { ok: false, code: string, detail?: string }>} TriggerType
@@ -10,9 +11,6 @@ import { CliError } from './migrations.js'
  * @typedef {'no_start' | 'no_end' | 'no_deploy' | 'no_site'} UnconfirmedStageType
  * @typedef {{ ok: true, id: number, jobId: string | null, minutes: number, confirmedBy: 'ping' | 'panel' | 'webhook' } | { ok: false, id: number, code: string, detail: string | null, minutes: number, stage?: UnconfirmedStageType, consoleUrl?: string | null, siteUrl?: string | null }} PingResultType
  */
-
-// Mirrors BUILD_CONFIRMATION_TIMEOUT_MS in src/core/publish.ts: past it a publish stops blocking the next one.
-const BUILDING_LOCK_MS = 30 * 60 * 1000
 
 const FAILURE_CODES = { failed: 'build_failed', cancelled: 'build_cancelled' }
 
@@ -32,7 +30,6 @@ export const pingSettings = (env, envLabel = 'the env file', siteUrl = env.NEXT_
     url: /** @type {string} */ (env.NEXT_PUBLIC_SUPABASE_URL).replace(/\/$/, ''),
     secretKey: /** @type {string} */ (env.SUPABASE_SECRET_KEY),
     hookUrl: env.CMS_BUILD_HOOK_URL,
-    webhookSecret: env.CMS_BUILD_WEBHOOK_SECRET,
     siteUrl: siteUrl ? siteUrl.replace(/\/$/, '') : null
   }
 }
@@ -64,13 +61,18 @@ const siteStamp = async (get, siteUrl) => {
   }
 }
 
-/** @param {LogRowType} row @returns {string | null} */
-const consoleUrl = ({ region, app_id: appId, branch, job_id: jobId }) =>
-  (region && appId && branch && jobId ? `https://${region}.console.aws.amazon.com/amplify/apps/${appId}/branches/${encodeURIComponent(branch)}/deployments/${jobId}` : null)
+const jiti = async () => {
+  const { createJiti } = await import('jiti')
+  return createJiti(import.meta.url)
+}
+
+/** @returns {Promise<typeof import('../src/core/publish')>} the package's publish rules, loaded from its TypeScript */
+const corePublish = async () => (await jiti()).import(fileURLToPath(new URL('../src/core/publish.ts', import.meta.url)))
 
 /**
- * Settles the open rows of the publish log the way the panel does when it reads it: a built publish whose stamp the
- * site serves becomes success; one nothing confirmed in 30 minutes is closed as failed/unconfirmed.
+ * Settles the open rows of the publish log with the rule the panel applies when it reads it (settlePublishRows): a
+ * built publish whose stamp the site serves becomes success, one nothing confirmed in 30 minutes is closed as
+ * failed/unconfirmed.
  * @param {{ url: string, secretKey: string, siteUrl: string | null, fetch?: typeof fetch, now?: () => number }} options
  * @returns {Promise<{ confirmed: number[], closed: number[] }>}
  */
@@ -83,20 +85,22 @@ export const settlePublishLog = async ({ url, secretKey, siteUrl, fetch: get = f
     if (!response.ok) throw new CliError(`Supabase refused the publish log (HTTP ${response.status}${body?.message ? `: ${body.message}` : ''}).`)
     return body
   }
-  const rows = /** @type {(LogRowType & { id: number, built_at: string | null })[]} */ (await rest('?select=id,build_status,job_id,build_stamp,built_at,requested_at&build_status=in.(pending,building,built)&order=requested_at.asc')) ?? []
-  const result = { confirmed: /** @type {number[]} */ ([]), closed: /** @type {number[]} */ ([]) }
-  const served = rows.some(row => row.build_status === 'built' && row.build_stamp) && siteUrl ? await siteStamp(get, siteUrl) : null
-  for (const row of rows) {
-    const since = row.build_status === 'built' ? Date.parse(row.built_at ?? row.requested_at) : Date.parse(row.requested_at)
-    if (row.build_status === 'built' && row.build_stamp && served === row.build_stamp) {
-      await rest(`?id=eq.${row.id}&build_status=eq.built`, { method: 'PATCH', body: JSON.stringify({ build_status: 'success', finished_at: new Date(now()).toISOString() }) })
-      result.confirmed.push(row.id)
-    } else if (now() - since > BUILDING_LOCK_MS) {
-      await rest(`?id=eq.${row.id}&build_status=eq.${row.build_status}`, { method: 'PATCH', body: JSON.stringify({ build_status: 'failed', error_code: 'unconfirmed', error_detail: null, finished_at: new Date(now()).toISOString() }) })
-      result.closed.push(row.id)
-    }
+  const { needsSiteStamp, settlePublishRows } = await corePublish()
+  const rows = /** @type {(LogRowType & { id: number, built_at: string | null })[]} */ (await rest('?select=id,build_status,job_id,build_stamp,built_at,requested_at,error_code&build_status=in.(pending,building,built)&order=requested_at.asc')) ?? []
+  const timing = rows.map(row => ({
+    id: row.id, buildStatus: /** @type {import('../src/core/publish').BuildStatusType} */ (row.build_status), requestedAt: row.requested_at,
+    builtAt: row.built_at, buildStamp: row.build_stamp ?? null, errorCode: /** @type {import('../src/core/publish').BuildErrorCodeType | null} */ (row.error_code)
+  }))
+  const served = needsSiteStamp(timing) && siteUrl ? await siteStamp(get, siteUrl) : null
+  const { confirm, close } = settlePublishRows(timing, served, now())
+  const finished = () => new Date(now()).toISOString()
+  for (const row of rows.filter(row => confirm.includes(row.id))) {
+    await rest(`?id=eq.${row.id}&build_status=eq.built`, { method: 'PATCH', body: JSON.stringify({ build_status: 'success', finished_at: finished() }) })
   }
-  return result
+  for (const row of rows.filter(row => close.includes(row.id))) {
+    await rest(`?id=eq.${row.id}&build_status=eq.${row.build_status}`, { method: 'PATCH', body: JSON.stringify({ build_status: 'failed', error_code: 'unconfirmed', error_detail: null, finished_at: finished() }) })
+  }
+  return { confirmed: confirm, closed: close }
 }
 
 /** @param {{ confirmed: number[], closed: number[] }} settled @returns {string[]} */
@@ -106,11 +110,9 @@ export const describeSettled = ({ confirmed, closed }) => [
 ]
 
 /** @param {PingSettingsType} settings @returns {Promise<TriggerType>} the package's Amplify target, loaded from its TypeScript */
-export const amplifyTrigger = async ({ hookUrl, webhookSecret }) => {
-  const { createJiti } = await import('jiti')
-  const jiti = createJiti(import.meta.url)
-  const { amplify } = /** @type {typeof import('../src/publish/amplify')} */ (await jiti.import(fileURLToPath(new URL('../src/publish/amplify.ts', import.meta.url))))
-  return amplify({ hookUrl, webhookSecret }).trigger
+export const amplifyTrigger = async ({ hookUrl }) => {
+  const { amplify } = /** @type {typeof import('../src/publish/amplify')} */ (await (await jiti()).import(fileURLToPath(new URL('../src/publish/amplify.ts', import.meta.url))))
+  return amplify({ hookUrl, webhookSecret: undefined }).trigger
 }
 
 /** @param {number} ms */
@@ -181,7 +183,7 @@ export const runPing = async ({ settings, trigger, timeoutMs, intervalMs = 15_00
       if (!current.build_stamp) return { ok: true, id, jobId: current.job_id, minutes: minutesSince(started), confirmedBy: 'webhook' }
       const serving = siteUrl ? await siteStamp(get, siteUrl) : null
       if (serving === current.build_stamp) return { ok: true, id, jobId: current.job_id, minutes: minutesSince(started), confirmedBy: 'panel' }
-      return { ok: false, id, code: 'confirmed_elsewhere', detail: serving, minutes: minutesSince(started), siteUrl, consoleUrl: consoleUrl(current) }
+      return { ok: false, id, code: 'confirmed_elsewhere', detail: serving, minutes: minutesSince(started), siteUrl, consoleUrl: consoleUrlOf(current) }
     }
     if (current.build_status === 'failed') return { ok: false, id, code: current.error_code ?? 'build_failed', detail: current.error_detail, minutes: minutesSince(started) }
     if (current.build_status === 'built' && current.build_stamp && siteUrl && await siteStamp(get, siteUrl) === current.build_stamp) {
@@ -191,7 +193,7 @@ export const runPing = async ({ settings, trigger, timeoutMs, intervalMs = 15_00
     }
   }
   const stage = !current?.job_id && current?.build_status !== 'built' ? 'no_start' : current?.build_status !== 'built' ? 'no_end' : siteUrl ? 'no_deploy' : 'no_site'
-  return { ok: false, id, code: 'unconfirmed', detail: null, minutes: minutesSince(started), stage, consoleUrl: current ? consoleUrl(current) : null, siteUrl }
+  return { ok: false, id, code: 'unconfirmed', detail: null, minutes: minutesSince(started), stage, consoleUrl: current ? consoleUrlOf(current) : null, siteUrl }
 }
 
 /** @param {PingResultType} result @returns {string} */

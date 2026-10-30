@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { amplifyConsoleUrl, BUILD_CONFIRMATION_TIMEOUT_MS, headerPublishStatus, isDocumentStatus, publishDisplayStatus, UNCONFIRMED_HEADER_MS } from '../publish'
-import type { BuildStatusType } from '../publish'
+import { amplifyConsoleUrl, BUILD_CONFIRMATION_TIMEOUT_MS, headerPublishStatus, isDocumentStatus, needsSiteStamp, publishDisplayStatus, settlePublishRows, UNCONFIRMED_HEADER_MS } from '../publish'
+import type { BuildStatusType, SettleRowType } from '../publish'
 
 describe('publishDisplayStatus', () => {
   const requestedAt = '2026-10-14T12:00:00.000Z'
@@ -67,5 +67,32 @@ describe('isDocumentStatus', () => {
     expect(isDocumentStatus('changed')).toBe(true)
     expect(isDocumentStatus('toString')).toBe(false)
     expect(isDocumentStatus(undefined)).toBe(false)
+  })
+})
+
+describe('settlePublishRows', () => {
+  const requestedAt = '2026-10-14T12:00:00.000Z'
+  const start = Date.parse(requestedAt)
+  const minute = 60_000
+  const at = (minutes: number) => new Date(start + minutes * minute).toISOString()
+  const row = (id: number, buildStatus: BuildStatusType, extra: Partial<SettleRowType> = {}): SettleRowType => ({ id, buildStatus, requestedAt, builtAt: null, buildStamp: null, ...extra })
+
+  it('confirms a built publish the site serves however late, and closes the open ones nothing confirmed in time', () => {
+    const rows = [
+      row(1, 'built', { buildStamp: 'd1.main.7', builtAt: at(5) }),
+      row(2, 'built', { buildStamp: 'd1.main.6', builtAt: at(5) }),
+      row(3, 'building'),
+      row(4, 'pending', { requestedAt: at(50) }),
+      row(5, 'success', { buildStamp: 'd1.main.5' }),
+      row(6, 'failed', { errorCode: 'unconfirmed' })
+    ]
+    expect(settlePublishRows(rows, 'd1.main.7', start + 60 * minute)).toEqual({ confirm: [1], close: [2, 3] })
+    expect(settlePublishRows(rows, 'd1.main.7', start + 10 * minute)).toEqual({ confirm: [1], close: [] })
+    expect(settlePublishRows(rows, null, start + 60 * minute)).toEqual({ confirm: [], close: [1, 2, 3] })
+  })
+
+  it('asks the site only while a built publish with a stamp is open', () => {
+    expect(needsSiteStamp([row(1, 'building'), row(2, 'built')])).toBe(false)
+    expect(needsSiteStamp([row(1, 'built', { buildStamp: 'x' })])).toBe(true)
   })
 })

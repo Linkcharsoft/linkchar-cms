@@ -36,9 +36,9 @@ describe('amplify trigger', () => {
     expect(context.logger.error).toHaveBeenCalledWith('[publish] build hook failed:', 'timeout')
   })
 
-  it('returns the Amplify job, when the hook says it', async () => {
+  it('records no job from the hook, whatever it answers: the build reports its own job', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(Response.json({ jobId: '42' }))
-    expect(await target.trigger(triggerContext())).toEqual({ ok: true, jobId: '42' })
+    expect(await target.trigger(triggerContext())).toEqual({ ok: true, jobId: null })
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('ok'))
     expect(await target.trigger(triggerContext())).toEqual({ ok: true, jobId: null })
   })

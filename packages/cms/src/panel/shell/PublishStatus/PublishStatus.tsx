@@ -64,7 +64,7 @@ const PublishStatus = ({ latest: initialLatest, counts: initialCounts }: Props) 
   useEffect(() => onSaved(() => void refresh()), [])
 
   useEffect(() => {
-    if (status !== 'building') return
+    if (status !== 'building' && status !== 'deploying') return
     const interval = setInterval(() => void refresh(), POLL_INTERVAL_MS)
     return () => clearInterval(interval)
   }, [status])

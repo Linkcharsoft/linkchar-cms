@@ -12,7 +12,7 @@ import { CliError } from './migrations.js'
  */
 
 // Mirrors BUILD_CONFIRMATION_TIMEOUT_MS in src/core/publish.ts: an older open publish is not the one this build serves.
-const OPEN_WINDOW_MS = 30 * 60 * 1000
+export const OPEN_WINDOW_MS = 30 * 60 * 1000
 
 /**
  * The publish log, from the build's environment: Amplify passes the app's variables to the build.
@@ -55,7 +55,7 @@ export const buildIdentity = (env = process.env, head = gitHead) => ({
 
 /**
  * The deployment in the Amplify console; mirrors amplifyConsoleUrl in src/core/publish.ts.
- * @param {{ region: string | null, app_id: string | null, branch: string | null, job_id: string | null }} row
+ * @param {{ region?: string | null, app_id?: string | null, branch?: string | null, job_id?: string | null }} row
  */
 export const consoleUrlOf = ({ region, app_id: appId, branch, job_id: jobId }) =>
   (region && appId && branch && jobId ? `https://${region}.console.aws.amazon.com/amplify/apps/${appId}/branches/${encodeURIComponent(branch)}/deployments/${jobId}` : null)

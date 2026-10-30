@@ -47,6 +47,31 @@ export const publishDisplayStatus = ({ buildStatus, requestedAt, builtAt, errorC
   return now - Date.parse(requestedAt) > BUILD_CONFIRMATION_TIMEOUT_MS ? 'unconfirmed' : 'building'
 }
 
+export const OPEN_BUILD_STATUSES: readonly BuildStatusType[] = ['pending', 'building', 'built']
+
+// A publish row as whoever settles the log reads it: the panel through supabase-js, doctor and publish:ping through REST.
+export interface SettleRowType extends PublishTimingType {
+  id: number
+  buildStamp: string | null
+}
+
+export interface SettledPublishesType {
+  confirm: number[]
+  close: number[]
+}
+
+// Only a built publish with a stamp can be confirmed, so the site is asked only when one is open.
+export const needsSiteStamp = (rows: SettleRowType[]) => rows.some(row => row.buildStatus === 'built' && !!row.buildStamp)
+
+// A built publish whose stamp the site serves is confirmed whatever its age; the open ones nothing confirmed in time are closed.
+export const settlePublishRows = (rows: SettleRowType[], servedStamp: string | null, now = Date.now()): SettledPublishesType => {
+  const confirm = rows.filter(row => row.buildStatus === 'built' && !!row.buildStamp && row.buildStamp === servedStamp).map(row => row.id)
+  const close = rows
+    .filter(row => !confirm.includes(row.id) && OPEN_BUILD_STATUSES.includes(row.buildStatus) && publishDisplayStatus(row, now) === 'unconfirmed')
+    .map(row => row.id)
+  return { confirm, close }
+}
+
 export interface AmplifyJobType {
   region: string | null
   appId: string | null

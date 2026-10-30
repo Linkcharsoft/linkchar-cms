@@ -458,10 +458,11 @@ describe('getPublishHistory', () => {
       expect(db.tables.publish_log[0].build_status).toBe('built')
     })
 
-    it('stops asking the site after the deploy timeout, and never asks for a build without a stamp', async () => {
+    it('confirms a built publish the site serves however late the log is read, and never asks for a build without a stamp', async () => {
       const fetch = site('d1.main.7')
-      expect((await getPublishHistory({ ...ctx, fetch, now: () => new Date(NOW + 31 * MINUTE) }))[0]).toMatchObject({ buildStatus: 'failed', errorCode: 'unconfirmed' })
-      db.tables.publish_log[0].build_stamp = null
+      expect((await getPublishHistory({ ...ctx, fetch, now: () => new Date(NOW + 31 * MINUTE) }))[0]).toMatchObject({ buildStatus: 'success', finishedAt: new Date(NOW + 31 * MINUTE).toISOString() })
+      Object.assign(db.tables.publish_log[0], { build_status: 'built', build_stamp: null, finished_at: null })
+      fetch.mockClear()
       await getPublishHistory({ ...ctx, fetch })
       expect(fetch).not.toHaveBeenCalled()
     })

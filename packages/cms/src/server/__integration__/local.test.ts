@@ -10,7 +10,7 @@ import { CmsRedirect } from '../context'
 import { listCollection } from '../documents'
 import { saveDocument } from '../editing'
 import { getMediaUsage, listMedia } from '../media'
-import { getPendingChanges, publishChanges } from '../publish'
+import { getPendingChanges, getPublishCircuit, publishChanges } from '../publish'
 import { settleBuilds } from './builds'
 import type { CmsClientType, CmsContextType, DataRecord } from '../context'
 import type { Database } from '../database'
@@ -82,6 +82,7 @@ beforeAll(async () => {
 afterAll(async () => {
   await admin.from('documents').delete().in('id', created)
   await admin.from('redirects').delete().like('from_path', `/blog/int-${stamp}%`)
+  await admin.from('publish_log').delete().eq('job_id', `int-${stamp}`)
   await admin.from('media').delete().like('path', `blog/2026/%-${stamp}.webp`)
 })
 
@@ -141,6 +142,17 @@ describe('publishing against the database', () => {
 
     const { data: redirects } = await admin.from('redirects').select('from_path, to_path').eq('from_path', `/blog/int-${stamp}`)
     expect(redirects).toEqual([{ from_path: `/blog/int-${stamp}`, to_path: `/blog/int-${stamp}-nueva` }])
+  })
+
+  // The circuit query runs against PostgREST here because its filters (not.is, not.like) are what the fake cannot check.
+  it('reads the publish circuit from the log, counting only real builds', async () => {
+    const before = await getPublishCircuit(superadmin)
+    expect(['unconfirmed', 'confirmed']).toContain(before)
+    const { data: real } = await admin.from('publish_log').select('id').eq('build_status', 'success').not('job_id', 'is', null).not('job_id', 'like', 'mock-%').limit(1)
+    expect(before).toBe(real?.length ? 'confirmed' : 'unconfirmed')
+    const { error } = await admin.from('publish_log').insert({ documents_count: 0, removed_count: 0, items: [], build_status: 'success', job_id: `int-${stamp}`, finished_at: new Date().toISOString() })
+    expect(error).toBeNull()
+    expect(await getPublishCircuit(superadmin)).toBe('confirmed')
   })
 
   it('keeps editors without permission away from publishing', async () => {
