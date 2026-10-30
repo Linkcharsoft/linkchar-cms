@@ -1,5 +1,16 @@
 # @linkcharsoft/cms
 
+## 0.17.1
+
+### Patch Changes
+
+- 2c16bdd: The help of "Publicando · desplegando" says that Amplify's deploy usually takes 2 or 3 more minutes after the build and that there is no need to retry; before it promised less than a minute.
+  
+  To update a project: nothing.
+- abad5ce: The generated keepalive workflow was not valid YAML: the `run:` line held `"apikey: ${{ … }}"` in a plain scalar, which YAML reads as a nested mapping, so GitHub registered the file under its file name, refused `workflow_dispatch` and never ran the cron. The `curl` now sits in a folded scalar (`run: >-`), the package's tests parse the generated text with a YAML parser, and `linkchar-cms routes --check` and `doctor` parse the project's file instead of trusting its name: a workflow that does not parse, has no schedule or dispatch, or no job with steps fails `--check` and reads `✗` in `doctor`. Every keepalive written by 0.16.0 or 0.17.0 never ran.
+  
+  To update a project: `linkchar-cms routes` rewrites `.github/workflows/supabase-keepalive.yml` (it carries the marker); commit it and check the workflow appears by its name, "Supabase keepalive", under Actions.
+
 ## 0.17.0
 
 ### Minor Changes
