@@ -1,5 +1,22 @@
 # @linkcharsoft/cms
 
+## 0.17.0
+
+### Minor Changes
+
+- 1719457: A publish carries the branch of the site that asked for it, so two Amplify branches on one Supabase never take each other's publishes and nothing needs configuring. `withCms` inlines `AWS_BRANCH` as `CMS_SITE_BRANCH` next to the build stamp; the server writes it to `publish_log.branch` when "Publicar" (or a retry) fires the hook; `build:report --start` claims only the open publishes of its own `AWS_BRANCH`. A publish without a branch (a local panel, `publish:ping` from a terminal) goes to the build of `CMS_BUILD_BRANCH`, `main` when unset, which is all the variable does now: builds of other branches report their own publishes instead of staying quiet. `CmsContextType` gains `siteBranch`.
+  
+  To update a project: nothing; `CMS_BUILD_BRANCH` can stay or go unless the hook's branch is not `main` and the panel also runs outside Amplify.
+
+### Patch Changes
+
+- a64af59: `import --dry-run` reads a hosted Supabase without `--allow-remote`, on purpose: it writes nothing, and the plan is what one wants to see against production before deciding. It now ends with `Nothing was written (--dry-run).`, and the README and `--help` say which flag means what.
+  
+  To update a project: nothing.
+- 968b85c: The generated keepalive workflow runs with `permissions: {}` and `timeout-minutes: 5`: a cron job needs no token and must not hang.
+  
+  To update a project: `linkchar-cms routes` rewrites `.github/workflows/supabase-keepalive.yml` (it carries the marker); commit it.
+
 ## 0.16.0
 
 ### Minor Changes
