@@ -237,7 +237,7 @@ const MediaDetails = ({ item, canPurge, onChanged, onRemoved, onHide, focusLocal
             <p className='MediaDetails__Meta'>
               {t('media.details.egress', { plays: formatNumber(EGRESS_SAMPLE_PLAYS), gigabytes: formatNumber(egressGigabytes(item.size)) })}
               {' '}
-              {t('media.details.egressHelp')}
+              {t(config.media.delivery === 'build' ? 'media.details.egressHelpBuild' : 'media.details.egressHelp')}
             </p>
           )}
           {isVideo && !inTrash && (
