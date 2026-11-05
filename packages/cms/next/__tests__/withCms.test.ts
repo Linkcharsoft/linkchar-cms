@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { buildStamp, findBrandIcon, readRedirects, withCms } from '../index.js'
+import { buildStamp, findBrandIcon, MEDIA_HEADERS, readRedirects, withCms } from '../index.js'
 
 describe('withCms', () => {
   it('compiles the package with the project and allows the Supabase images', () => {
@@ -51,6 +51,14 @@ describe('withCms', () => {
       delete process.env.AWS_APP_ID
       delete process.env.AWS_BRANCH
     }
+  })
+
+  it('caches the files media:pull copies for a year, after the project\'s own headers', async () => {
+    const own = [{ source: '/fonts/:path*', headers: [{ key: 'Cache-Control', value: 'public, max-age=60' }] }]
+    const config = withCms({ headers: async () => own }, { redirects: false })
+    expect(await config.headers?.()).toEqual([...own, ...MEDIA_HEADERS])
+    expect(MEDIA_HEADERS).toEqual([{ source: '/cms-media/:path*', headers: [{ key: 'Cache-Control', value: 'public, max-age=31536000, immutable' }] }])
+    expect(await withCms({}, { redirects: false }).headers?.()).toEqual(MEDIA_HEADERS)
   })
 
   it('lets Next optimize images from a local Supabase', () => {

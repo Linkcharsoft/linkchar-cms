@@ -20,6 +20,9 @@ export declare const readRedirects: (supabaseUrl: string, publishableKey: string
 
 export declare const findBrandIcon: (root?: string) => { url: string, file: string } | null
 
+// Cache-Control for /cms-media/:path* (the files media:pull copies); withCms adds it to the project's headers().
+export declare const MEDIA_HEADERS: { source: string, headers: { key: string, value: string }[] }[]
+
 // The stamp of this build: CMS_BUILD_STAMP, else Amplify's app, branch and job, else null.
 export declare const buildStamp: (env?: Record<string, string | undefined>) => string | null
 
