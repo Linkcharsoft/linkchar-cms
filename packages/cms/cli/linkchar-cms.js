@@ -6,11 +6,12 @@ import { parseArgs } from 'node:util'
 import { findBrandIcon } from '../next/index.js'
 import { applyProjectEnv, createSuperadmin, readProjectEnv } from './admin.js'
 import { buildIdentity, describeBuildReport, reportSettings, runBuildReport } from './build.js'
-import { authChecks, environmentChecks } from './doctor.js'
+import { authChecks, environmentChecks, mediaDeliveryChecks } from './doctor.js'
 import { askYesNo, importSettings, planLines, readPasswordFromStdin, runImport, summaryLines } from './import.js'
 import { initProject, nextSteps, normalizeBasePath } from './init.js'
 import { syncKeepalive } from './keepalive.js'
 import { isLocalSupabaseUrl } from './local.js'
+import { LOCAL_MEDIA_DIR, publishedMediaSize, pullLines, pullSettings, runPull } from './media.js'
 import { CliError, isUpToDate, syncMigrations } from './migrations.js'
 import { amplifyTrigger, describePing, maskHookUrl, pingSettings, runPing } from './publish.js'
 import { checkProxy, loadConfig, syncRoutes } from './routes.js'
@@ -23,7 +24,7 @@ import { syncTemplates, translatorOf } from './templates.js'
 /** @typedef {import('./keepalive.js').KeepaliveChangeType} KeepaliveChangeType */
 
 const USAGE = `Usage:
-  linkchar-cms init --name "Acme" [--base-path /dashboard] [--locales es,en] [--panel-locale es] [--site-url http://localhost:3000]
+  linkchar-cms init --name "Acme" [--base-path /dashboard] [--locales es,en] [--panel-locale es] [--site-url http://localhost:3000] [--media-delivery storage|build]
   linkchar-cms migrations sync [--dir supabase] [--check]
   linkchar-cms routes [--config cms.config.ts] [--src src] [--check]   (the panel routes and the Supabase keepalive workflow)
   linkchar-cms templates [--config cms.config.ts] [--dir supabase] [--check]
@@ -32,6 +33,7 @@ const USAGE = `Usage:
   linkchar-cms import <script.ts> --email ana@acme.com [--password …] [--password-stdin] [--otp 123456] [--dry-run] [--yes] [--allow-remote] [--no-publish] [--no-create] [--config cms.config.ts] [--env-file .env.local]
   linkchar-cms publish:ping [--timeout 20] [--config cms.config.ts] [--env-file .env.local]
   linkchar-cms build:report --start | --ok | --failed [--env-file .env.local]
+  linkchar-cms media:pull [--config cms.config.ts] [--env-file .env.local]
 
   --dir     The project's Supabase folder (default: ./supabase)
   --config  The project's CMS config (default: ./cms.config.ts)
@@ -41,7 +43,8 @@ const USAGE = `Usage:
   --help    This text
 
   init writes the files a project owns (cms.config.ts, src/cms, the panel and site layouts) where none exist,
-  then runs templates, routes and migrations sync, and lists what is left to wire by hand.
+  then runs templates, routes and migrations sync, and lists what is left to wire by hand. --media-delivery build
+  makes the site serve the published files itself (media: { delivery: 'build' }, amplify.yml with media:pull, .gitignore).
   admin makes the first superadmin with SUPABASE_SECRET_KEY: created with --password, else invited by email.
   doctor checks routes, the panel icon, migrations (files and applied), templates, variables, Supabase, the publish circuit, amplify.yml, the package registry and the ports.
   import runs the script's default export with a session signed in as --email (password in CMS_IMPORT_PASSWORD,
@@ -55,7 +58,11 @@ const USAGE = `Usage:
   build:report runs inside the site's build (amplify.yml) with the build's own variables: --start in preBuild takes the
   open publish of its own branch (the panel records it), --ok and --failed close the build --start claimed. A publish
   without a branch (a local panel, publish:ping) goes to the build of CMS_BUILD_BRANCH, main by default. Without an
-  open publish it does nothing, and it never fails the build.`
+  open publish it does nothing, and it never fails the build.
+  media:pull copies the files of the published content (images, posters, videos, PDFs, rich text images) into
+  ${LOCAL_MEDIA_DIR} with NEXT_PUBLIC_SUPABASE_URL and the publishable key, so the site serves them instead of Storage
+  (media.delivery 'build'). A file already there with the same path and size is kept, files no longer used are removed,
+  a file Storage refuses is reported and the build goes on; it fails only when Supabase cannot be read.`
 
 /** @type {Record<SyncChangeType['status'] | RouteChangeType['status'] | TemplateChangeType['status'], string>} */
 const SYMBOLS = { added: '+', updated: '~', removed: '-', differs: '!', stale: '!', same: '=', kept: '=' }
@@ -117,7 +124,7 @@ const templates = async ({ config, dir, check }) => {
 }
 
 /**
- * @param {{ name?: string, 'base-path': string, locales: string, 'panel-locale': string, 'site-url': string, config: string, src?: string, dir: string }} options
+ * @param {{ name?: string, 'base-path': string, locales: string, 'panel-locale': string, 'site-url': string, 'media-delivery': string, config: string, src?: string, dir: string }} options
  */
 const init = async options => {
   const root = resolve('.')
@@ -128,7 +135,8 @@ const init = async options => {
     basePath: normalizeBasePath(options['base-path']),
     locales: options.locales.split(',').map(locale => locale.trim()).filter(Boolean),
     panelLocale: options['panel-locale'],
-    siteUrl: options['site-url']
+    siteUrl: options['site-url'],
+    mediaDelivery: /** @type {'storage' | 'build'} */ (options['media-delivery'])
   }
   const changes = await initProject(project, { root, sourceDir, configFile, t: await translatorOf(project.panelLocale) })
   print('Starter files', changes, false)
@@ -174,6 +182,30 @@ const brandIconCheck = ({ branding }) => {
     : { level: 'warn', text: 'No product icon: add app/icon.svg or set branding.icon (the panel shows initials meanwhile)' }
 }
 
+/**
+ * The media delivery checks, with the weight of the published files when Supabase can be read.
+ * @param {import('./routes.js').RoutesConfigType} loaded @param {{ config: string, env: Record<string, string | undefined> }} options
+ * @returns {Promise<import('./doctor.js').CheckType[]>}
+ */
+const mediaChecks = async (loaded, { config, env }) => {
+  const delivery = loaded.media?.delivery ?? 'storage'
+  const budgetMb = loaded.media?.budgetMb ?? 1024
+  const root = resolve('.')
+  const text = async (/** @type {string} */ file) => (existsSync(join(root, file)) ? readFile(join(root, file), 'utf8') : null)
+  /** @type {{ count: number, bytes: number } | null} */
+  let published = null
+  /** @type {import('./doctor.js').CheckType[]} */
+  const extra = []
+  if (delivery === 'build' && env.NEXT_PUBLIC_SUPABASE_URL && env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY) {
+    try {
+      published = await publishedMediaSize({ configFile: resolve(config), root, settings: pullSettings(env) })
+    } catch (error) {
+      extra.push({ level: 'warn', text: `Could not weigh the published media (${error instanceof Error ? error.message : error})` })
+    }
+  }
+  return [...mediaDeliveryChecks({ delivery, budgetMb, amplify: await text('amplify.yml'), gitignore: await text('.gitignore'), published }), ...extra]
+}
+
 /** @param {{ config: string, src?: string, dir: string, 'env-file'?: string }} options */
 const doctor = async ({ config, src, dir, 'env-file': envFile }) => {
   /** @type {import('./doctor.js').CheckType[]} */
@@ -217,6 +249,7 @@ const doctor = async ({ config, src, dir, 'env-file': envFile }) => {
 
   const siteUrl = loaded?.site?.url ?? null
   checks.push(...await environmentChecks({ root: resolve('.'), supabaseDir, env, envFile: label, siteUrl }))
+  if (loaded) checks.push(...await mediaChecks(loaded, { config, env }))
 
   const marks = { ok: '✓', warn: '!', fail: '✗' }
   for (const { level, text } of checks) console.log(`${marks[level]} ${text}`)
@@ -276,6 +309,17 @@ const publishPing = async ({ timeout, config, 'env-file': envFile }) => {
   return result.ok ? 0 : 1
 }
 
+// Runs inside the site's build too, but a Supabase that can't be read fails it: a site without its files is not the site.
+/** @param {{ config: string, 'env-file'?: string }} options */
+const mediaPull = async ({ config, 'env-file': envFile }) => {
+  const { env, label, fromFile } = await readProjectEnv(envFile)
+  applyProjectEnv(fromFile)
+  const settings = pullSettings(env, label)
+  const summary = await runPull({ configFile: resolve(config), root: resolve('.'), settings, warn: message => console.warn(`! ${message}`) })
+  for (const line of pullLines(summary, settings.url)) console.log(line)
+  return 0
+}
+
 // Runs inside the site's build: whatever goes wrong is said and the build goes on.
 /** @param {{ start: boolean, ok: boolean, failed: boolean, 'env-file'?: string }} options */
 const buildReport = async ({ start, ok, failed, 'env-file': envFile }) => {
@@ -321,6 +365,7 @@ const main = async () => {
       locales: { type: 'string', default: 'es' },
       'panel-locale': { type: 'string', default: 'es' },
       'site-url': { type: 'string', default: 'http://localhost:3000' },
+      'media-delivery': { type: 'string', default: 'storage' },
       help: { type: 'boolean', short: 'h' }
     }
   })
@@ -336,6 +381,7 @@ const main = async () => {
   if (positionals[0] === 'import') return importContent(positionals[1], values)
   if (command === 'publish:ping') return publishPing(values)
   if (command === 'build:report') return buildReport(values)
+  if (command === 'media:pull') return mediaPull(values)
   if (command === 'migrations sync') return migrations(values)
   if (command === 'routes') return routes(values)
   if (command === 'templates') return templates(values)
