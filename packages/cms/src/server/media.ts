@@ -1,3 +1,4 @@
+import { inChunks } from '../core/chunks'
 import { textContext, translatorFor } from '../core/config'
 import { getEntry } from '../core/entries'
 import { isImageMime, isPathInFolder, isVideoMime, maxBytesFor, MEDIA_BUCKET, MEDIA_MIME_TYPES, mediaItemFrom } from '../core/media'
@@ -37,7 +38,7 @@ export const toMediaItem = (ctx: CmsContextType, row: MediaRowType) => mediaItem
 // Items with the URL of their poster, so a grid or a field shows a video by its image.
 const withPosters = async (ctx: CmsContextType, rows: MediaRowType[], client: CmsClientType = ctx.db): Promise<MediaItemType[]> => {
   const posterIds = [...new Set(rows.flatMap(row => (row.poster_id ? [row.poster_id] : [])))]
-  const { data } = posterIds.length > 0 ? await client.from('media').select('id, path').in('id', posterIds).is('deleted_at', null) : { data: [] }
+  const { data } = await inChunks(posterIds, chunk => client.from('media').select('id, path').in('id', chunk).is('deleted_at', null))
   const paths = new Map((data ?? []).map(row => [row.id, row.path]))
   return rows.map(row => mediaItemFrom(ctx.supabaseUrl, row, row.poster_id ? paths.get(row.poster_id) ?? null : null))
 }
@@ -77,7 +78,7 @@ export const listMedia = async (ctx: CmsContextType, query: MediaQueryType = {})
 
 export const getMediaByIds = async (ctx: CmsContextType, ids: string[]): Promise<Record<string, MediaItemType>> => {
   if (ids.length === 0) return {}
-  const { data } = await ctx.db.from('media').select('*').in('id', ids)
+  const { data } = await inChunks(ids, chunk => ctx.db.from('media').select('*').in('id', chunk))
   return Object.fromEntries((await withPosters(ctx, data ?? [])).map(item => [item.id, item]))
 }
 

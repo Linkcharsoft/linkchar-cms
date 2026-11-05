@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto'
 import { mkdir, readdir, readFile, rename, rm, rmdir, stat, writeFile } from 'node:fs/promises'
 import { dirname, join, relative, sep } from 'node:path'
+import { inChunks } from '../core/chunks'
 import { withDefaults } from '../core/defaults'
 import { getEntry } from '../core/entries'
 import { isImageMime, LOCAL_MEDIA_FOLDER, mediaPublicUrl } from '../core/media'
@@ -33,16 +34,10 @@ export interface MediaPullSummaryType {
   totalBytes: number
 }
 
-const ID_CHUNK = 100
-
 const rowsById = async (db: CmsClientType, ids: string[]) => {
-  const rows: { id: string, path: string, mime: string, size: number, hash: string | null, poster_id: string | null }[] = []
-  for (let from = 0; from < ids.length; from += ID_CHUNK) {
-    const { data, error } = await db.from('media').select('id, path, mime, size, hash, poster_id').in('id', ids.slice(from, from + ID_CHUNK)).is('deleted_at', null)
-    if (error) throw new Error(`[@linkcharsoft/cms] Could not read media: ${error.message}`)
-    rows.push(...(data ?? []))
-  }
-  return rows
+  const { data, error } = await inChunks(ids, chunk => db.from('media').select('id, path, mime, size, hash, poster_id').in('id', chunk).is('deleted_at', null))
+  if (error) throw new Error(`[@linkcharsoft/cms] Could not read media: ${error.message}`)
+  return data ?? []
 }
 
 // The files of the published content, posters included: the same references the site readers resolve, read with the publishable key.

@@ -1,4 +1,5 @@
 export * from './activity'
+export * from './chunks'
 export * from './config'
 export * from './dates'
 export * from './defaults'

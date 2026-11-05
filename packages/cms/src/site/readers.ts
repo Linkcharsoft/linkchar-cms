@@ -1,3 +1,4 @@
+import { inChunks } from '../core/chunks'
 import { withDefaults } from '../core/defaults'
 import { getCollection, getEntry } from '../core/entries'
 import { localMediaUrl, mediaItemFrom, mediaPublicUrl } from '../core/media'
@@ -72,13 +73,21 @@ export const createSiteReaders = ({ config, supabaseUrl, source, published, hasL
     return entry
   }
 
+  // A reference read that fails would render every image of the page as null and the build would still pass.
+  const rowsOf = async <T>(what: string, ids: string[], query: (chunk: string[]) => PromiseLike<{ data: T[] | null, error: { message: string } | null }>) => {
+    if (ids.length === 0) return []
+    const { data, error } = await inChunks(ids, query)
+    if (error) throw new Error(`[@linkcharsoft/cms] Could not read the ${what} of the content: ${error.message}`)
+    return data ?? []
+  }
+
+  const mediaRows = (db: CmsClientType, ids: string[]) => rowsOf<MediaRowType>('media', ids, chunk => db.from('media').select('*').in('id', chunk).is('deleted_at', null))
+
   // Posters are files of files: one more query for those the content doesn't point to itself.
   const withPosters = async (db: CmsClientType, media: MediaRowType[]) => {
     const known = new Set(media.map(row => row.id))
     const posterIds = [...new Set(media.flatMap(row => (row.poster_id && !known.has(row.poster_id) ? [row.poster_id] : [])))]
-    if (posterIds.length === 0) return media
-    const { data } = await db.from('media').select('*').in('id', posterIds).is('deleted_at', null)
-    return [...media, ...(data ?? [])]
+    return posterIds.length === 0 ? media : [...media, ...await mediaRows(db, posterIds)]
   }
 
   // Drafts always read Storage: the preview shows a file the moment it is uploaded, the pull only runs at build.
@@ -96,12 +105,10 @@ export const createSiteReaders = ({ config, supabaseUrl, source, published, hasL
     const mediaIds = [...new Set(found.flatMap(refs => refs.media))]
     const documentIds = [...new Set(found.flatMap(refs => refs.relations))]
     const [media, documents] = await Promise.all([
-      mediaIds.length > 0 ? db.from('media').select('*').in('id', mediaIds).is('deleted_at', null).then(({ data }) => withPosters(db, data ?? [])) : [],
-      documentIds.length === 0
-        ? []
-        : draft
-          ? db.from('documents').select('id, type, slugs').in('id', documentIds).is('deleted_at', null).then(({ data }) => data ?? [])
-          : db.from('published_documents').select('id, type, slugs').in('id', documentIds).then(({ data }) => data ?? [])
+      mediaRows(db, mediaIds).then(rows => withPosters(db, rows)),
+      rowsOf<{ id: string, type: string, slugs: unknown }>('linked documents', documentIds, chunk => (draft
+        ? db.from('documents').select('id, type, slugs').in('id', chunk).is('deleted_at', null)
+        : db.from('published_documents').select('id, type, slugs').in('id', chunk)))
     ])
     const urlOf = mediaUrlOf(draft)
     return {

@@ -1,3 +1,4 @@
+import { inChunks } from '../core/chunks'
 import { textContext, translatorFor } from '../core/config'
 import { withDefaults } from '../core/defaults'
 import { getEntry } from '../core/entries'
@@ -62,7 +63,7 @@ export const mediaChecksOf = async (ctx: CmsContextType, documents: { type: stri
     return entry ? documentReferences(ctx.config, entry.fields, withDefaults(ctx.config, entry.fields, data)).media : []
   }))]
   if (ids.length === 0) return NO_MEDIA
-  const { data } = await ctx.db.from('media').select('id, alt, mime, poster_id').in('id', ids)
+  const { data } = await inChunks(ids, chunk => ctx.db.from('media').select('id, alt, mime, poster_id').in('id', chunk))
   const rows = new Map((data ?? []).map(row => [row.id, row]))
   return {
     mediaAlt: ctx.config.locales.length < 2 ? () => undefined : id => rows.get(id)?.alt as LocalizedTextType | undefined,
