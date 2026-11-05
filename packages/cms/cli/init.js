@@ -1,11 +1,13 @@
 import { existsSync, readdirSync } from 'node:fs'
-import { mkdir, writeFile } from 'node:fs/promises'
+import { appendFile, mkdir, readFile, writeFile } from 'node:fs/promises'
 import { dirname, join, relative, sep } from 'node:path'
+import { AMPLIFY_BUILD_LINE, AMPLIFY_START_LINE } from './doctor.js'
+import { AMPLIFY_CACHE_PATH, AMPLIFY_PULL_LINE, GITIGNORE_LINE } from './media.js'
 import { CliError } from './migrations.js'
 
 /**
- * @typedef {{ name: string, basePath: string, locales: string[], panelLocale: string, siteUrl: string }} InitOptionsType
- * @typedef {{ file: string, status: 'added' | 'kept' }} InitChangeType
+ * @typedef {{ name: string, basePath: string, locales: string[], panelLocale: string, siteUrl: string, mediaDelivery?: 'storage' | 'build' }} InitOptionsType
+ * @typedef {{ file: string, status: 'added' | 'updated' | 'kept' }} InitChangeType
  * @typedef {{ root: string, sourceDir: string, configFile: string }} InitPathsType
  * @typedef {import('./templates.js').TranslateType} TranslateType
  */
@@ -23,9 +25,12 @@ export const normalizeBasePath = value => {
   return value.startsWith('/') ? value : `/${value}`
 }
 
+export const MEDIA_DELIVERIES = ['storage', 'build']
+
 /** @param {InitOptionsType} options */
-export const checkInitOptions = ({ name, basePath, locales, panelLocale, siteUrl }) => {
+export const checkInitOptions = ({ name, basePath, locales, panelLocale, siteUrl, mediaDelivery = 'storage' }) => {
   if (!name.trim()) throw new CliError('--name is required: the site name shown in the panel and in page titles.')
+  if (!MEDIA_DELIVERIES.includes(mediaDelivery)) throw new CliError(`--media-delivery "${mediaDelivery}" must be storage or build.`)
   if (!SEGMENT.test(basePath)) throw new CliError(`--base-path "${basePath}" must be one lowercase segment like /cms.`)
   const invalid = locales.find(locale => !LOCALE.test(locale))
   if (locales.length === 0 || invalid) throw new CliError(`--locales "${locales.join(',')}" must list codes like es,en.`)
@@ -60,7 +65,7 @@ const dynamicSiteRoot = (/** @type {string} */ app) => (existsSync(app)
  * @param {TranslateType} t
  * @returns {{ path: string, content: string }[]}
  */
-export const planInit = ({ name, basePath, locales, panelLocale, siteUrl }, { sourceDir, configFile }, t) => {
+export const planInit = ({ name, basePath, locales, panelLocale, siteUrl, mediaDelivery = 'storage' }, { sourceDir, configFile }, t) => {
   const label = (/** @type {string} */ key) => quote(t(`starter.${key}`))
   const [defaultLocale] = locales
   const app = join(sourceDir, 'app')
@@ -84,6 +89,7 @@ export const planInit = ({ name, basePath, locales, panelLocale, siteUrl }, { so
       `  panelLocale: ${quote(panelLocale)},`,
       `  branding: { name: ${quote(name)} },`,
       `  mediaFolders: [{ value: 'sitio', label: ${label('folder')} }],`,
+      ...(mediaDelivery === 'build' ? ['  media: { delivery: \'build\' },'] : []),
       '  site: {',
       `    url: process.env.NEXT_PUBLIC_SITE_URL ?? ${quote(siteUrl)},`,
       `    titleTemplate: ${quote(`%s | ${name}`)},`,
@@ -230,6 +236,40 @@ export const planInit = ({ name, basePath, locales, panelLocale, siteUrl }, { so
 }
 
 /**
+ * The amplify.yml of README → Amplify setup, with the media pull when the site serves the files itself.
+ * @param {{ mediaDelivery?: 'storage' | 'build' }} options
+ */
+export const amplifyYml = ({ mediaDelivery = 'storage' }) => [
+  'version: 1',
+  'frontend:',
+  '  phases:',
+  '    preBuild:',
+  '      commands:',
+  '        - echo "//npm.pkg.github.com/:_authToken=${GITHUB_PACKAGES_TOKEN}" >> ~/.npmrc',
+  '        - pnpm install --frozen-lockfile',
+  '        - env | grep -E "^(SUPABASE_SECRET_KEY|CMS_BUILD_HOOK_URL)=" >> .env.production || true',
+  '        - rm -rf .next/cache/fetch-cache',
+  `        - ${AMPLIFY_START_LINE}`,
+  ...(mediaDelivery === 'build' ? [`        - ${AMPLIFY_PULL_LINE}`] : []),
+  '    build:',
+  '      commands:',
+  `        - ${AMPLIFY_BUILD_LINE}`,
+  '  artifacts:',
+  '    baseDirectory: .next',
+  '    files:',
+  '      - \'**/*\'',
+  '  cache:',
+  '    paths:',
+  '      - node_modules/**/*',
+  '      - .next/cache/**/*',
+  ...(mediaDelivery === 'build' ? [`      - ${AMPLIFY_CACHE_PATH}`] : []),
+  ''
+].join('\n')
+
+/** @param {string} text .gitignore */
+const ignoresPulledMedia = text => text.split(/\r?\n/).some(line => /^\/?public\/cms-media\/?$/.test(line.trim()))
+
+/**
  * Writes the starter files that don't exist yet; an existing file is the project's and stays as it is.
  * @param {InitOptionsType} options
  * @param {InitPathsType & { t: TranslateType, write?: boolean }} paths
@@ -239,7 +279,20 @@ export const initProject = async (options, { t, write = true, ...paths }) => {
   checkInitOptions(options)
   /** @type {InitChangeType[]} */
   const changes = []
-  for (const { path, content } of planInit(options, paths, t)) {
+  const planned = planInit(options, paths, t)
+  if (options.mediaDelivery === 'build') {
+    planned.push({ path: join(paths.root, 'amplify.yml'), content: amplifyYml(options) })
+    const gitignore = join(paths.root, '.gitignore')
+    const current = existsSync(gitignore) ? await readFile(gitignore, 'utf8') : null
+    if (current !== null && ignoresPulledMedia(current)) {
+      changes.push({ file: '.gitignore', status: 'kept' })
+    } else {
+      if (write && current === null) await writeFile(gitignore, `${GITIGNORE_LINE}\n`)
+      if (write && current !== null) await appendFile(gitignore, `${current === '' || current.endsWith('\n') ? '' : '\n'}${GITIGNORE_LINE}\n`)
+      changes.push({ file: '.gitignore', status: current === null ? 'added' : 'updated' })
+    }
+  }
+  for (const { path, content } of planned) {
     const file = toPosix(relative(paths.root, path))
     if (existsSync(path)) {
       changes.push({ file, status: 'kept' })
@@ -261,7 +314,7 @@ export const initProject = async (options, { t, write = true, ...paths }) => {
  * @param {InitChangeType[]} changes
  * @returns {string[]}
  */
-export const nextSteps = ({ basePath, panelLocale }, { root, sourceDir }, changes) => {
+export const nextSteps = ({ basePath, panelLocale, mediaDelivery = 'storage' }, { root, sourceDir }, changes) => {
   const app = join(sourceDir, 'app')
   const project = (/** @type {string} */ path) => toPosix(relative(root, path))
   const kept = (/** @type {string} */ path) => changes.some(change => change.file === project(path) && change.status === 'kept')
@@ -273,6 +326,7 @@ export const nextSteps = ({ basePath, panelLocale }, { root, sourceDir }, change
     ...(siteRoot ? [`${project(join(app, siteRoot, 'layout.tsx'))} is the site's root layout: render <DraftRefresh locale='${panelLocale}' /> there in Draft Mode, and keep a catch-all inside ${siteRoot} that calls notFound(). The config prefixes every locale (prefixDefaultLocale).`] : []),
     ...(moves.length > 0 ? [`Move ${moves.join(' and ')} with the site's pages into app/(site)/, and render <DraftRefresh locale='${panelLocale}' /> there in Draft Mode: the panel has its own root layout.`] : []),
     ...(kept(join(app, 'sitemap.ts')) ? [`${project(join(app, 'sitemap.ts'))} exists: return cms.site.sitemap() from it.`] : []),
+    ...(mediaDelivery === 'build' && kept(join(root, 'amplify.yml')) ? [`amplify.yml exists: end preBuild with "${AMPLIFY_PULL_LINE}" (after build:report --start) and add "${AMPLIFY_CACHE_PATH}" under cache.paths; doctor checks both.`] : []),
     'next.config.ts: wrap the config with withCms() from \'@linkcharsoft/cms/next\'.',
     'tailwind.config: presets: [cmsPreset] from \'@linkcharsoft/cms/tailwind\'; the panel stylesheet scans the package on its own.',
     'postcss.config.js: \'@linkcharsoft/cms/tailwind/postcss\': {} in place of tailwindcss: {}.',

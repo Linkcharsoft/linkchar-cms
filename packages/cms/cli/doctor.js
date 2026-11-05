@@ -6,6 +6,7 @@ import { promisify } from 'node:util'
 import { consoleUrlOf } from './build.js'
 import { KEEPALIVE_FILE, keepaliveProblems } from './keepalive.js'
 import { isLocalSupabaseUrl } from './local.js'
+import { AMPLIFY_CACHE_PATH, AMPLIFY_PULL_LINE, GITIGNORE_LINE, LOCAL_MEDIA_DIR, megabytes } from './media.js'
 import { migrationVersions, PACKAGE_SUPABASE } from './migrations.js'
 import { describeSettled, settlePublishLog } from './publish.js'
 
@@ -165,6 +166,43 @@ export const amplifyReportCheck = text => {
   if (start && end) return { level: 'ok', text: 'amplify.yml reports the build to the panel (linkchar-cms build:report)' }
   const missing = [!start && '--start in preBuild', !end && '--ok and --failed around the build'].filter(Boolean).join(', ')
   return { level: 'fail', text: `amplify.yml does not report the build to the panel (linkchar-cms build:report ${missing}): every publish stays "sin confirmar". End preBuild with "${AMPLIFY_START_LINE}" and run the build as "${AMPLIFY_BUILD_LINE}" (README → Amplify setup)` }
+}
+
+/**
+ * media.delivery 'build' needs the pull before the build, its folder cached between builds and kept out of git;
+ * the weight of what it copies is a warning past the budget. With 'storage', a pull line in amplify.yml is a leftover.
+ * @param {{ delivery: 'storage' | 'build', budgetMb: number, amplify: string | null, gitignore: string | null, published: { count: number, bytes: number } | null }} options
+ * @returns {CheckType[]}
+ */
+export const mediaDeliveryChecks = ({ delivery, budgetMb, amplify, gitignore, published }) => {
+  const pulls = !!amplify && amplify.includes('linkchar-cms media:pull')
+  if (delivery !== 'build') {
+    return pulls ? [{ level: 'warn', text: 'amplify.yml runs linkchar-cms media:pull but media.delivery is \'storage\': the pull copies files nothing serves. Set media: { delivery: \'build\' } or drop the line' }] : []
+  }
+  /** @type {CheckType[]} */
+  const checks = []
+  const buildAt = amplify?.search(/pnpm run build|next build/) ?? -1
+  const pullAt = amplify?.indexOf('linkchar-cms media:pull') ?? -1
+  if (!amplify) {
+    checks.push({ level: 'fail', text: `media.delivery is 'build' and there is no amplify.yml: the build must run "${AMPLIFY_PULL_LINE}" before next build and cache ${AMPLIFY_CACHE_PATH} (README → Amplify setup)` })
+  } else {
+    checks.push(pulls && (buildAt === -1 || pullAt < buildAt)
+      ? { level: 'ok', text: 'amplify.yml pulls the published media before the build (linkchar-cms media:pull)' }
+      : { level: 'fail', text: `amplify.yml does not run "${AMPLIFY_PULL_LINE}" before the build: with media.delivery 'build' the site would serve every file from Storage. Add it to the end of preBuild` })
+    checks.push(/cache:\s*\n\s*paths:[\s\S]*?public\/cms-media/.test(amplify)
+      ? { level: 'ok', text: `amplify.yml keeps ${LOCAL_MEDIA_DIR} between builds` }
+      : { level: 'fail', text: `amplify.yml does not cache ${LOCAL_MEDIA_DIR}: every build downloads every file again from Storage (egress). Add "${AMPLIFY_CACHE_PATH}" under cache.paths` })
+  }
+  checks.push(gitignore?.split(/\r?\n/).some(line => /^\/?public\/cms-media\/?$/.test(line.trim()))
+    ? { level: 'ok', text: `${LOCAL_MEDIA_DIR} is ignored by git` }
+    : { level: 'fail', text: `.gitignore lacks ${GITIGNORE_LINE}: the pulled files would be committed with the site. Add the line` })
+  if (published) {
+    const budget = budgetMb * 1024 * 1024
+    checks.push(published.bytes > budget
+      ? { level: 'warn', text: `The published media weighs ${megabytes(published.bytes)} (${published.count} files), over media.budgetMb (${budgetMb} MB): a build from an empty cache downloads it all from Storage, and the deploy carries it. Trim Media or raise the budget` }
+      : { level: 'ok', text: `The published media weighs ${megabytes(published.bytes)} (${published.count} files), within media.budgetMb (${budgetMb} MB)` })
+  }
+  return checks
 }
 
 /**

@@ -77,12 +77,18 @@ A project runs on two services: **Supabase** (database, auth, storage) and **Amp
            - env | grep -E "^(SUPABASE_SECRET_KEY|CMS_BUILD_HOOK_URL)=" >> .env.production || true
            - rm -rf .next/cache/fetch-cache
            - pnpm exec linkchar-cms build:report --start
+           - pnpm exec linkchar-cms media:pull
        build:
          commands:
            - pnpm run build && pnpm exec linkchar-cms build:report --ok || (pnpm exec linkchar-cms build:report --failed; exit 1)
+     cache:
+       paths:
+         - node_modules/**/*
+         - .next/cache/**/*
+         - public/cms-media/**/*
    ```
 
-   Amplify restores `.next/cache` before each build and Next keeps the site's reads there (`fetch-cache`, for a year). The package stamps every build, so a build never serves the content of the previous one, but the folder grows with every build: the `rm -rf` line drops it, and `doctor` warns while `amplify.yml` keeps `.next/cache` without that line. `build:report` is how the panel learns which build took a publish and when it ended; `doctor` fails while the two lines are missing.
+   The `media:pull` line and the `public/cms-media` cache path are for `media.delivery: 'build'` (the site serves the files of Media itself, see Free plan below); a project on `'storage'` leaves them out. Amplify restores `.next/cache` before each build and Next keeps the site's reads there (`fetch-cache`, for a year). The package stamps every build, so a build never serves the content of the previous one, but the folder grows with every build: the `rm -rf` line drops it, and `doctor` warns while `amplify.yml` keeps `.next/cache` without that line. `build:report` is how the panel learns which build took a publish and when it ended; `doctor` fails while the two lines are missing.
 
 4. The build hook, the report and the confirmation of the deploy: [Amplify setup](../packages/cms/README.md#amplify-setup). `pnpm exec linkchar-cms publish:ping --env-file .env.remote` proves the whole circuit once.
 
@@ -112,7 +118,7 @@ Projects on `linkchar-frontend-workflows` pass the package token and the Supabas
 
 ## Free plan
 
-Supabase's Free plan includes 500 MB of database, 1 GB of storage, 5 GB of egress plus 5 GB of cached egress per month, and files up to 50 MB (the `media` bucket takes 10 MB for images and PDFs and 25 MB for videos). Images reach visitors through Next's image optimizer, which caches each size, so Media costs little egress. A video is served whole on every play: a 12 MB clip played a thousand times is 12 GB, more than the month. Keep Media videos short and small (the panel says what a thousand plays cost), and leave a site's own hero loop in `public/`, where Amplify's CDN serves it.
+Supabase's Free plan includes 500 MB of database, 1 GB of storage, 5 GB of egress plus 5 GB of cached egress per month, and files up to 50 MB (the `media` bucket takes 10 MB for images and PDFs and 25 MB for videos). Images reach visitors through Next's image optimizer, which caches each size, so Media costs little egress. A video is served whole on every play: a 12 MB clip played a thousand times is 12 GB, more than the month; a landing with a hero of ten videos in autoplay was measured at about 20 MB per visit, which the plan covers for a few hundred visits. The way out on Free is `media.delivery: 'build'` in `cms.config.ts`: `linkchar-cms media:pull` runs in `amplify.yml` before the build and copies the published files into `public/cms-media`, Amplify's CDN serves them and Supabase hands each file over once, at the build that first needs it (the folder is cached between builds). `public/cms-media/` goes in `.gitignore`; `doctor` checks the three places and warns when the published files weigh more than `media.budgetMb` (1 GB by default, the Storage of the plan; Amplify caps the build artifact and the cache at 5 GB each, and `public/` is not part of the 220 MB compute bundle). The preview keeps reading Storage, so editors see a file the moment it is uploaded. Without it, keep Media videos short and small (the panel says what a thousand plays cost) and leave a site's own hero loop in `public/`.
 
 **A free project pauses after a week with too little database activity**; Supabase's own guide asks for a few requests to the database each day. While it is paused, the site's static pages keep serving from Amplify, but the panel can't sign in, publishing fails, every build fails (`withCms` reads the redirects and the pages read the content) while Amplify keeps the last good deploy, and images the optimizer hasn't cached yet stop loading. The weekly build is not enough: it is one request a week, and it fails once the project is paused. A production client goes on Pro, which never pauses. A free project gets the keepalive `linkchar-cms routes` writes: `.github/workflows/supabase-keepalive.yml`, a GitHub Actions cron every three days that reads `published_documents` with the repository variables `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` (the ones the CI build uses) and fails, so GitHub notifies, when the answer is not 200. Commit it with the routes; `doctor` warns while it is missing.
 

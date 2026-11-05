@@ -18,8 +18,14 @@ const schema = {
 describe('defineCmsConfig', () => {
   it('fills the defaults', () => {
     const config = defineCmsConfig({ schema })
-    expect(config).toMatchObject({ locales: ['es'], defaultLocale: 'es', panelLocale: 'es', basePath: '/dashboard' })
+    expect(config).toMatchObject({ locales: ['es'], defaultLocale: 'es', panelLocale: 'es', basePath: '/dashboard', media: { delivery: 'storage', budgetMb: 1024 } })
     expect(Object.isFrozen(config)).toBe(true)
+  })
+
+  it('takes the media delivery and its budget, rejecting other values', () => {
+    expect(defineCmsConfig({ schema, media: { delivery: 'build', budgetMb: 500 } }).media).toEqual({ delivery: 'build', budgetMb: 500 })
+    expect(() => defineCmsConfig({ schema, media: { delivery: 'cdn' as 'build' } })).toThrow('media.delivery')
+    expect(() => defineCmsConfig({ schema, media: { budgetMb: 0 } })).toThrow('media.budgetMb')
   })
 
   it('takes the product icon from the config, else from the favicon withCms found', () => {

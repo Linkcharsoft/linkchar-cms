@@ -2,13 +2,13 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { initProject, nextSteps, normalizeBasePath } from '../init.js'
+import { amplifyYml, initProject, nextSteps, normalizeBasePath } from '../init.js'
 import { translatorOf } from '../templates.js'
 
 let root: string
 let paths: { root: string, sourceDir: string, configFile: string }
 
-const options = { name: 'Acme', basePath: '/cms', locales: ['es', 'en'], panelLocale: 'es', siteUrl: 'http://localhost:3000' }
+const options: Parameters<typeof initProject>[0] = { name: 'Acme', basePath: '/cms', locales: ['es', 'en'], panelLocale: 'es', siteUrl: 'http://localhost:3000' }
 
 const init = async (overrides: Partial<typeof options> = {}) => initProject({ ...options, ...overrides }, { ...paths, t: await translatorOf(overrides.panelLocale ?? 'es') })
 
@@ -83,6 +83,27 @@ describe('initProject', () => {
     const steps = nextSteps(options, paths, changes)
     expect(steps[0]).toContain('src/app/[lang]/layout.tsx is the site\'s root layout: render <DraftRefresh locale=\'es\' /> there')
     expect(steps.join('\n')).not.toContain('into app/(site)/')
+  })
+
+  it('makes the site serve the published files itself with --media-delivery build', async () => {
+    await writeFile(join(root, '.gitignore'), 'node_modules/\n.next/')
+    const changes = await init({ mediaDelivery: 'build' })
+    expect(changes).toContainEqual({ file: 'amplify.yml', status: 'added' })
+    expect(changes).toContainEqual({ file: '.gitignore', status: 'updated' })
+    expect(await read('cms.config.ts')).toContain('  media: { delivery: \'build\' },')
+    expect(await read('.gitignore')).toBe('node_modules/\n.next/\npublic/cms-media/\n')
+    const amplify = await read('amplify.yml')
+    expect(amplify).toContain('        - pnpm exec linkchar-cms build:report --start\n        - pnpm exec linkchar-cms media:pull\n    build:')
+    expect(amplify).toContain('      - .next/cache/**/*\n      - public/cms-media/**/*\n')
+    expect(amplifyYml({})).not.toContain('media:pull')
+    expect(nextSteps({ ...options, mediaDelivery: 'build' }, paths, changes).join('\n')).not.toContain('amplify.yml exists')
+
+    const again = await init({ mediaDelivery: 'build' })
+    expect(again.find(change => change.file === '.gitignore')?.status).toBe('kept')
+    expect(again.find(change => change.file === 'amplify.yml')?.status).toBe('kept')
+    expect(nextSteps({ ...options, mediaDelivery: 'build' }, paths, again)).toContainEqual(expect.stringContaining('amplify.yml exists: end preBuild with "pnpm exec linkchar-cms media:pull"'))
+    expect((await init()).some(change => change.file === 'amplify.yml')).toBe(false)
+    await expect(init({ mediaDelivery: 'cdn' as 'build' })).rejects.toThrow('--media-delivery "cdn"')
   })
 
   it('does nothing twice', async () => {

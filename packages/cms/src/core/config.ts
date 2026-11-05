@@ -17,6 +17,22 @@ export interface MediaFolderType {
   label: TextType
 }
 
+export type MediaDeliveryType = 'storage' | 'build'
+
+// 'build': linkchar-cms media:pull copies the published files into public/cms-media at build and the site serves them.
+export interface MediaInputType {
+  delivery?: MediaDeliveryType
+  // doctor warns when the published files weigh more than this (MB).
+  budgetMb?: number
+}
+
+export interface MediaSettingsType {
+  readonly delivery: MediaDeliveryType
+  readonly budgetMb: number
+}
+
+export const DEFAULT_MEDIA_BUDGET_MB = 1024
+
 // The product slot of an Inferencia-branded panel: its name and its square icon, by default the site's favicon.
 export interface BrandingType {
   name: string
@@ -79,6 +95,7 @@ export interface CmsConfigInputType<S extends ContentSchema, L extends string> {
   branding?: BrandingType
   site?: SiteType<S, NoInfer<L>>
   mediaFolders?: readonly MediaFolderType[]
+  media?: MediaInputType
   extensions?: readonly CmsExtensionType[]
   // Opt-in kinds (openingHours) and the project's own, made with defineField.
   fields?: readonly FieldDefinitionType[]
@@ -97,6 +114,7 @@ export interface CmsConfigType<S extends ContentSchema = ContentSchema, L extend
   branding: BrandingType
   site: { readonly url: string | null, readonly titleTemplate: string, readonly defaults: SiteDefaultsRefType | null, readonly xDefault: L }
   mediaFolders: readonly MediaFolderType[]
+  media: MediaSettingsType
   extensions: readonly CmsExtensionType[]
   fieldTypes: ReadonlyMap<string, FieldDefinitionType>
   messages: MessageOverridesType
@@ -258,6 +276,10 @@ export const defineCmsConfig = <const S extends ContentSchema, const L extends s
   // withCms sets CMS_BRAND_ICON at build from the project's favicon files.
   const icon = input.branding?.icon ?? process.env.CMS_BRAND_ICON
   if (icon && !/^(\/|https:\/\/)/.test(icon)) throw new CmsConfigError(`branding.icon "${icon}" must be a path like /icon.svg or an https URL.`)
+  const delivery = input.media?.delivery ?? 'storage'
+  if (delivery !== 'storage' && delivery !== 'build') throw new CmsConfigError(`media.delivery "${delivery}" must be 'storage' or 'build'.`)
+  const budgetMb = input.media?.budgetMb ?? DEFAULT_MEDIA_BUDGET_MB
+  if (!Number.isFinite(budgetMb) || budgetMb <= 0) throw new CmsConfigError(`media.budgetMb "${budgetMb}" must be a positive number of megabytes.`)
 
   return Object.freeze({
     schema: input.schema,
@@ -271,6 +293,7 @@ export const defineCmsConfig = <const S extends ContentSchema, const L extends s
     branding: Object.freeze({ name: input.branding?.name ?? 'CMS', icon: icon || undefined, footer: input.branding?.footer }),
     site: Object.freeze({ url: input.site?.url ?? null, titleTemplate, defaults: siteDefaults(input.schema, input.site?.defaults as SiteDefaultsType | undefined), xDefault }),
     mediaFolders: input.mediaFolders ?? [],
+    media: Object.freeze({ delivery, budgetMb }),
     extensions: input.extensions ?? [],
     fieldTypes,
     messages: input.messages ?? {}

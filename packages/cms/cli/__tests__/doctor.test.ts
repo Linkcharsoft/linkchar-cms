@@ -2,8 +2,10 @@ import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { AMPLIFY_BUILD_LINE, AMPLIFY_START_LINE, amplifyCacheCheck, amplifyReportCheck, appliedMigrationsCheck, authChecks, keepaliveRunCheck, configPorts, environmentChecks, excludesPackageFromQuarantine, parseExcludedRanges, portChecks, postcssCheck, publishCircuitCheck, tablesCheck } from '../doctor.js'
+import { AMPLIFY_BUILD_LINE, AMPLIFY_START_LINE, amplifyCacheCheck, amplifyReportCheck, appliedMigrationsCheck, authChecks, keepaliveRunCheck, configPorts, environmentChecks, excludesPackageFromQuarantine, mediaDeliveryChecks, parseExcludedRanges, portChecks, postcssCheck, publishCircuitCheck, tablesCheck } from '../doctor.js'
+import { amplifyYml } from '../init.js'
 import { KEEPALIVE_FILE, keepaliveWorkflow } from '../keepalive.js'
+import { AMPLIFY_CACHE_PATH, AMPLIFY_PULL_LINE } from '../media.js'
 import { migrationVersions, PACKAGE_SUPABASE } from '../migrations.js'
 
 const NETSH = `
@@ -140,7 +142,8 @@ describe('environmentChecks', () => {
     expect(await keepaliveRunCheck(gh([]), now)).toMatchObject({ level: 'warn', text: expect.stringContaining('never ran') })
     expect(await keepaliveRunCheck(async () => { throw new Error('gh: not logged in') }, now)).toBeNull()
     expect(await keepaliveRunCheck(async () => 'not json', now)).toBeNull()
-    const checks = await levels({ gh: gh([run(2, '2026-10-29T09:17:00Z', 'success')]) })
+    // environmentChecks reads the real clock: a run dated an hour ago stays inside the window whatever today is.
+    const checks = await levels({ gh: gh([run(2, new Date(Date.now() - 3_600_000).toISOString(), 'success')]) })
     expect(checks.map(check => check.text)).toContainEqual(expect.stringContaining('The keepalive ran green'))
     expect((await levels({}, { [KEEPALIVE_FILE]: null })).map(check => check.text)).not.toContainEqual(expect.stringContaining('keepalive ran'))
   })
@@ -228,5 +231,40 @@ describe('environmentChecks', () => {
     expect(checks.find(check => check.level === 'fail')?.text).toContain('\'@linkcharsoft/cms/tailwind/postcss\': {}')
     await rm(root, { recursive: true, force: true })
     expect(postcssCheck('module.exports = { plugins: { \'@linkcharsoft/cms/tailwind/postcss\': {}, autoprefixer: {} } }').level).toBe('ok')
+  })
+})
+
+describe('mediaDeliveryChecks', () => {
+  const amplify = amplifyYml({ mediaDelivery: 'build' })
+  const gitignore = 'node_modules/\n.next/\npublic/cms-media/\n'
+  const texts = (checks: { text: string }[]) => checks.map(check => check.text)
+
+  it('says nothing with storage delivery, unless amplify.yml pulls for nothing', () => {
+    expect(mediaDeliveryChecks({ delivery: 'storage', budgetMb: 1024, amplify: amplifyYml({}), gitignore: '', published: null })).toEqual([])
+    expect(mediaDeliveryChecks({ delivery: 'storage', budgetMb: 1024, amplify, gitignore: '', published: null })).toEqual([{ level: 'warn', text: expect.stringContaining('media.delivery is \'storage\'') }])
+  })
+
+  it('passes the amplify.yml init writes, the ignored folder and a weight within the budget', () => {
+    const checks = mediaDeliveryChecks({ delivery: 'build', budgetMb: 1024, amplify, gitignore, published: { count: 40, bytes: 300 * 1024 * 1024 } })
+    expect(checks.map(check => check.level)).toEqual(['ok', 'ok', 'ok', 'ok'])
+    expect(texts(checks)[3]).toBe('The published media weighs 300.0 MB (40 files), within media.budgetMb (1024 MB)')
+  })
+
+  it('fails on a missing pull, a pull after the build, a folder not cached and a .gitignore without the folder', () => {
+    const noPull = amplifyYml({})
+    expect(mediaDeliveryChecks({ delivery: 'build', budgetMb: 1024, amplify: noPull, gitignore, published: null }).filter(check => check.level === 'fail').map(check => check.text)).toEqual([
+      expect.stringContaining(`does not run "${AMPLIFY_PULL_LINE}" before the build`),
+      expect.stringContaining(`Add "${AMPLIFY_CACHE_PATH}" under cache.paths`)
+    ])
+    const late = noPull.replace(AMPLIFY_BUILD_LINE, `${AMPLIFY_BUILD_LINE}\n        - ${AMPLIFY_PULL_LINE}`).replace('- .next/cache/**/*', `- .next/cache/**/*\n      - ${AMPLIFY_CACHE_PATH}`)
+    expect(mediaDeliveryChecks({ delivery: 'build', budgetMb: 1024, amplify: late, gitignore, published: null }).map(check => check.level)).toEqual(['fail', 'ok', 'ok'])
+    expect(mediaDeliveryChecks({ delivery: 'build', budgetMb: 1024, amplify, gitignore: 'node_modules/\n', published: null }).map(check => check.level)).toEqual(['ok', 'ok', 'fail'])
+    expect(mediaDeliveryChecks({ delivery: 'build', budgetMb: 1024, amplify, gitignore: null, published: null })[2].text).toContain('.gitignore lacks public/cms-media/')
+    expect(mediaDeliveryChecks({ delivery: 'build', budgetMb: 1024, amplify: null, gitignore, published: null })[0]).toMatchObject({ level: 'fail', text: expect.stringContaining('there is no amplify.yml') })
+  })
+
+  it('warns past the budget', () => {
+    const [weight] = mediaDeliveryChecks({ delivery: 'build', budgetMb: 500, amplify, gitignore, published: { count: 3, bytes: 600 * 1024 * 1024 } }).filter(check => check.level === 'warn')
+    expect(weight.text).toBe('The published media weighs 600.0 MB (3 files), over media.budgetMb (500 MB): a build from an empty cache downloads it all from Storage, and the deploy carries it. Trim Media or raise the budget')
   })
 })

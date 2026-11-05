@@ -17,7 +17,7 @@ export const ACTION_NAMES = [
   'login', 'requestPasswordReset', 'updatePassword', 'confirmLink', 'acceptInvite', 'completeSecondFactor', 'logout'
 ]
 
-/** @typedef {{ basePath: string, paths: Record<string, string>, panelLocale?: string, messages?: unknown, branding?: { name: string, icon?: string }, site?: { url: string | null } }} RoutesConfigType */
+/** @typedef {{ basePath: string, paths: Record<string, string>, panelLocale?: string, messages?: unknown, branding?: { name: string, icon?: string }, site?: { url: string | null }, media?: { delivery: 'storage' | 'build', budgetMb: number } }} RoutesConfigType */
 /** @typedef {'page' | 'layout'} ViewKindType */
 /**
  * @typedef {{ file: string, managed: boolean, render: (importOf: (target: string) => string) => string }} RouteFileType

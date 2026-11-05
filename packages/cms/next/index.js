@@ -42,6 +42,9 @@ export const readRedirects = async (supabaseUrl, publishableKey, fetcher = getJs
   return rows.map(row => ({ source: literal(row.from_path), destination: row.to_path, permanent: row.status === 301 }))
 }
 
+// The files media:pull copies into public/cms-media: each path is unique per upload, so a year of immutable cache is safe.
+export const MEDIA_HEADERS = [{ source: '/cms-media/:path*', headers: [{ key: 'Cache-Control', value: 'public, max-age=31536000, immutable' }] }]
+
 // `next typegen` loads the config with the build phase but only writes route types: nothing to read from the database for.
 const isTypegen = (argv = process.argv) => argv.includes('typegen')
 
@@ -140,6 +143,7 @@ export const withCms = (nextConfig = {}, options = {}) => {
       // A local Supabase runs on 127.0.0.1, which Next refuses to optimize unless allowed.
       ...(bucket && ['127.0.0.1', 'localhost'].includes(bucket.hostname) ? { dangerouslyAllowLocalIP: true } : {})
     },
+    headers: async () => [...(nextConfig.headers ? await nextConfig.headers() : []), ...MEDIA_HEADERS],
     redirects: async () => {
       const own = nextConfig.redirects ? await nextConfig.redirects() : []
       if (options.redirects === false || isTypegen() || !supabaseUrl || !publishableKey) return own

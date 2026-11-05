@@ -65,6 +65,26 @@ describe('site readers', () => {
     expect(hero.clip).toMatchObject({ src: 'https://db.test/storage/v1/object/public/media/sitio/clip.mp4', duration: 4, poster: { src: 'https://db.test/storage/v1/object/public/media/sitio/poster.webp', alt: 'Portada' } })
   })
 
+  it('serves the files media:pull left in public/cms-media, falls back to Storage for the rest and keeps Storage while previewing', async () => {
+    db.tables.media.push(
+      { id: ID(8), path: 'sitio/clip.mp4', filename: 'clip.mp4', folder: 'sitio', alt: {}, caption: {}, mime: 'video/mp4', size: 5000, width: 1280, height: 720,
+        focal_x: null, focal_y: null, blur_data_url: null, duration: 4, poster_id: ID(9), created_at: '', deleted_at: null },
+      { id: ID(9), path: 'sitio/poster.webp', filename: 'poster.webp', folder: 'sitio', alt: { es: 'Portada' }, caption: {}, mime: 'image/webp', size: 10, width: 1280, height: 720,
+        focal_x: null, focal_y: null, blur_data_url: null, duration: null, poster_id: null, created_at: '', deleted_at: null }
+    )
+    db.tables.published_documents[0].data = { hero: { title: { es: 'Hola' }, cover: { es: ID(7) }, clip: { es: ID(8) } } }
+    const pulled = new Set(['sitio/clip.mp4', 'sitio/poster.webp'])
+    const local = () => createSiteReaders({ config, supabaseUrl: () => 'https://db.test', source: async () => source, published: () => fakeClient(db), hasLocalMedia: path => pulled.has(path) })
+    const built = (await local().getEntryContent('home')).content.hero as unknown as { cover: { src: string }, clip: SiteVideoType }
+    expect(built.clip).toMatchObject({ src: '/cms-media/sitio/clip.mp4', poster: { src: '/cms-media/sitio/poster.webp' } })
+    expect(built.cover.src).toBe('https://db.test/storage/v1/object/public/media/sitio/portada.webp')
+
+    db.tables.documents.push({ id: ID(1), type: 'home', key: 'home', slugs: {}, deleted_at: null, visible: true, data: db.tables.published_documents[0].data })
+    source = { db: fakeClient(db), draft: true }
+    const previewed = (await local().getEntryContent('home')).content.hero as unknown as { clip: SiteVideoType }
+    expect(previewed.clip.src).toBe('https://db.test/storage/v1/object/public/media/sitio/clip.mp4')
+  })
+
   it('reads a published page in one locale, with its media and its URLs', async () => {
     const home = await readers().getEntryContent('home', { locale: 'en' })
     expect(home).toMatchObject({ id: ID(1), locale: 'en', path: '/en', urls: { es: '/', en: '/en' }, draft: false })
