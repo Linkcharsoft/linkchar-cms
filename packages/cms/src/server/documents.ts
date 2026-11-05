@@ -1,4 +1,5 @@
 import { STALE_DRAFT_DAYS } from '../core/alerts'
+import { inChunks } from '../core/chunks'
 import { textContext } from '../core/config'
 import { buildDefaults } from '../core/defaults'
 import { documentTitle, entryIds, getCollection, getEntry } from '../core/entries'
@@ -236,7 +237,7 @@ export const getDocumentUsageRows = async (ctx: CmsContextType, ids: string[]): 
 export const getRelationLabels = async (ctx: CmsContextType, ids: string[]): Promise<Record<string, RelationRefType>> => {
   if (ids.length === 0) return {}
 
-  const { data } = await ctx.db.from('document_status').select('id, type, data, status, deleted_at').in('id', ids)
+  const { data } = await inChunks(ids, chunk => ctx.db.from('document_status').select('id, type, data, status, deleted_at').in('id', chunk))
   const texts = textContext(ctx.config)
 
   return Object.fromEntries((data ?? []).map(row => {

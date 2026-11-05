@@ -1,3 +1,4 @@
+import { inChunks } from '../core/chunks'
 import { textContext, translatorFor } from '../core/config'
 import { withDefaults } from '../core/defaults'
 import { entryIds, getEntry } from '../core/entries'
@@ -110,9 +111,7 @@ export const getPendingChanges = async (ctx: CmsContextType): Promise<PendingCha
   const changedPages = rows.filter(row => row.id && row.status === 'changed' && row.type && getEntry(ctx.config, row.type)?.kind === 'page').map(row => row.id!)
   const [names, published, media] = await Promise.all([
     authorNames(ctx, rows.map(row => row.updated_by)),
-    changedPages.length > 0
-      ? ctx.db.from('published_documents').select('id, data').in('id', changedPages).then(({ data: live }) => live ?? [])
-      : [],
+    inChunks(changedPages, chunk => ctx.db.from('published_documents').select('id, data').in('id', chunk)).then(({ data: live }) => live ?? []),
     mediaChecksOf(ctx, rows.filter(row => row.status !== 'unpublishing'))
   ])
 
@@ -313,7 +312,7 @@ export const getPublishHistory = async (ctx: CmsContextType, limit = 10): Promis
 
   const [names, documents] = await Promise.all([
     authorNames(ctx, rows.map(row => row.requested_by)),
-    ids.length ? ctx.db.from('document_status').select('id, type, data, deleted_at').in('id', ids).then(result => result.data ?? []) : []
+    inChunks(ids, chunk => ctx.db.from('document_status').select('id, type, data, deleted_at').in('id', chunk)).then(result => result.data ?? [])
   ])
   const titles = Object.fromEntries(documents.map(row => [row.id, describeDocument(ctx, row)?.title ?? null]))
 

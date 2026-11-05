@@ -2,6 +2,7 @@ import { createHash, randomUUID } from 'node:crypto'
 import { readFile } from 'node:fs/promises'
 import { basename, extname, resolve } from 'node:path'
 import { createClient } from '@supabase/supabase-js'
+import { inChunks } from '../core/chunks'
 import { textContext, translatorFor } from '../core/config'
 import { withDefaults, withItemKeys } from '../core/defaults'
 import { documentTitle, getEntry } from '../core/entries'
@@ -477,7 +478,7 @@ export const createImportSession = async (options: ImportSessionOptionsType) => 
       const { data: rows } = await db.from('documents').select('id, data').eq('type', entryId).eq('visible', false).is('deleted_at', null)
       const hidden = (rows ?? []).filter(row => !touched.has(row.id))
       if (hidden.length === 0) continue
-      const { data: published } = await db.from('published_documents').select('id').in('id', hidden.map(row => row.id))
+      const { data: published } = await inChunks(hidden.map(row => row.id), chunk => db.from('published_documents').select('id').in('id', chunk))
       const live = new Set((published ?? []).map(row => row.id))
       items.push(...hidden.filter(row => !live.has(row.id)).map(row => ({ entry: entryId, id: row.id, title: documentTitle(entry, row.data, textContext(config)) })))
     }
