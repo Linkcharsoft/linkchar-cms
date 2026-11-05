@@ -1,10 +1,11 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { defineCmsConfig } from '../../core/config'
 import { collection, page } from '../../core/define'
-import { image, section, seo, slug, text, textarea, videoFile } from '../../core/fields'
+import { gallery, image, section, seo, slug, text, textarea, videoFile } from '../../core/fields'
 import { createFakeDb, fakeClient } from '../../server/__tests__/fakeSupabase'
 import { createSiteReaders } from '../readers'
 import { documentJsonLd, documentMetadata } from '../seo'
+import type { CollectionIdType } from '../../core/config'
 import type { FakeDbType } from '../../server/__tests__/fakeSupabase'
 import type { SiteSourceType } from '../readers'
 import type { SiteVideoType } from '../types'
@@ -83,6 +84,31 @@ describe('site readers', () => {
     source = { db: fakeClient(db), draft: true }
     const previewed = (await local().getEntryContent('home')).content.hero as unknown as { clip: SiteVideoType }
     expect(previewed.clip.src).toBe('https://db.test/storage/v1/object/public/media/sitio/clip.mp4')
+  })
+
+  it('resolves every image of a collection whose media ids would not fit in one in() URL, and throws when the read fails', async () => {
+    const withGallery = defineCmsConfig({
+      schema: { ...schema, cases: collection('Casos', { title: text({ label: 'Título' }), cover: image({ label: 'Portada' }), photos: gallery({ label: 'Fotos' }) }, { singularLabel: 'Caso', titleField: 'title' }) },
+      locales: ['es', 'en']
+    })
+    const mediaId = (n: number) => `7a1c3b2a-5555-4c1d-9e0f-${String(n).padStart(12, '0')}`
+    const total = 21 * 13
+    for (let n = 0; n < total; n++) {
+      db.tables.media.push({ id: mediaId(n), path: `casos/${n}.webp`, filename: `${n}.webp`, folder: 'casos', alt: { es: `Foto ${n}` }, caption: {}, mime: 'image/webp', size: 10, width: 800, height: 600, focal_x: null, focal_y: null, blur_data_url: null, created_at: '', deleted_at: null })
+    }
+    for (let doc = 0; doc < 21; doc++) {
+      const ids = Array.from({ length: 13 }, (_, i) => mediaId(doc * 13 + i))
+      db.tables.published_documents.push({ id: ID(100 + doc), type: 'cases', key: null, slug: null, slugs: {}, paths: {}, sort_order: doc, published_at: `2026-10-${String(doc + 1).padStart(2, '0')}T00:00:00Z`, data: { title: { es: `Caso ${doc}` }, cover: { es: ids[0] }, photos: { es: ids.slice(1) } } })
+    }
+    db.inLimit = 100
+    const cases = await createSiteReaders({ config: withGallery, supabaseUrl: () => 'https://db.test', source: async () => source, published: () => fakeClient(db) }).listDocuments('cases' as CollectionIdType)
+    expect(cases).toHaveLength(21)
+    const content = cases.map(item => item.content as unknown as { title: string, cover: { src: string } | null, photos: { src: string }[] })
+    expect(content.every(item => item.cover !== null && item.photos.length === 12)).toBe(true)
+    expect(content.find(item => item.title === 'Caso 20')?.photos[11].src).toBe(`https://db.test/storage/v1/object/public/media/casos/${total - 1}.webp`)
+
+    db.failNext = { table: 'media', op: 'select', error: { code: '414', message: 'URI too long' } }
+    await expect(readers().getEntryContent('home')).rejects.toThrow('Could not read the media of the content: URI too long')
   })
 
   it('reads a published page in one locale, with its media and its URLs', async () => {

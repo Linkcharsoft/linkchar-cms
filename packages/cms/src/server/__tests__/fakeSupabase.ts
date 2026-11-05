@@ -14,6 +14,8 @@ export interface FakeDbType {
   // Runs right before an insert or update is applied, e.g. to slip in someone else's save.
   beforeWrite: ((table: string, op: 'insert' | 'update', values: Row | Row[]) => void) | null
   failNext: { table: string, op: 'select' | 'insert' | 'update' | 'delete', error: ErrorType } | null
+  // PostgREST behind Kong: an in() with more values than this answers 414 URI too long, like the real gateway past ~8 KB.
+  inLimit: number | null
   user: { id: string, factors?: unknown[] } | null
   claims: Row
   storageRemoved: string[]
@@ -102,6 +104,7 @@ class Query implements PromiseLike<Result> {
   private head = false
   private returning = false
   private expected: 'one' | 'maybe' | null = null
+  private tooLong = false
 
   constructor (private db: FakeDbType, private table: string) {}
 
@@ -131,7 +134,11 @@ class Query implements PromiseLike<Result> {
     return this
   }
 
-  in (column: string, values: unknown[]) { this.filters.push(row => values.some(value => same(read(row, column), value))); return this }
+  in (column: string, values: unknown[]) {
+    if (this.db.inLimit !== null && values.length > this.db.inLimit) this.tooLong = true
+    this.filters.push(row => values.some(value => same(read(row, column), value)))
+    return this
+  }
   lt (column: string, value: string) { this.filters.push(row => String(read(row, column)) < value); return this }
   gte (column: string, value: string) { this.filters.push(row => String(read(row, column)) >= value); return this }
   lte (column: string, value: string) { this.filters.push(row => String(read(row, column)) <= value); return this }
@@ -178,6 +185,7 @@ class Query implements PromiseLike<Result> {
   }
 
   private run (): Result {
+    if (this.tooLong) return { data: null, error: { code: '414', message: 'URI too long' } }
     const failure = this.db.failNext
     if (failure && failure.table === this.table && failure.op === this.op) {
       this.db.failNext = null
@@ -250,6 +258,7 @@ export const createFakeDb = (seed: Partial<Record<string, Row[]>> = {}): FakeDbT
   rpc: {},
   beforeWrite: null,
   failNext: null,
+  inLimit: null,
   user: null,
   claims: {},
   storageRemoved: [],
