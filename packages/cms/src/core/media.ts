@@ -7,7 +7,7 @@ import type { LocalizedTextType } from './text'
 export const MAX_MEDIA_BYTES = 10 * 1024 * 1024
 // Raw photos are compressed in the browser before upload; this only guards it against huge files.
 export const MAX_RAW_IMAGE_BYTES = 50 * 1024 * 1024
-// Storage serves a video whole on every view and the Free plan has 10 GB of egress a month: videos stay small.
+// Storage serves a video whole on every view and the Free plan has 5 GB of egress a month: videos stay small.
 export const MAX_VIDEO_BYTES = 25 * 1024 * 1024
 export const MAX_IMAGE_DIMENSION = 2560
 
@@ -31,6 +31,13 @@ export const maxBytesFor = (mime: string) => (isVideoMime(mime) ? MAX_VIDEO_BYTE
 export const mediaPublicPrefix = (supabaseUrl: string) => `${supabaseUrl.replace(/\/$/, '')}/storage/v1/object/public/${MEDIA_BUCKET}/`
 
 export const mediaPublicUrl = (supabaseUrl: string, path: string) => `${mediaPublicPrefix(supabaseUrl)}${path}`
+
+// Where `linkchar-cms media:pull` copies the published files (media.delivery: 'build'): public/cms-media/<path>.
+export const LOCAL_MEDIA_FOLDER = 'cms-media'
+
+export const localMediaUrl = (path: string) => `/${LOCAL_MEDIA_FOLDER}/${path}`
+
+export type MediaUrlType = (path: string) => string
 
 const EXTENSIONS: Record<string, string> = {
   'image/jpeg': 'jpg',
@@ -125,10 +132,11 @@ export interface MediaRowLikeType {
 const texts = (value: unknown): LocalizedTextType =>
   (isRecord(value) ? Object.fromEntries(Object.entries(value).filter((entry): entry is [string, string] => typeof entry[1] === 'string')) : {})
 
-export const mediaItemFrom = (supabaseUrl: string, row: MediaRowLikeType, posterPath: string | null = null): MediaItemType => ({
+// `urlOf` replaces the Storage URL, e.g. with the file the site serves itself.
+export const mediaItemFrom = (supabaseUrl: string, row: MediaRowLikeType, posterPath: string | null = null, urlOf: MediaUrlType = path => mediaPublicUrl(supabaseUrl, path)): MediaItemType => ({
   id: row.id,
   path: row.path,
-  url: mediaPublicUrl(supabaseUrl, row.path),
+  url: urlOf(row.path),
   filename: row.filename,
   folder: row.folder,
   alt: texts(row.alt),
@@ -142,7 +150,7 @@ export const mediaItemFrom = (supabaseUrl: string, row: MediaRowLikeType, poster
   blurDataUrl: row.blur_data_url,
   duration: row.duration,
   posterId: row.poster_id,
-  posterUrl: posterPath ? mediaPublicUrl(supabaseUrl, posterPath) : null,
+  posterUrl: posterPath ? urlOf(posterPath) : null,
   createdAt: row.created_at,
   deletedAt: row.deleted_at
 })

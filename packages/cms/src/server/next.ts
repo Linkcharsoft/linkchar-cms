@@ -1,3 +1,5 @@
+import { existsSync } from 'node:fs'
+import { join } from 'node:path'
 import { createServerClient } from '@supabase/ssr'
 import { createClient } from '@supabase/supabase-js'
 import { revalidatePath } from 'next/cache'
@@ -6,6 +8,7 @@ import { redirect } from 'next/navigation'
 import { NextResponse } from 'next/server'
 import { cache } from 'react'
 import { consoleLogger } from '../core/logger'
+import { LOCAL_MEDIA_FOLDER } from '../core/media'
 import { panelPaths, safePanelPath } from '../core/paths'
 import { isLocalSupabaseUrl } from '../publish/local'
 import { createSiteReaders } from '../site/readers'
@@ -223,7 +226,23 @@ export const createCmsServer = ({ config, supabase, publishTarget = null, logger
     return { db: published(), draft: false }
   }
 
-  const readers = createSiteReaders({ config, supabaseUrl: () => credentials().url, source: siteSource, published })
+  // The file is checked once per path and process: pages prerender at build, right after media:pull ran.
+  const pulled = new Map<string, boolean>()
+  const hasLocalMedia = (path: string) => {
+    const known = pulled.get(path)
+    if (known !== undefined) return known
+    const found = existsSync(join(process.cwd(), 'public', LOCAL_MEDIA_FOLDER, path))
+    pulled.set(path, found)
+    return found
+  }
+
+  const readers = createSiteReaders({
+    config,
+    supabaseUrl: () => credentials().url,
+    source: siteSource,
+    published,
+    ...(config.media.delivery === 'build' ? { hasLocalMedia } : {})
+  })
 
   // The defaults entry is read only when the page's own SEO leaves a gap.
   const defaultsFor = async (document: SiteDocumentType) => {

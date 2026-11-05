@@ -1,6 +1,6 @@
 import { withDefaults } from '../core/defaults'
 import { getCollection, getEntry } from '../core/entries'
-import { mediaItemFrom } from '../core/media'
+import { localMediaUrl, mediaItemFrom, mediaPublicUrl } from '../core/media'
 import { pageSections, usedEntries } from '../core/pages'
 import { documentReferences } from '../core/references'
 import { alternates, absoluteUrl, entryUrls } from '../core/urls'
@@ -9,7 +9,7 @@ import type { LinkTargetType, SiteRefsType } from './resolve'
 import type { SiteDocumentType } from './types'
 import type { CmsConfigType, CollectionIdType, EntryIdType } from '../core/config'
 import type { SchemaEntry } from '../core/define'
-import type { MediaItemType } from '../core/media'
+import type { MediaItemType, MediaUrlType } from '../core/media'
 import type { CmsClientType } from '../server/context'
 import type { MediaRowType } from '../server/media'
 import type { MetadataRoute } from 'next'
@@ -28,6 +28,8 @@ export interface SiteReadersOptionsType {
   source: () => Promise<SiteSourceType>
   // Published content only, for what is built ahead (static params, sitemap).
   published: () => CmsClientType
+  // media.delivery 'build': whether media:pull left this file in public/cms-media, so the site serves it instead of Storage.
+  hasLocalMedia?: (path: string) => boolean
 }
 
 export type FixedEntryIdType = Exclude<EntryIdType, CollectionIdType>
@@ -57,7 +59,7 @@ const strings = (value: unknown): Record<string, string> =>
     ? Object.fromEntries(Object.entries(value).filter((pair): pair is [string, string] => typeof pair[1] === 'string' && !!pair[1]))
     : {})
 
-export const createSiteReaders = ({ config, supabaseUrl, source, published }: SiteReadersOptionsType) => {
+export const createSiteReaders = ({ config, supabaseUrl, source, published, hasLocalMedia }: SiteReadersOptionsType) => {
   const localeOf = (options: LocaleOptionsType = {}) => {
     const locale = options.locale ?? config.defaultLocale
     if (!config.locales.includes(locale)) throw new Error(`[@linkcharsoft/cms] "${locale}" is not one of the locales (${config.locales.join(', ')}).`)
@@ -79,6 +81,12 @@ export const createSiteReaders = ({ config, supabaseUrl, source, published }: Si
     return [...media, ...(data ?? [])]
   }
 
+  // Drafts always read Storage: the preview shows a file the moment it is uploaded, the pull only runs at build.
+  const mediaUrlOf = (draft: boolean): MediaUrlType => {
+    const storage = (path: string) => mediaPublicUrl(supabaseUrl(), path)
+    return !draft && hasLocalMedia ? path => (hasLocalMedia(path) ? localMediaUrl(path) : storage(path)) : storage
+  }
+
   // The files and link targets of every row, loaded in two queries.
   const loadRefs = async ({ db, draft }: SiteSourceType, rows: RowType[]): Promise<SiteRefsType> => {
     const found = rows.map(row => {
@@ -95,8 +103,9 @@ export const createSiteReaders = ({ config, supabaseUrl, source, published }: Si
           ? db.from('documents').select('id, type, slugs').in('id', documentIds).is('deleted_at', null).then(({ data }) => data ?? [])
           : db.from('published_documents').select('id, type, slugs').in('id', documentIds).then(({ data }) => data ?? [])
     ])
+    const urlOf = mediaUrlOf(draft)
     return {
-      media: new Map<string, MediaItemType>(media.map(row => [row.id, mediaItemFrom(supabaseUrl(), row)])),
+      media: new Map<string, MediaItemType>(media.map(row => [row.id, mediaItemFrom(supabaseUrl(), row, null, urlOf)])),
       documents: new Map<string, LinkTargetType>(documents.map(row => [row.id, { type: row.type, slugs: strings(row.slugs) }]))
     }
   }
