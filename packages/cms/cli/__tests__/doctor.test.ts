@@ -140,7 +140,8 @@ describe('environmentChecks', () => {
     expect(await keepaliveRunCheck(gh([]), now)).toMatchObject({ level: 'warn', text: expect.stringContaining('never ran') })
     expect(await keepaliveRunCheck(async () => { throw new Error('gh: not logged in') }, now)).toBeNull()
     expect(await keepaliveRunCheck(async () => 'not json', now)).toBeNull()
-    const checks = await levels({ gh: gh([run(2, '2026-10-29T09:17:00Z', 'success')]) })
+    // environmentChecks reads the real clock: a run dated an hour ago stays inside the window whatever today is.
+    const checks = await levels({ gh: gh([run(2, new Date(Date.now() - 3_600_000).toISOString(), 'success')]) })
     expect(checks.map(check => check.text)).toContainEqual(expect.stringContaining('The keepalive ran green'))
     expect((await levels({}, { [KEEPALIVE_FILE]: null })).map(check => check.text)).not.toContainEqual(expect.stringContaining('keepalive ran'))
   })
