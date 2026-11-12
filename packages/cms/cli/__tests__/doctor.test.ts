@@ -2,7 +2,7 @@ import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { AMPLIFY_BUILD_LINE, AMPLIFY_START_LINE, amplifyCacheCheck, amplifyReportCheck, appliedMigrationsCheck, authChecks, keepaliveRunCheck, configPorts, environmentChecks, excludesPackageFromQuarantine, mediaDeliveryChecks, parseExcludedRanges, portChecks, postcssCheck, publishCircuitCheck, tablesCheck } from '../doctor.js'
+import { AMPLIFY_BUILD_LINE, AMPLIFY_START_LINE, amplifyCacheCheck, amplifyReportCheck, appliedMigrationsCheck, authChecks, brandIconCheck, keepaliveRunCheck, configPorts, environmentChecks, excludesPackageFromQuarantine, mediaDeliveryChecks, parseExcludedRanges, portChecks, postcssCheck, publishCircuitCheck, tablesCheck } from '../doctor.js'
 import { amplifyYml } from '../init.js'
 import { KEEPALIVE_FILE, keepaliveWorkflow } from '../keepalive.js'
 import { AMPLIFY_CACHE_PATH, AMPLIFY_PULL_LINE } from '../media.js'
@@ -266,5 +266,29 @@ describe('mediaDeliveryChecks', () => {
   it('warns past the budget', () => {
     const [weight] = mediaDeliveryChecks({ delivery: 'build', budgetMb: 500, amplify, gitignore, published: { count: 3, bytes: 600 * 1024 * 1024 } }).filter(check => check.level === 'warn')
     expect(weight.text).toBe('The published media weighs 600.0 MB (3 files), over media.budgetMb (500 MB): a build from an empty cache downloads it all from Storage, and the deploy carries it. Trim Media or raise the budget')
+  })
+})
+
+describe('brandIconCheck', () => {
+  const checkIn = async (files: string[], branding?: { icon?: string }) => {
+    const root = await mkdtemp(join(tmpdir(), 'cms-doctor-'))
+    try {
+      for (const name of files) {
+        await mkdir(dirname(join(root, name)), { recursive: true })
+        await writeFile(join(root, name), '<svg/>')
+      }
+      return brandIconCheck(branding, root)
+    } finally {
+      await rm(root, { recursive: true, force: true })
+    }
+  }
+
+  it('says the icon it found is also the favicon of the panel', async () => {
+    expect(await checkIn([], { icon: 'https://cdn.test/n.png' })).toEqual({ level: 'ok', text: 'Panel icon and favicon: https://cdn.test/n.png (branding.icon)' })
+    expect(await checkIn(['src/app/icon.svg'])).toEqual({ level: 'ok', text: 'Panel icon and favicon: /icon.svg (from src/app/icon.svg)' })
+  })
+
+  it('warns without an icon: initials in the panel, no favicon in the tab', async () => {
+    expect(await checkIn([])).toMatchObject({ level: 'warn', text: expect.stringContaining('its tab has no favicon') })
   })
 })

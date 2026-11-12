@@ -3,6 +3,7 @@ import { existsSync } from 'node:fs'
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { promisify } from 'node:util'
+import { findBrandIcon } from '../next/index.js'
 import { consoleUrlOf } from './build.js'
 import { KEEPALIVE_FILE, keepaliveProblems } from './keepalive.js'
 import { isLocalSupabaseUrl } from './local.js'
@@ -147,6 +148,15 @@ const POSTCSS_CONFIGS = ['postcss.config.js', 'postcss.config.cjs', 'postcss.con
 export const postcssCheck = text => (/@linkcharsoft\/cms\/tailwind\/postcss/.test(text)
   ? { level: 'ok', text: 'PostCSS runs Tailwind per stylesheet (@linkcharsoft/cms/tailwind/postcss)' }
   : { level: 'fail', text: 'The PostCSS config runs tailwindcss directly: the panel\'s @config reaches the site\'s stylesheets and next build fails on the project\'s own classes. Replace tailwindcss: {} with \'@linkcharsoft/cms/tailwind/postcss\': {}' })
+
+/** @param {{ icon?: string } | undefined} branding @param {string} root @returns {CheckType} */
+export const brandIconCheck = (branding, root) => {
+  if (branding?.icon) return { level: 'ok', text: `Panel icon and favicon: ${branding.icon} (branding.icon)` }
+  const found = findBrandIcon(root)
+  return found
+    ? { level: 'ok', text: `Panel icon and favicon: ${found.url} (from ${found.file})` }
+    : { level: 'warn', text: 'No product icon: add app/icon.svg or set branding.icon (meanwhile the panel shows initials and its tab has no favicon)' }
+}
 
 /** @param {string} text the project's amplify.yml @returns {CheckType | null} */
 export const amplifyCacheCheck = text => (/\.next\/cache/.test(text) && !/fetch-cache/.test(text)
