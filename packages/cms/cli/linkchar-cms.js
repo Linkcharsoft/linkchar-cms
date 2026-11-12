@@ -3,10 +3,9 @@ import { existsSync } from 'node:fs'
 import { readFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 import { parseArgs } from 'node:util'
-import { findBrandIcon } from '../next/index.js'
 import { applyProjectEnv, createSuperadmin, readProjectEnv } from './admin.js'
 import { buildIdentity, describeBuildReport, reportSettings, runBuildReport } from './build.js'
-import { authChecks, environmentChecks, mediaDeliveryChecks } from './doctor.js'
+import { authChecks, brandIconCheck, environmentChecks, mediaDeliveryChecks } from './doctor.js'
 import { askYesNo, importSettings, planLines, readPasswordFromStdin, runImport, summaryLines } from './import.js'
 import { initProject, nextSteps, normalizeBasePath } from './init.js'
 import { syncKeepalive } from './keepalive.js'
@@ -171,18 +170,6 @@ const admin = async ({ email, password, name, 'env-file': envFile }) => {
 }
 
 /**
- * @param {import('./routes.js').RoutesConfigType} config
- * @returns {import('./doctor.js').CheckType}
- */
-const brandIconCheck = ({ branding }) => {
-  if (branding?.icon) return { level: 'ok', text: `Panel icon: ${branding.icon} (branding.icon)` }
-  const found = findBrandIcon(resolve('.'))
-  return found
-    ? { level: 'ok', text: `Panel icon: ${found.url} (from ${found.file})` }
-    : { level: 'warn', text: 'No product icon: add app/icon.svg or set branding.icon (the panel shows initials meanwhile)' }
-}
-
-/**
  * The media delivery checks, with the weight of the published files when Supabase can be read.
  * @param {import('./routes.js').RoutesConfigType} loaded @param {{ config: string, env: Record<string, string | undefined> }} options
  * @returns {Promise<import('./doctor.js').CheckType[]>}
@@ -230,7 +217,7 @@ const doctor = async ({ config, src, dir, 'env-file': envFile }) => {
     checks.push(behind > 0 || proxy !== 'ok'
       ? { level: 'fail', text: `Panel routes are behind (${behind} files${proxy === 'ok' ? '' : `, proxy ${proxy}`}): linkchar-cms routes` }
       : { level: 'ok', text: 'Panel routes and proxy are up to date' })
-    checks.push(brandIconCheck(loaded))
+    checks.push(brandIconCheck(loaded.branding, resolve('.')))
   }
   if (existsSync(join(supabaseDir, 'config.toml'))) {
     checks.push(...authChecks(await readFile(join(supabaseDir, 'config.toml'), 'utf8')))
