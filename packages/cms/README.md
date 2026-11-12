@@ -579,12 +579,12 @@ What belongs to each project is the product slot, at the top of the sidebar and 
 ```ts
 branding: {
   name: 'Acme',                                    // also the browser tab title: "Pages · Acme"
-  icon: '/icon.svg',                               // optional: a square image, a path or an https URL
+  icon: '/icon.svg',                               // optional: a square image, a path or an https URL; also the panel's favicon
   footer: { es: 'Soporte: hola@acme.com', en: 'Support: hola@acme.com' }  // optional, under the sidebar
 }
 ```
 
-Without `icon`, `withCms` takes the favicon at build: `app/icon.svg`, `icon.png` or `apple-icon.png` (under `src/` too), then `public/icon.svg` or `favicon.svg`, then the largest `favicon*.png` or `icon*.png` in `public/`, the same under `public/seo/`, then `favicon.ico`. `doctor` says which one it found; with none, the panel shows the initials of the name. The icon sits on a white tile, so a favicon drawn for a light tab still shows on the dark sidebar.
+Without `icon`, `withCms` takes the favicon at build: `app/icon.svg`, `icon.png` or `apple-icon.png` (under `src/` too), then `public/icon.svg` or `favicon.svg`, then the largest `favicon*.png` or `icon*.png` in `public/`, the same under `public/seo/`, then `favicon.ico`. `doctor` says which one it found; with none, the panel shows the initials of the name and its tab has no favicon. The icon sits on a white tile, so a favicon drawn for a light tab still shows on the dark sidebar. The panel has its own root layout, so it doesn't inherit the site's icons: it declares this one as its favicon, and as its `apple-touch-icon` when it is a PNG (iOS takes no SVG or ICO).
 
 ## Panel texts
 
