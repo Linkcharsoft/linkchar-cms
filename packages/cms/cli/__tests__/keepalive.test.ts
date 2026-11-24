@@ -21,7 +21,7 @@ describe('syncKeepalive', () => {
     expect(await syncKeepalive({ root })).toEqual({ file: KEEPALIVE_FILE, status: 'added', problems: [] })
     const text = await readFile(join(root, KEEPALIVE_FILE), 'utf8')
     expect(text.startsWith(KEEPALIVE_MARKER)).toBe(true)
-    expect(text).toContain('cron: \'17 9 */3 * *\'')
+    expect(text).toContain('cron: \'17 */8 * * *\'')
     expect(text).toContain('${{ vars.SUPABASE_URL }}/rest/v1/published_documents?select=id&limit=1')
     expect(text).toContain('apikey: ${{ vars.SUPABASE_PUBLISHABLE_KEY }}')
     expect(text).toContain('curl -fsS')
@@ -32,7 +32,7 @@ describe('syncKeepalive', () => {
 
   it('is YAML GitHub loads: the headers with ": " inside sit in a folded scalar', () => {
     const doc = parse(keepaliveWorkflow()) as { on: { schedule: unknown[], workflow_dispatch: null }, permissions: object, jobs: { ping: { 'timeout-minutes': number, steps: { run: string }[] } } }
-    expect(doc.on.schedule).toEqual([{ cron: '17 9 */3 * *' }])
+    expect(doc.on.schedule).toEqual([{ cron: '17 */8 * * *' }])
     expect(doc.on).toHaveProperty('workflow_dispatch')
     expect(doc.permissions).toEqual({})
     expect(doc.jobs.ping['timeout-minutes']).toBe(5)
