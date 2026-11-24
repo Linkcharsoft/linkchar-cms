@@ -93,8 +93,8 @@ export const keepaliveCheck = async root => {
 
 export const KEEPALIVE_WORKFLOW_NAME = 'Supabase keepalive'
 
-// Four days: the cron runs every three, so a healthy workflow always has a green run inside the window.
-const KEEPALIVE_WINDOW_MS = 4 * 24 * 60 * 60 * 1000
+// A day: the cron runs every eight hours, so a healthy workflow has a green run inside it even when GitHub skips one.
+const KEEPALIVE_WINDOW_MS = 24 * 60 * 60 * 1000
 
 /**
  * @typedef {(args: string[]) => Promise<string>} GhType `gh` with the given arguments, resolving to its stdout
@@ -122,7 +122,7 @@ export const keepaliveRunCheck = async (gh, now = Date.now) => {
   const [latest] = runs
   const why = latest.status === 'completed' ? latest.conclusion ?? 'no conclusion' : latest.status
   const note = await runAnnotation(gh, latest)
-  return { level: 'warn', text: `The keepalive has no green run in 4 days: the latest ended ${why}${note ? ` ("${note}")` : ''}. ${latest.url}` }
+  return { level: 'warn', text: `The keepalive has no green run in 24 h: the latest ended ${why}${note ? ` ("${note}")` : ''}. ${latest.url}` }
 }
 
 /** @param {GhType} gh @param {RunType} run @returns {Promise<string | null>} the first annotation of the run's first job */
